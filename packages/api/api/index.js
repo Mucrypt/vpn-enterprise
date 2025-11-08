@@ -75,16 +75,37 @@ app.use(cors({
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
+  message: JSON.stringify({
+    success: false,
+    message: 'Too many requests from this IP, please try again later.'
+  }),
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many requests from this IP, please try again later.',
+      retryAfter: Math.ceil(15 * 60)
+    });
+  }
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20, // Limit each IP to 20 login attempts per windowMs (increased for testing)
-  message: 'Too many login attempts, please try again later.',
-  skipSuccessfulRequests: true
+  message: JSON.stringify({
+    success: false,
+    message: 'Too many login attempts, please try again later.'
+  }),
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many login attempts, please try again later.',
+      retryAfter: Math.ceil(15 * 60) // seconds
+    });
+  }
 });
 
 app.use('/api/', limiter);
