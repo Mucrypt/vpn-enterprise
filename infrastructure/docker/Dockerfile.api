@@ -3,8 +3,8 @@
 # ==============================================
 # Multi-stage build for optimized production image
 
-# Stage 1: Build dependencies
-FROM node:20-alpine AS deps
+# Stage 1: Build TypeScript
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy workspace configuration
@@ -14,18 +14,6 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/database/package.json ./packages/database/
 COPY packages/vpn-core/package.json ./packages/vpn-core/
 
-# Install ALL dependencies (including devDependencies for building)
-RUN npm ci --workspace=@vpn-enterprise/api --workspace=@vpn-enterprise/auth \
-    --workspace=@vpn-enterprise/database --workspace=@vpn-enterprise/vpn-core
-
-# Stage 2: Build TypeScript
-FROM node:20-alpine AS builder
-WORKDIR /app
-
-# Copy dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/package.json ./package.json
-
 # Copy source code
 COPY packages/api ./packages/api
 COPY packages/auth ./packages/auth
@@ -33,13 +21,16 @@ COPY packages/database ./packages/database
 COPY packages/vpn-core ./packages/vpn-core
 COPY tsconfig.json ./
 
+# Install ALL dependencies (including devDependencies for building)
+RUN npm ci
+
 # Build all TypeScript packages
 RUN npm run build --workspace=@vpn-enterprise/database
 RUN npm run build --workspace=@vpn-enterprise/auth
 RUN npm run build --workspace=@vpn-enterprise/vpn-core
 RUN npm run build --workspace=@vpn-enterprise/api
 
-# Stage 3: Production image
+# Stage 2: Production image
 FROM node:20-alpine AS runner
 WORKDIR /app
 
@@ -59,7 +50,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/packages/auth/dist ./packages/aut
 COPY --from=builder --chown=nodejs:nodejs /app/packages/database/dist ./packages/database/dist
 COPY --from=builder --chown=nodejs:nodejs /app/packages/vpn-core/dist ./packages/vpn-core/dist
 
-# Copy production node_modules (install production-only dependencies)
+# Copy package files
 COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/package-lock.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/packages/api/package.json ./packages/api/
@@ -67,10 +58,8 @@ COPY --from=builder --chown=nodejs:nodejs /app/packages/auth/package.json ./pack
 COPY --from=builder --chown=nodejs:nodejs /app/packages/database/package.json ./packages/database/
 COPY --from=builder --chown=nodejs:nodejs /app/packages/vpn-core/package.json ./packages/vpn-core/
 
-# Install production dependencies only
-RUN npm ci --workspace=@vpn-enterprise/api --workspace=@vpn-enterprise/auth \
-    --workspace=@vpn-enterprise/database --workspace=@vpn-enterprise/vpn-core \
-    --omit=dev --ignore-scripts
+# Install ONLY production dependencies
+RUN npm ci --only=production
 
 # Set environment variables
 ENV NODE_ENV=production

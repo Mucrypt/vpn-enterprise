@@ -20,7 +20,7 @@ echo ""
 
 # Service URLs
 API_URL="${API_URL:-http://localhost:3000}"
-WEB_URL="${WEB_URL:-http://localhost:3001}"
+WEB_URL="${WEB_URL:-http://localhost}"  # Web Dashboard through Nginx
 PROMETHEUS_URL="${PROMETHEUS_URL:-http://localhost:9090}"
 GRAFANA_URL="${GRAFANA_URL:-http://localhost:3000}"
 

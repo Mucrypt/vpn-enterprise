@@ -55,7 +55,7 @@ scrape_configs:
           - localhost
         labels:
           job: vpn-api
-          __path__: /var/log/api/*.log
+          __path__: /app/logs/*.log
     pipeline_stages:
       - json:
           expressions:

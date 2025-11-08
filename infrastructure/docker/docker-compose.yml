@@ -86,6 +86,8 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      - PORT=3001
+      - HOSTNAME=0.0.0.0
       - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - NEXT_PUBLIC_API_URL=http://nginx/api
@@ -211,9 +213,8 @@ services:
     restart: unless-stopped
     volumes:
       - ../monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
-      - /var/log:/var/log:ro
       - nginx-logs:/var/log/nginx:ro
-      - api-logs:/var/log/api:ro
+      - api-logs:/app/logs:ro
     command: -config.file=/etc/promtail/config.yml
     networks:
       - vpn-network
