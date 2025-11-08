@@ -133,6 +133,16 @@ app.use((req, res, next) => {
 // API ENDPOINTS
 // ==============================================
 
+// Test endpoint to verify deployment
+app.get('/api/v1/test/deployment', (req, res) => {
+  res.json({ 
+    deployed: true,
+    timestamp: new Date().toISOString(),
+    version: '904ae5b',
+    message: 'Latest deployment with all endpoints'
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
