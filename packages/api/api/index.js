@@ -4,8 +4,15 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const hpp = require('hpp');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL || 'https://wgmgtxlodyxbhxfpnwwm.supabase.co',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+);
 
 // ==============================================
 // SECURITY MIDDLEWARE
@@ -161,14 +168,31 @@ app.post('/api/v1/auth/signup', authLimiter, async (req, res) => {
       });
     }
 
-    // For now, return success (integrate with Supabase later)
-    // In production, this would create user in Supabase
+    // Create user in Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          role: 'user'
+        }
+      }
+    });
+
+    if (error) {
+      console.error('Supabase signup error:', error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Failed to create account'
+      });
+    }
+
     res.status(201).json({
       success: true,
-      message: 'Account created successfully',
+      message: 'Account created successfully. Please check your email to verify your account.',
       user: {
-        email,
-        id: 'temp-' + Date.now(),
+        id: data.user?.id,
+        email: data.user?.email,
         role: 'user'
       }
     });
@@ -194,20 +218,32 @@ app.post('/api/v1/auth/login', authLimiter, async (req, res) => {
       });
     }
 
-    // For demo purposes, accept any valid credentials
-    // In production, this would validate against Supabase
+    // Authenticate with Supabase
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      console.error('Supabase login error:', error);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Login successful',
       user: {
-        id: 'user-' + Date.now(),
-        email,
-        role: email.includes('admin') ? 'admin' : 'user'
+        id: data.user.id,
+        email: data.user.email,
+        role: data.user.user_metadata?.role || 'user'
       },
       session: {
-        access_token: 'demo-token-' + Buffer.from(email).toString('base64'),
-        refresh_token: 'demo-refresh-' + Date.now(),
-        expires_in: 3600
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_in: data.session.expires_in
       }
     });
   } catch (error) {
