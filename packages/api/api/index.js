@@ -360,7 +360,7 @@ app.get('/api/v1/servers', async (req, res) => {
 // ==============================================
 
 // Get admin statistics
-app.get('/admin/statistics', async (req, res) => {
+app.get('/api/v1/admin/statistics', async (req, res) => {
   try {
     // Mock statistics data
     const stats = {

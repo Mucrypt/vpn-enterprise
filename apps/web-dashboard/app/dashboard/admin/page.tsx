@@ -50,7 +50,7 @@ export default function AdminPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{stats.totalServers || 0}</div>
+            <div className="text-2xl font-bold text-gray-900">{stats?.totalServers || 0}</div>
             <p className="text-xs text-green-600 mt-1">↑ 2 added this week</p>
           </CardContent>
         </Card>
@@ -63,7 +63,7 @@ export default function AdminPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{stats.totalUsers || 0}</div>
+            <div className="text-2xl font-bold text-gray-900">{stats?.totalUsers || 0}</div>
             <p className="text-xs text-green-600 mt-1">↑ 15% growth rate</p>
           </CardContent>
         </Card>
@@ -76,7 +76,7 @@ export default function AdminPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{stats.activeConnections || 0}</div>
+            <div className="text-2xl font-bold text-gray-900">{stats?.activeConnections || 0}</div>
             <p className="text-xs text-gray-500 mt-1">real-time</p>
           </CardContent>
         </Card>
@@ -89,7 +89,7 @@ export default function AdminPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{stats.dataTransferred || '0 GB'}</div>
+            <div className="text-2xl font-bold text-gray-900">{stats?.dataTransferred || '0 GB'}</div>
             <p className="text-xs text-gray-500 mt-1">this month</p>
           </CardContent>
         </Card>
