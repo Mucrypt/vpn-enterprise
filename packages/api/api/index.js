@@ -8,6 +8,10 @@ const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 
+// Trust proxy (Vercel / CDNs set X-Forwarded-For). This prevents express-rate-limit
+// from throwing when the X-Forwarded-For header is present.
+app.set('trust proxy', true);
+
 // Initialize Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://wgmgtxlodyxbhxfpnwwm.supabase.co',
