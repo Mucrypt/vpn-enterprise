@@ -14,11 +14,10 @@ async function testSignup() {
   console.log('🔐 Testing signup...');
   console.log('Email:', testEmail);
 
-  // Step 1: Create user via Supabase Auth
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+  // Step 1: Create user via Supabase Auth (regular signup, not admin)
+  const { data: authData, error: authError } = await supabase.auth.signUp({
     email: testEmail,
-    password: testPassword,
-    email_confirm: true
+    password: testPassword
   });
 
   if (authError) {
