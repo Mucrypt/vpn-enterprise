@@ -43,8 +43,9 @@ export default function LoginPage() {
       // Store user and token
       if (data.session?.access_token) {
         localStorage.setItem('access_token', data.session.access_token);
-        // Also set cookie for middleware
+        // Also set cookies for middleware
         document.cookie = `access_token=${data.session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
+        document.cookie = `user_role=${data.user.role || 'user'}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
       }
       
       setUser({

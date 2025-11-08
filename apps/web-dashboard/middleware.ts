@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Check if the path is a protected dashboard route
   if (pathname.startsWith('/dashboard')) {
-    // Check for access token in cookies or localStorage (we'll use a custom header approach)
+    // Check for access token in cookies
     const token = request.cookies.get('access_token')?.value;
 
     if (!token) {
@@ -14,6 +15,17 @@ export function middleware(request: NextRequest) {
       const loginUrl = new URL('/auth/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
+    }
+
+    // Check if user is trying to access admin routes
+    if (pathname.startsWith('/dashboard/admin')) {
+      const userRole = request.cookies.get('user_role')?.value;
+      
+      // Only super_admin and admin can access admin panel
+      if (userRole !== 'super_admin' && userRole !== 'admin') {
+        // Redirect regular users to main dashboard
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
     }
   }
 

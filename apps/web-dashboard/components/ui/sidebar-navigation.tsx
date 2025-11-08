@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, useAuthStore } from '@/lib/store';
 import {
   LayoutDashboard,
   Server,
@@ -14,21 +14,39 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Zap,
+  User,
 } from 'lucide-react';
 
-const navItems = [
+// Navigation items for regular users
+const userNavItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+  { href: '/dashboard/connect', label: 'Connect', icon: Zap },
+  { href: '/dashboard/servers', label: 'Servers', icon: Server },
+  { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
+  { href: '/dashboard/security', label: 'Security', icon: Shield },
+];
+
+// Additional items for admins
+const adminNavItems = [
+  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+  { href: '/dashboard/connect', label: 'Connect', icon: Zap },
   { href: '/dashboard/servers', label: 'Servers', icon: Server },
   { href: '/dashboard/clients', label: 'Clients', icon: Users },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/dashboard/security', label: 'Security', icon: Shield },
-  { href: '/dashboard/admin', label: 'Admin', icon: Settings },
+  { href: '/dashboard/admin', label: 'Admin Panel', icon: Settings },
 ];
 
 export function SidebarNavigation() {
   const pathname = usePathname();
   const { sidebarOpen, toggleSidebar } = useDashboardStore();
+  const { user } = useAuthStore();
+
+  // Determine which nav items to show based on user role
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
+  const navItems = isAdmin ? adminNavItems : userNavItems;
 
   return (
     <div

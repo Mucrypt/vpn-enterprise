@@ -482,6 +482,101 @@ app.get('/api/v1/admin/security/events', async (req, res) => {
 });
 
 // ==============================================
+// BILLING ENDPOINTS
+// ==============================================
+
+// Get billing plans
+app.get('/api/v1/billing/plans', async (req, res) => {
+  try {
+    // Mock billing plans data
+    const plans = [
+      {
+        id: 'free',
+        name: 'Free',
+        price: 0,
+        currency: 'USD',
+        interval: 'month',
+        features: ['1 Device', '5 GB/month', 'Basic Support', '10 Server Locations'],
+        maxDevices: 1,
+        dataLimit: 5,
+      },
+      {
+        id: 'basic',
+        name: 'Basic',
+        price: 9.99,
+        currency: 'USD',
+        interval: 'month',
+        features: ['5 Devices', '100 GB/month', 'Email Support', '50 Server Locations'],
+        maxDevices: 5,
+        dataLimit: 100,
+        popular: false,
+      },
+      {
+        id: 'premium',
+        name: 'Premium',
+        price: 14.99,
+        currency: 'USD',
+        interval: 'month',
+        features: ['10 Devices', 'Unlimited Data', 'Priority Support', '150+ Server Locations', 'Advanced Security'],
+        maxDevices: 10,
+        dataLimit: null,
+        popular: true,
+      },
+      {
+        id: 'enterprise',
+        name: 'Enterprise',
+        price: 49.99,
+        currency: 'USD',
+        interval: 'month',
+        features: ['Unlimited Devices', 'Unlimited Data', '24/7 Support', 'All Servers', 'Dedicated Servers', 'API Access'],
+        maxDevices: null,
+        dataLimit: null,
+        popular: false,
+      },
+    ];
+
+    res.json({ plans });
+  } catch (error) {
+    console.error('Error fetching billing plans:', error);
+    res.status(500).json({ error: 'Failed to fetch billing plans' });
+  }
+});
+
+// Get user invoices
+app.get('/api/v1/billing/invoices', async (req, res) => {
+  try {
+    // Mock invoice data
+    const invoices = [
+      {
+        id: '1',
+        invoiceNumber: 'INV-2024-001',
+        amount: 14.99,
+        currency: 'USD',
+        status: 'paid',
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        paidAt: new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString(),
+        planName: 'Premium',
+      },
+      {
+        id: '2',
+        invoiceNumber: 'INV-2024-002',
+        amount: 14.99,
+        currency: 'USD',
+        status: 'paid',
+        createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+        paidAt: new Date(Date.now() - 59 * 24 * 60 * 60 * 1000).toISOString(),
+        planName: 'Premium',
+      },
+    ];
+
+    res.json({ invoices });
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    res.status(500).json({ error: 'Failed to fetch invoices' });
+  }
+});
+
+// ==============================================
 // ERROR HANDLERS
 // ==============================================
 
