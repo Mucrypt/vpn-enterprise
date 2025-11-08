@@ -355,7 +355,7 @@ app.get('/api/v1/servers', async (req, res) => {
       }
     ];
 
-    res.status(200).json(servers);
+    res.status(200).json({ servers });
   } catch (error) {
     console.error('Servers fetch error:', error);
     res.status(500).json({ 

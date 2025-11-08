@@ -21,33 +21,14 @@ export default function BillingPage() {
     try {
       setLoading(true);
       const [subData, invoicesData, plansData] = await Promise.all([
-        api.getSubscription().catch(() => null),
-        api.getInvoices().catch(() => []),
-        api.getPlans().catch(() => [
-          {
-            id: '1',
-            name: 'Free',
-            price: 0,
-            features: ['1 Device', '5 GB/month', 'Basic Support', '3 Server Locations'],
-          },
-          {
-            id: '2',
-            name: 'Pro',
-            price: 9.99,
-            features: ['5 Devices', '100 GB/month', 'Priority Support', '20 Server Locations', 'Kill Switch'],
-          },
-          {
-            id: '3',
-            name: 'Enterprise',
-            price: 29.99,
-            features: ['Unlimited Devices', 'Unlimited Data', '24/7 Support', '50+ Server Locations', 'Kill Switch', 'Split Tunneling', 'Dedicated IP'],
-            popular: true,
-          },
-        ]),
+        api.getSubscription().catch(() => ({ subscription: null })),
+        api.getInvoices().catch(() => ({ invoices: [] })),
+        api.getPlans().catch(() => ({ plans: [] })),
       ]);
-      setSubscription(subData);
-      setInvoices(invoicesData);
-      setPlans(plansData);
+      
+      setSubscription(subData?.subscription || subData);
+      setInvoices(invoicesData?.invoices || invoicesData || []);
+      setPlans(plansData?.plans || plansData || []);
     } catch (error: any) {
       toast.error('Failed to load billing data');
       console.error(error);
