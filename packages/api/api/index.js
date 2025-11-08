@@ -576,6 +576,53 @@ app.get('/api/v1/billing/invoices', async (req, res) => {
   }
 });
 
+// Get user subscription
+app.get('/api/v1/user/subscription', async (req, res) => {
+  try {
+    // Mock subscription data
+    const subscription = {
+      id: '1',
+      plan: 'premium',
+      status: 'active',
+      currentPeriodStart: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+      currentPeriodEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+      cancelAtPeriodEnd: false,
+      maxDevices: 10,
+      dataLimit: null, // unlimited
+    };
+
+    res.json({ subscription });
+  } catch (error) {
+    console.error('Error fetching subscription:', error);
+    res.status(500).json({ error: 'Failed to fetch subscription' });
+  }
+});
+
+// Get admin connections
+app.get('/api/v1/admin/connections', async (req, res) => {
+  try {
+    const { data: connections, error } = await supabase
+      .from('connection_logs')
+      .select(`
+        *,
+        users!inner(email, full_name),
+        servers!inner(name, country)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return res.status(500).json({ error: 'Failed to fetch connections' });
+    }
+
+    res.json({ connections: connections || [] });
+  } catch (error) {
+    console.error('Error fetching connections:', error);
+    res.status(500).json({ error: 'Failed to fetch connections' });
+  }
+});
+
 // ==============================================
 // ERROR HANDLERS
 // ==============================================
