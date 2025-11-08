@@ -233,7 +233,7 @@ export default function ConnectPage() {
 
               {/* Connect Button */}
               <div className="pt-4">
-                {status === 'connected' ? (
+                {status === 'connected' || status === 'disconnecting' ? (
                   <Button
                     onClick={handleDisconnect}
                     variant="destructive"
