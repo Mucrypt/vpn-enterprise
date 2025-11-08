@@ -309,10 +309,12 @@ app.get('/api/v1/servers', async (req, res) => {
         id: 'server-1',
         name: 'US East - New York',
         country: 'United States',
+        country_code: 'US',
         city: 'New York',
         ip_address: '192.0.2.1',
         load: 45,
         status: 'online',
+        is_active: true,
         latency: 12,
         capacity: 1000,
         current_connections: 450
@@ -321,10 +323,12 @@ app.get('/api/v1/servers', async (req, res) => {
         id: 'server-2',
         name: 'US West - Los Angeles',
         country: 'United States',
+        country_code: 'US',
         city: 'Los Angeles',
         ip_address: '192.0.2.2',
         load: 62,
         status: 'online',
+        is_active: true,
         latency: 8,
         capacity: 1000,
         current_connections: 620
@@ -333,10 +337,12 @@ app.get('/api/v1/servers', async (req, res) => {
         id: 'server-3',
         name: 'EU - London',
         country: 'United Kingdom',
+        country_code: 'UK',
         city: 'London',
         ip_address: '192.0.2.3',
         load: 38,
         status: 'online',
+        is_active: true,
         latency: 25,
         capacity: 1000,
         current_connections: 380
@@ -345,13 +351,29 @@ app.get('/api/v1/servers', async (req, res) => {
         id: 'server-4',
         name: 'Asia - Tokyo',
         country: 'Japan',
+        country_code: 'JP',
         city: 'Tokyo',
         ip_address: '192.0.2.4',
         load: 71,
         status: 'online',
+        is_active: true,
         latency: 120,
         capacity: 1000,
         current_connections: 710
+      },
+      {
+        id: 'server-5',
+        name: 'EU - Frankfurt',
+        country: 'Germany',
+        country_code: 'DE',
+        city: 'Frankfurt',
+        ip_address: '192.0.2.5',
+        load: 28,
+        status: 'online',
+        is_active: true,
+        latency: 30,
+        capacity: 1000,
+        current_connections: 280
       }
     ];
 
