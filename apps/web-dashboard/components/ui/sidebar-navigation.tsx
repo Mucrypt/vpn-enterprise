@@ -16,27 +16,42 @@ import {
   ChevronRight,
   Zap,
   User,
+  Building2,
+  Split,
+  AlertTriangle,
+  Webhook,
+  Activity,
+  Lock,
+  FileKey,
 } from 'lucide-react';
 
 // Navigation items for regular users
 const userNavItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/connect', label: 'Connect', icon: Zap },
+  { href: '/dashboard/vpn-config', label: 'VPN Config', icon: FileKey },
   { href: '/dashboard/servers', label: 'Servers', icon: Server },
+  { href: '/dashboard/split-tunnel', label: 'Split Tunnel', icon: Split },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/dashboard/security', label: 'Security', icon: Shield },
+  { href: '/dashboard/profile', label: 'Profile', icon: User },
 ];
 
 // Additional items for admins
 const adminNavItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/connect', label: 'Connect', icon: Zap },
+  { href: '/dashboard/vpn-config', label: 'VPN Config', icon: FileKey },
   { href: '/dashboard/servers', label: 'Servers', icon: Server },
   { href: '/dashboard/clients', label: 'Clients', icon: Users },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/dashboard/threats', label: 'Threats', icon: AlertTriangle },
+  { href: '/dashboard/split-tunnel', label: 'Split Tunnel', icon: Split },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/dashboard/security', label: 'Security', icon: Shield },
+  { href: '/dashboard/admin/organizations', label: 'Organizations', icon: Building2 },
   { href: '/dashboard/admin', label: 'Admin Panel', icon: Settings },
+  { href: '/dashboard/profile', label: 'Profile', icon: User },
 ];
 
 export function SidebarNavigation() {
@@ -47,11 +62,6 @@ export function SidebarNavigation() {
   // Determine which nav items to show based on user role
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   const navItems = isAdmin ? adminNavItems : userNavItems;
-
-  // Debug: log user role to help troubleshoot
-  console.log('Sidebar - User:', user);
-  console.log('Sidebar - Is Admin:', isAdmin);
-  console.log('Sidebar - Nav Items Count:', navItems.length);
 
   return (
     <div
@@ -80,10 +90,10 @@ export function SidebarNavigation() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
                 isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-gray-700 hover:bg-gray-200',
+                  ? 'bg-emerald-100 text-emerald-900 border-l-4 border-emerald-700 shadow-md font-semibold'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-emerald-700 border-l-4 border-transparent',
                 !sidebarOpen && 'justify-center'
               )}
             >

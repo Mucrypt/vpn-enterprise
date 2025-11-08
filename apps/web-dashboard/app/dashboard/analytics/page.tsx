@@ -22,10 +22,10 @@ export default function AnalyticsPage() {
       setLoading(true);
       const [statsData, connectionsData] = await Promise.all([
         api.getUserStats().catch(() => ({})),
-        api.getConnections().catch(() => []),
+        api.getConnections().catch(() => ({ connections: [] })),
       ]);
       setStats(statsData);
-      setConnections(connectionsData);
+      setConnections(connectionsData?.connections || connectionsData || []);
     } catch (error: any) {
       toast.error('Failed to load analytics');
       console.error(error);
@@ -35,11 +35,11 @@ export default function AnalyticsPage() {
   }
 
   // Calculate analytics metrics
-  const totalDataTransferred = connections.reduce((sum, conn) => 
+  const totalDataTransferred = Array.isArray(connections) ? connections.reduce((sum, conn) => 
     sum + (conn.bytes_sent || 0) + (conn.bytes_received || 0), 0
-  );
+  ) : 0;
 
-  const avgConnectionDuration = connections.length > 0
+  const avgConnectionDuration = Array.isArray(connections) && connections.length > 0
     ? connections.reduce((sum, conn) => {
         const duration = conn.disconnected_at 
           ? new Date(conn.disconnected_at).getTime() - new Date(conn.connected_at).getTime()
@@ -48,7 +48,7 @@ export default function AnalyticsPage() {
       }, 0) / connections.length / 1000 / 60 // Convert to minutes
     : 0;
 
-  const activeConnections = connections.filter(c => !c.disconnected_at).length;
+  const activeConnections = Array.isArray(connections) ? connections.filter(c => !c.disconnected_at).length : 0;
 
   return (
     <div className="space-y-6">
@@ -77,7 +77,7 @@ export default function AnalyticsPage() {
             <CardTitle className="text-sm font-medium text-gray-700">Total Connections</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{connections.length}</div>
+            <div className="text-2xl font-bold text-gray-900">{Array.isArray(connections) ? connections.length : 0}</div>
             <p className="text-xs text-green-600 mt-1">↑ 8.2% from last period</p>
           </CardContent>
         </Card>
@@ -216,7 +216,7 @@ export default function AnalyticsPage() {
                       </td>
                     </tr>
                   ))
-                ) : connections.slice(0, 10).map((conn) => (
+                ) : (Array.isArray(connections) ? connections : []).slice(0, 10).map((conn) => (
                   <tr key={conn.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-4 text-gray-900">{conn.user_id?.substring(0, 8)}...</td>
                     <td className="py-3 px-4 text-gray-700">{conn.server_id?.substring(0, 8)}...</td>

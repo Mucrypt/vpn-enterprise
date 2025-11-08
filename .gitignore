@@ -113,3 +113,4 @@ docker-compose.override.yml
 # Production config
 config/production.json
 config/secrets.json
+.vercel

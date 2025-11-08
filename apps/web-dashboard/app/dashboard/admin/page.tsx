@@ -7,16 +7,53 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { Settings, Users, Server, Database, Bell, Lock, Globe, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
+// Lightweight QR image generator using the 'qrcode' library (loaded dynamically)
+function QRImage({ value, size = 128 }: { value?: string | null; size?: number }) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!value) {
+      setDataUrl(null);
+      return;
+    }
+    (async () => {
+      try {
+        const qrcode = await import('qrcode');
+        const url = await qrcode.toDataURL(value, { margin: 1, width: size });
+        if (mounted) setDataUrl(url);
+      } catch (err) {
+        console.error('Failed to generate QR', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [value, size]);
+
+  if (!dataUrl) return <div className="w-[128px] h-[128px] bg-gray-50 flex items-center justify-center text-xs text-gray-400">No QR</div>;
+  return <img src={dataUrl} width={size} height={size} alt="QR code" />;
+}
 
 export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastConfig, setLastConfig] = useState<string | null>(null);
+  const [lastClient, setLastClient] = useState<any | null>(null);
+  const [showQRModal, setShowQRModal] = useState(false);
   const lastBackupDate = useClientDate();
 
   useEffect(() => {
     loadAdminData();
+  }, []);
+
+  // Close QR modal on Escape key
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowQRModal(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   async function loadAdminData() {
@@ -38,6 +75,27 @@ export default function AdminPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Super Admin Panel</h1>
         <p className="text-gray-600 mt-1">System-wide configuration and management</p>
+      </div>
+      {/* Floating quick create for easy access */}
+      <div className="fixed top-4 right-4 z-40">
+        <Button size="sm" onClick={async () => {
+          try {
+            setShowQRModal(false);
+            toast.loading('Creating test client...');
+            const name = `admin-test-${Date.now() % 10000}`;
+            const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+            const payload = { name, testMode: true, wgDir: '/tmp/wgtest', publicIP: '127.0.0.1', port: 51820 };
+            const resp = isLocal ? await api.createDevVPNClient(payload) : await api.createAdminVPNClient(payload);
+            setLastClient(resp.client);
+            setLastConfig(resp.config || null);
+            toast.dismiss();
+            toast.success('Test client created');
+          } catch (err: any) {
+            toast.dismiss();
+            console.error(err);
+            toast.error('Failed to create test client');
+          }
+        }}>Create Test Client</Button>
       </div>
 
       {/* System Overview */}
@@ -106,6 +164,27 @@ export default function AdminPage() {
             <Button className="h-24 flex-col gap-2" variant="outline">
               <Server className="h-8 w-8" />
               <span>Add Server</span>
+            </Button>
+            <Button className="h-24 flex-col gap-2" variant="outline" onClick={async () => {
+              try {
+                toast.loading('Creating test client...');
+                const name = `admin-test-${Date.now() % 10000}`;
+                // Use dev endpoint when running locally (no admin token required)
+                const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+                const payload = { name, testMode: true, wgDir: '/tmp/wgtest', publicIP: '127.0.0.1', port: 51820 };
+                const resp = isLocal ? await api.createDevVPNClient(payload) : await api.createAdminVPNClient(payload);
+                setLastClient(resp.client);
+                setLastConfig(resp.config || null);
+                toast.dismiss();
+                toast.success('Test client created');
+              } catch (err: any) {
+                toast.dismiss();
+                console.error(err);
+                toast.error('Failed to create test client');
+              }
+            }}>
+              <Server className="h-8 w-8" />
+              <span>Create Test Client</span>
             </Button>
             <Button className="h-24 flex-col gap-2" variant="outline">
               <Users className="h-8 w-8" />
@@ -306,6 +385,83 @@ export default function AdminPage() {
           </div>
         </CardContent>
       </Card>
+      {lastConfig && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-gray-900">Last Generated Client Config</CardTitle>
+            <CardDescription>Copy or download the client configuration for quick testing</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-3">
+              <p className="text-sm text-gray-600">Client: {lastClient?.name || '—'}</p>
+              <p className="text-sm text-gray-600">Allocated IP: {lastClient?.ipAddress || '—'}</p>
+            </div>
+            <div className="mb-3">
+              <pre className="p-3 bg-gray-100 rounded text-xs whitespace-pre-wrap">{lastConfig}</pre>
+            </div>
+            <div className="flex gap-2 items-center">
+              <div className="p-2 bg-white rounded shadow">
+                <QRImage value={lastConfig} size={128} />
+              </div>
+              <Button size="sm" onClick={async () => { await navigator.clipboard.writeText(lastConfig); toast.success('Config copied to clipboard'); }}>Copy</Button>
+              <Button size="sm" variant="outline" onClick={() => setShowQRModal(true)}>Open QR</Button>
+              <Button size="sm" variant="outline" onClick={() => {
+                const blob = new Blob([lastConfig], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${lastClient?.name || 'client'}-wg.conf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+              }}>Download</Button>
+            </div>
+
+            {/* QR Modal */}
+            {showQRModal && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+                onClick={(e) => { if (e.target === e.currentTarget) setShowQRModal(false); }}
+              >
+                <div className="relative bg-white rounded-lg p-6 w-[min(90%,600px)]">
+                  <button
+                    onClick={() => setShowQRModal(false)}
+                    aria-label="Close QR modal"
+                    className="absolute top-3 right-3 bg-gray-100 hover:bg-gray-200 rounded-full p-2 text-gray-700"
+                  >
+                    ×
+                  </button>
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-lg font-semibold">Scan to import (WireGuard)</h3>
+                  </div>
+                  <div className="mt-4 flex flex-col items-center gap-4">
+                    <div className="bg-white p-4 rounded"><QRImage value={lastConfig || ''} size={256} /></div>
+                    <div className="w-full">
+                      <p className="text-sm text-gray-600 mb-2">Client: <span className="font-mono">{lastClient?.name}</span></p>
+                      <pre className="p-3 bg-gray-100 rounded text-xs whitespace-pre-wrap max-h-48 overflow-auto">{lastConfig}</pre>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={async () => { await navigator.clipboard.writeText(lastConfig || ''); toast.success('Config copied to clipboard'); }}>Copy</Button>
+                      <Button variant="outline" onClick={() => {
+                        const blob = new Blob([lastConfig || ''], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${lastClient?.name || 'client'}-wg.conf`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(url);
+                      }}>Download</Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

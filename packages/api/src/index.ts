@@ -312,6 +312,92 @@ app.post('/api/v1/vpn/clients', async (req, res) => {
   }
 });
 
+// Admin: create client (supports testMode and custom wgDir/publicIP)
+app.post('/api/v1/admin/vpn/clients', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { name, testMode, wgDir, publicIP, port, interfaceName } = req.body as any;
+
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'Valid client name is required' });
+    }
+
+    // Create manager with options (testMode allowed for admin/testing)
+    const mgr = new VPNServerManager({
+      testMode: !!testMode,
+      wgDir: wgDir || process.env.WIREGUARD_DIR || '/etc/wireguard',
+      publicIP: publicIP || process.env.WIREGUARD_PUBLIC_IP || 'YOUR_SERVER_PUBLIC_IP',
+      interfaceName: interfaceName || process.env.WIREGUARD_INTERFACE || 'wg0',
+      port: port ? Number(port) : Number(process.env.WIREGUARD_PORT) || 51820
+    });
+
+    const client = await mgr.createClient(name);
+
+    // Read generated config if available
+    const fs = require('fs');
+    const path = `${(wgDir || process.env.WIREGUARD_DIR || '/etc/wireguard')}/clients/${client.name}.conf`;
+    let configContent = '';
+    try {
+      configContent = fs.readFileSync(path, 'utf8');
+    } catch (err) {
+      // If no config file (e.g., not persisted in testMode), try to regenerate quick config from client info
+      try {
+        const serverPub = await mgr.getServerPublicKey();
+        configContent = (mgr as any).generateClientConfig((client as any).privateKey || '', client.ipAddress, serverPub);
+      } catch (e) {
+        configContent = '';
+      }
+    }
+
+    res.status(201).json({ client, config: configContent });
+  } catch (error: any) {
+    console.error('Admin create client error:', error);
+    res.status(500).json({ error: 'Failed to create client', message: error.message });
+  }
+});
+
+// Dev-only: create client without auth (only allowed in development)
+app.post('/api/v1/vpn/dev/clients', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ error: 'Dev endpoint not allowed in this environment' });
+    }
+
+    const { name, testMode, wgDir, publicIP, port, interfaceName } = req.body as any;
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'Valid client name is required' });
+    }
+
+    const mgr = new VPNServerManager({
+      testMode: !!testMode,
+      wgDir: wgDir || process.env.WIREGUARD_DIR || '/etc/wireguard',
+      publicIP: publicIP || process.env.WIREGUARD_PUBLIC_IP || 'YOUR_SERVER_PUBLIC_IP',
+      interfaceName: interfaceName || process.env.WIREGUARD_INTERFACE || 'wg0',
+      port: port ? Number(port) : Number(process.env.WIREGUARD_PORT) || 51820
+    });
+
+    const client = await mgr.createClient(name);
+
+    const fs = require('fs');
+    const path = `${(wgDir || process.env.WIREGUARD_DIR || '/etc/wireguard')}/clients/${client.name}.conf`;
+    let configContent = '';
+    try {
+      configContent = fs.readFileSync(path, 'utf8');
+    } catch (err) {
+      try {
+        const serverPub = await mgr.getServerPublicKey();
+        configContent = (mgr as any).generateClientConfig((client as any).privateKey || '', client.ipAddress, serverPub);
+      } catch (e) {
+        configContent = '';
+      }
+    }
+
+    res.status(201).json({ client, config: configContent });
+  } catch (error: any) {
+    console.error('Dev create client error:', error);
+    res.status(500).json({ error: 'Failed to create client', message: error.message });
+  }
+});
+
 app.get('/api/v1/vpn/clients', async (req, res) => {
   try {
     const clients = await vpnManager.listClients();
