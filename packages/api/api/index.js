@@ -33,10 +33,10 @@ app.use(helmet({
 
 // CORS - Allow only specific origins
 const allowedOrigins = [
+  'https://vpn-enterprise-dashboard.vercel.app',
   'https://vpn-enterprise-dashboard-md8sm8f8b-mukulahs-projects.vercel.app',
   'https://vpn-enterprise-dashboard-73agzzd3z-mukulahs-projects.vercel.app',
   'https://vpn-enterprise-dashboard-5e1ye1790-mukulahs-projects.vercel.app',
-  /^https:\/\/vpn-enterprise-dashboard-.*\.vercel\.app$/,
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost'
