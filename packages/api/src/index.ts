@@ -342,9 +342,15 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 VPN Enterprise API running on port ${PORT}`);
-  console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔒 Health check: http://localhost:${PORT}/health`);
-});
+// Export for Vercel serverless (CommonJS format)
+module.exports = app;
+
+// Only start server if not in serverless environment
+if (process.env.VERCEL !== '1' && require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`🚀 VPN Enterprise API running on port ${PORT}`);
+    console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔒 Health check: http://localhost:${PORT}/health`);
+  });
+}

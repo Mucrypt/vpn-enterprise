@@ -21,9 +21,16 @@ npm run build --workspace=@vpn-enterprise/api
 # Copy dependencies into API dist
 cd packages/api
 echo "📋 Bundling workspace dependencies..."
-cp -r ../database/dist/* dist/
-cp -r ../auth/dist/* dist/
-cp -r ../vpn-core/dist/* dist/
+
+# Create lib directory for workspace packages to avoid overwriting API files
+mkdir -p dist/lib
+cp -r ../database/dist/* dist/lib/
+cp -r ../auth/dist/* dist/lib/
+cp -r ../vpn-core/dist/* dist/lib/
+
+# Save original package.json
+echo "💾 Backing up package.json..."
+cp package.json package.json.backup
 
 # Use Vercel-friendly package.json
 echo "📝 Using Vercel package.json..."
@@ -31,3 +38,4 @@ cp package.vercel.json package.json
 
 echo "✅ API ready for Vercel deployment!"
 echo "🚀 Run: cd packages/api && vercel --prod"
+echo "⚠️  Don't forget to restore: mv package.json.backup package.json"
