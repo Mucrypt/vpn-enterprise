@@ -284,6 +284,22 @@ app.post('/api/v1/auth/login', authLimiter, async (req, res) => {
 app.get('/api/v1/servers', async (req, res) => {
   try {
     // Mock server data
+    /**
+     * Array of VPN server objects containing server configuration and status information.
+     * Each server object includes connection details, performance metrics, and current load status.
+     * 
+     * @type {Array<Object>}
+     * @property {string} id - Unique identifier for the server
+     * @property {string} name - Human-readable server name with location
+     * @property {string} country - Country where the server is located
+     * @property {string} city - City where the server is located
+     * @property {string} ip_address - IP address of the server
+     * @property {number} load - Current server load percentage (0-100)
+     * @property {string} status - Current operational status of the server (e.g., 'online', 'offline')
+     * @property {number} latency - Server latency in milliseconds
+     * @property {number} capacity - Maximum connection capacity of the server
+     * @property {number} current_connections - Number of active connections to the server
+     */
     const servers = [
       {
         id: 'server-1',

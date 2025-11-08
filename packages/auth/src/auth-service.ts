@@ -22,17 +22,36 @@ export class AuthService {
     if (!data.user) throw new Error('User creation failed');
 
     // Create free subscription for new user
+    // Wait a bit for the trigger to create the public.users record
     try {
-      await SubscriptionRepository.create({
-        user_id: data.user.id,
-        plan_type: 'free',
-        status: 'trial',
-        max_devices: 1,
-        started_at: new Date().toISOString(),
-        auto_renew: false,
-      });
+      // Retry logic for subscription creation (trigger might take a moment)
+      let attempts = 0;
+      const maxAttempts = 3;
+      
+      while (attempts < maxAttempts) {
+        try {
+          await SubscriptionRepository.create({
+            user_id: data.user.id,
+            plan_type: 'free',
+            status: 'trial',
+            max_devices: 1,
+            started_at: new Date().toISOString(),
+            auto_renew: false,
+          });
+          break; // Success!
+        } catch (subError: any) {
+          attempts++;
+          if (attempts < maxAttempts) {
+            // Wait 500ms before retry (gives trigger time to complete)
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } else {
+            console.error('Failed to create subscription after retries:', subError);
+          }
+        }
+      }
     } catch (err) {
-      console.error('Failed to create subscription:', err);
+      console.error('Subscription creation error:', err);
+      // Don't fail signup if subscription creation fails
     }
 
     return {
