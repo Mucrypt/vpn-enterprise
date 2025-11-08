@@ -1,0 +1,34 @@
+# ============================================
+# API PACKAGE - Node.js API .gitignore
+# ============================================
+
+# Environment (CRITICAL - Contains Supabase credentials)
+.env
+.env.local
+.env.production
+*.env
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+
+# Build
+dist/
+build/
+*.tsbuildinfo
+
+# Logs (CRITICAL - May contain sensitive request data)
+logs/
+*.log
+*.log.*
+
+# Testing
+coverage/
+
+# Temporary
+tmp/
+temp/
+
+# PM2
+.pm2/
