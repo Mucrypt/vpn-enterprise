@@ -135,18 +135,12 @@ app.use((req, res, next) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({
+  res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'vpn-enterprise-api',
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'production',
-    security: {
-      helmet: 'enabled',
-      cors: 'enabled',
-      rateLimit: 'enabled',
-      sanitization: 'enabled'
-    }
+    version: '1.0.1',
+    environment: process.env.NODE_ENV || 'production'
   });
 });
 
