@@ -1,0 +1,3 @@
+# SSL certificates directory
+# Certificates will be placed here during deployment
+# Keep this directory in git but ignore certificate files

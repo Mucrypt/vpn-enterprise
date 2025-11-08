@@ -1,0 +1,80 @@
+# ==============================================
+# VPN ENTERPRISE - PROMETHEUS CONFIGURATION
+# ==============================================
+# Metrics collection for monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'vpn-enterprise'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules once and periodically evaluate them
+rule_files:
+  # - "alerts/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # ============================================
+  # PROMETHEUS SELF-MONITORING
+  # ============================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ============================================
+  # API SERVER METRICS
+  # ============================================
+  - job_name: 'vpn-api'
+    static_configs:
+      - targets: ['api:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # ============================================
+  # WEB DASHBOARD METRICS
+  # ============================================
+  - job_name: 'vpn-web'
+    static_configs:
+      - targets: ['web-dashboard:3001']
+    metrics_path: '/api/metrics'
+    scrape_interval: 30s
+
+  # ============================================
+  # NGINX METRICS (requires nginx-prometheus-exporter)
+  # ============================================
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 10s
+
+  # ============================================
+  # REDIS METRICS (requires redis_exporter)
+  # ============================================
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 10s
+
+  # ============================================
+  # NODE EXPORTER (System metrics)
+  # ============================================
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # ============================================
+  # DOCKER METRICS (cAdvisor)
+  # ============================================
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s

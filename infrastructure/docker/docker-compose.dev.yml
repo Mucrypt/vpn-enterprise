@@ -1,0 +1,78 @@
+# ==============================================
+# VPN ENTERPRISE - DEVELOPMENT DOCKER COMPOSE
+# ==============================================
+# Lightweight setup for local development
+
+version: '3.9'
+
+services:
+  # ============================================
+  # API SERVER (Development)
+  # ============================================
+  api-dev:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+      target: builder
+    container_name: vpn-api-dev
+    command: npm run dev --workspace=@vpn-enterprise/api
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    env_file:
+      - ../../.env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../../packages/api:/app/packages/api
+      - ../../packages/auth:/app/packages/auth
+      - ../../packages/database:/app/packages/database
+      - ../../packages/vpn-core:/app/packages/vpn-core
+      - /app/node_modules
+    networks:
+      - vpn-dev-network
+
+  # ============================================
+  # WEB DASHBOARD (Development)
+  # ============================================
+  web-dev:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.web
+      target: deps
+    container_name: vpn-web-dev
+    command: npm run dev
+    working_dir: /app
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+    env_file:
+      - ../../apps/web-dashboard/.env.local
+    ports:
+      - "3001:3000"
+    volumes:
+      - ../../apps/web-dashboard:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - vpn-dev-network
+
+  # ============================================
+  # REDIS (Development)
+  # ============================================
+  redis-dev:
+    image: redis:7-alpine
+    container_name: vpn-redis-dev
+    ports:
+      - "6379:6379"
+    networks:
+      - vpn-dev-network
+
+networks:
+  vpn-dev-network:
+    driver: bridge

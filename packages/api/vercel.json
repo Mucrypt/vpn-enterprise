@@ -1,0 +1,65 @@
+{
+  "version": 2,
+  "name": "vpn-enterprise-api",
+  "builds": [
+    {
+      "src": "packages/api/src/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        "maxLambdaSize": "50mb",
+        "includeFiles": [
+          "packages/**/*",
+          "node_modules/**/*"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/health",
+      "dest": "/packages/api/src/index.ts",
+      "methods": ["GET"]
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/packages/api/src/index.ts",
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "SUPABASE_URL": "@supabase-url",
+    "SUPABASE_ANON_KEY": "@supabase-anon-key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase-service-role-key",
+    "ALLOWED_ORIGINS": "@allowed-origins"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+        }
+      ]
+    }
+  ],
+  "functions": {
+    "packages/api/src/index.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  }
+}

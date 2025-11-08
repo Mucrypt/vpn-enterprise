@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "name": "vpn-enterprise-dashboard",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@supabase-url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase-anon-key",
+    "NEXT_PUBLIC_API_URL": "@api-url"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_SUPABASE_URL": "@supabase-url",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase-anon-key"
+    }
+  }
+}
