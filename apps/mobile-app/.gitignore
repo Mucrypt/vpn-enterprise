@@ -1,0 +1,88 @@
+# ============================================
+# MOBILE APP - React Native / Expo .gitignore
+# ============================================
+
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# Environment variables (CRITICAL - Never commit these)
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+*.env
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.keystore
+
+# Android
+android/app/build/
+android/build/
+android/.gradle/
+android/gradle/
+android/local.properties
+android/.idea/
+*.apk
+*.aab
+
+# iOS
+ios/Pods/
+ios/build/
+ios/*.xcworkspace
+ios/*.xcuserdata
+*.ipa
+*.dSYM.zip
+*.dSYM
+DerivedData/
+
+# Metro
+.metro-health-check*
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# macOS
+.DS_Store
+*.pem
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+
+# Temporary files
+tmp/
+temp/
+*.swp
+*.swo
+*~
+
+# VS Code (keep some configs)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Generated native folders (uncomment if using bare workflow)
+# /ios
+# /android
+
+app-example
