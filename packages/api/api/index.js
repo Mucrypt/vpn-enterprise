@@ -669,6 +669,803 @@ app.get('/api/v1/admin/connections', async (req, res) => {
 });
 
 // ==============================================
+// ENTERPRISE FEATURES - ORGANIZATIONS
+// ==============================================
+
+// Get all organizations
+app.get('/api/v1/admin/organizations', async (req, res) => {
+  try {
+    // Mock organizations data
+    const organizations = [
+      {
+        id: '1',
+        name: 'Acme Corporation',
+        billing_tier: 'enterprise',
+        max_users: 100,
+        max_servers: 10,
+        max_devices_per_user: 5,
+        created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+        settings: {
+          sso_enabled: true,
+          force_2fa: true,
+          ip_whitelisting: true
+        },
+        _count: {
+          users: 45,
+          servers: 7
+        }
+      },
+      {
+        id: '2',
+        name: 'Tech Startups Inc',
+        billing_tier: 'business',
+        max_users: 50,
+        max_servers: 5,
+        max_devices_per_user: 3,
+        created_at: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+        settings: {
+          sso_enabled: false,
+          force_2fa: true,
+          ip_whitelisting: false
+        },
+        _count: {
+          users: 28,
+          servers: 3
+        }
+      }
+    ];
+
+    res.json({ organizations });
+  } catch (error) {
+    console.error('Error fetching organizations:', error);
+    res.status(500).json({ error: 'Failed to fetch organizations' });
+  }
+});
+
+// Create organization
+app.post('/api/v1/admin/organizations', async (req, res) => {
+  try {
+    const newOrg = {
+      id: Date.now().toString(),
+      ...req.body,
+      created_at: new Date().toISOString(),
+      _count: { users: 0, servers: 0 }
+    };
+    res.json({ organization: newOrg });
+  } catch (error) {
+    console.error('Error creating organization:', error);
+    res.status(500).json({ error: 'Failed to create organization' });
+  }
+});
+
+// ==============================================
+// THREAT PROTECTION
+// ==============================================
+
+// Get threat statistics
+app.get('/api/v1/security/threats/stats', async (req, res) => {
+  try {
+    const stats = {
+      total_threats_blocked: 15847,
+      blocked_today: 234,
+      blocked_this_week: 1543,
+      blocked_this_month: 6789,
+      by_type: {
+        malware: 3421,
+        phishing: 5678,
+        tracker: 4329,
+        ads: 2419
+      },
+      threat_level: 'low'
+    };
+    res.json({ stats });
+  } catch (error) {
+    console.error('Error fetching threat stats:', error);
+    res.status(500).json({ error: 'Failed to fetch threat stats' });
+  }
+});
+
+// Get recent threats
+app.get('/api/v1/security/threats/recent', async (req, res) => {
+  try {
+    const threats = [
+      {
+        id: '1',
+        threat_type: 'malware',
+        domain: 'malicious-site.com',
+        ip_address: '192.168.1.100',
+        blocked_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        severity: 'high',
+        description: 'Trojan detected attempting to download',
+        user_id: 'user1'
+      },
+      {
+        id: '2',
+        threat_type: 'phishing',
+        domain: 'fake-bank-login.net',
+        ip_address: '192.168.1.101',
+        blocked_at: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        severity: 'critical',
+        description: 'Phishing attempt mimicking banking site',
+        user_id: 'user2'
+      },
+      {
+        id: '3',
+        threat_type: 'tracker',
+        domain: 'analytics-tracker.com',
+        ip_address: '192.168.1.102',
+        blocked_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+        severity: 'medium',
+        description: 'Third-party tracking script blocked',
+        user_id: 'user1'
+      }
+    ];
+    res.json({ threats });
+  } catch (error) {
+    console.error('Error fetching threats:', error);
+    res.status(500).json({ error: 'Failed to fetch threats' });
+  }
+});
+
+// ==============================================
+// SPLIT TUNNELING
+// ==============================================
+
+// Get split tunnel rules
+app.get('/api/v1/user/split-tunnel', async (req, res) => {
+  try {
+    const rules = [
+      {
+        id: '1',
+        type: 'app',
+        name: 'Netflix',
+        action: 'bypass',
+        enabled: true,
+        created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: '2',
+        type: 'domain',
+        name: 'zoom.us',
+        action: 'vpn',
+        enabled: true,
+        created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    ];
+    res.json({ rules });
+  } catch (error) {
+    console.error('Error fetching split tunnel rules:', error);
+    res.status(500).json({ error: 'Failed to fetch rules' });
+  }
+});
+
+// Create split tunnel rule
+app.post('/api/v1/user/split-tunnel', async (req, res) => {
+  try {
+    const newRule = {
+      id: Date.now().toString(),
+      ...req.body,
+      created_at: new Date().toISOString()
+    };
+    res.json({ rule: newRule });
+  } catch (error) {
+    console.error('Error creating rule:', error);
+    res.status(500).json({ error: 'Failed to create rule' });
+  }
+});
+
+// Update split tunnel rule
+app.patch('/api/v1/user/split-tunnel/:id', async (req, res) => {
+  try {
+    const updatedRule = {
+      id: req.params.id,
+      ...req.body
+    };
+    res.json({ rule: updatedRule });
+  } catch (error) {
+    console.error('Error updating rule:', error);
+    res.status(500).json({ error: 'Failed to update rule' });
+  }
+});
+
+// Delete split tunnel rule
+app.delete('/api/v1/user/split-tunnel/:id', async (req, res) => {
+  try {
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting rule:', error);
+    res.status(500).json({ error: 'Failed to delete rule' });
+  }
+});
+
+// ==============================================
+// KILL SWITCH MONITORING
+// ==============================================
+
+// Get kill switch events
+app.get('/api/v1/security/kill-switch/events', async (req, res) => {
+  try {
+    const events = [
+      {
+        id: '1',
+        event_type: 'vpn_drop',
+        triggered_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        resolved_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+        duration: 3600,
+        reason: 'VPN connection lost',
+        actions_taken: ['Blocked all traffic', 'Reconnecting...'],
+        ip_protected: true
+      },
+      {
+        id: '2',
+        event_type: 'dns_leak_detected',
+        triggered_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        resolved_at: new Date(Date.now() - 24 * 60 * 60 * 1000 + 5000).toISOString(),
+        duration: 5,
+        reason: 'DNS leak detected',
+        actions_taken: ['Switched DNS servers', 'Reconnected'],
+        ip_protected: true
+      }
+    ];
+    res.json({ events });
+  } catch (error) {
+    console.error('Error fetching kill switch events:', error);
+    res.status(500).json({ error: 'Failed to fetch events' });
+  }
+});
+
+// ==============================================
+// SERVER HEALTH MONITORING
+// ==============================================
+
+// Get server health metrics
+app.get('/api/v1/admin/servers/health', async (req, res) => {
+  try {
+    const healthMetrics = [
+      {
+        server_id: '1',
+        server_name: 'US East - New York',
+        status: 'healthy',
+        cpu_usage: 45,
+        memory_usage: 62,
+        disk_usage: 38,
+        bandwidth_usage: 75,
+        active_connections: 234,
+        uptime: 99.98,
+        last_check: new Date().toISOString()
+      },
+      {
+        server_id: '2',
+        server_name: 'EU West - London',
+        status: 'healthy',
+        cpu_usage: 38,
+        memory_usage: 54,
+        disk_usage: 42,
+        bandwidth_usage: 68,
+        active_connections: 189,
+        uptime: 99.99,
+        last_check: new Date().toISOString()
+      }
+    ];
+    res.json({ servers: healthMetrics });
+  } catch (error) {
+    console.error('Error fetching server health:', error);
+    res.status(500).json({ error: 'Failed to fetch server health' });
+  }
+});
+
+// ==============================================
+// WEBHOOKS
+// ==============================================
+
+// Get webhooks
+app.get('/api/v1/admin/webhooks', async (req, res) => {
+  try {
+    const webhooks = [
+      {
+        id: '1',
+        name: 'Slack Notifications',
+        url: 'https://hooks.slack.com/services/xxx',
+        events: ['user.created', 'connection.failed'],
+        enabled: true,
+        created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        last_triggered: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+      }
+    ];
+    res.json({ webhooks });
+  } catch (error) {
+    console.error('Error fetching webhooks:', error);
+    res.status(500).json({ error: 'Failed to fetch webhooks' });
+  }
+});
+
+// Create webhook
+app.post('/api/v1/admin/webhooks', async (req, res) => {
+  try {
+    const newWebhook = {
+      id: Date.now().toString(),
+      ...req.body,
+      created_at: new Date().toISOString()
+    };
+    res.json({ webhook: newWebhook });
+  } catch (error) {
+    console.error('Error creating webhook:', error);
+    res.status(500).json({ error: 'Failed to create webhook' });
+  }
+});
+
+// ==============================================
+// NOTIFICATIONS
+// ==============================================
+
+// Get user notifications
+app.get('/api/v1/user/notifications', async (req, res) => {
+  try {
+    const notifications = [
+      {
+        id: '1',
+        type: 'security_alert',
+        title: 'Suspicious Login Detected',
+        message: 'A login attempt was detected from an unusual location: Tokyo, Japan',
+        severity: 'high',
+        read: false,
+        created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        action_url: '/dashboard/security',
+        metadata: { location: 'Tokyo, Japan', ip: '45.67.89.12' }
+      },
+      {
+        id: '2',
+        type: 'connection',
+        title: 'Connected to Server',
+        message: 'Successfully connected to US East - New York',
+        severity: 'info',
+        read: false,
+        created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+        action_url: '/dashboard/connect'
+      },
+      {
+        id: '3',
+        type: 'threat_blocked',
+        title: 'Malware Blocked',
+        message: '15 threats were blocked in the last hour',
+        severity: 'warning',
+        read: false,
+        created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+        action_url: '/dashboard/threats'
+      },
+      {
+        id: '4',
+        type: 'subscription',
+        title: 'Subscription Renewed',
+        message: 'Your Premium subscription has been renewed for another month',
+        severity: 'success',
+        read: true,
+        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        action_url: '/dashboard/billing'
+      },
+      {
+        id: '5',
+        type: 'system',
+        title: 'Server Maintenance Scheduled',
+        message: 'EU West servers will undergo maintenance on Nov 10, 2025 at 02:00 UTC',
+        severity: 'info',
+        read: true,
+        created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        action_url: '/dashboard/servers'
+      },
+      {
+        id: '6',
+        type: 'device',
+        title: 'New Device Connected',
+        message: 'iPhone 15 Pro has been added to your account',
+        severity: 'info',
+        read: true,
+        created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        action_url: '/dashboard/profile'
+      }
+    ];
+
+    const { unread_only } = req.query;
+    const filtered = unread_only === 'true' 
+      ? notifications.filter(n => !n.read) 
+      : notifications;
+
+    res.json({ 
+      notifications: filtered,
+      unread_count: notifications.filter(n => !n.read).length 
+    });
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// Mark notification as read
+app.put('/api/v1/user/notifications/:id/read', async (req, res) => {
+  try {
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({ error: 'Failed to mark notification as read' });
+  }
+});
+
+// Mark all notifications as read
+app.put('/api/v1/user/notifications/read-all', async (req, res) => {
+  try {
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+    res.status(500).json({ error: 'Failed to mark all notifications as read' });
+  }
+});
+
+// Delete notification
+app.delete('/api/v1/user/notifications/:id', async (req, res) => {
+  try {
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    res.status(500).json({ error: 'Failed to delete notification' });
+  }
+});
+
+// Get notification settings
+app.get('/api/v1/user/notifications/settings', async (req, res) => {
+  try {
+    const settings = {
+      email_notifications: true,
+      push_notifications: true,
+      security_alerts: true,
+      connection_events: true,
+      threat_alerts: true,
+      subscription_updates: true,
+      marketing_emails: false
+    };
+    res.json({ settings });
+  } catch (error) {
+    console.error('Error fetching notification settings:', error);
+    res.status(500).json({ error: 'Failed to fetch notification settings' });
+  }
+});
+
+// Update notification settings
+app.put('/api/v1/user/notifications/settings', async (req, res) => {
+  try {
+    res.json({ settings: req.body });
+  } catch (error) {
+    console.error('Error updating notification settings:', error);
+    res.status(500).json({ error: 'Failed to update notification settings' });
+  }
+});
+
+// ==============================================
+// VPN CONNECTION & CONFIGURATION
+// ==============================================
+
+// Generate VPN configuration for user
+app.post('/api/v1/vpn/generate-config', async (req, res) => {
+  try {
+    const { userId, deviceName } = req.body;
+    
+    if (!userId || !deviceName) {
+      return res.status(400).json({ error: 'userId and deviceName are required' });
+    }
+
+    // Check if user has reached device limit
+    const { data: tier } = await supabase
+      .from('users')
+      .select(`
+        subscription_tier:subscription_tiers(max_devices)
+      `)
+      .eq('id', userId)
+      .single();
+
+    const { count: existingDevices } = await supabase
+      .from('vpn_configs')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_active', true);
+
+    if (tier?.subscription_tier?.max_devices && existingDevices >= tier.subscription_tier.max_devices) {
+      return res.status(403).json({ 
+        error: 'Device limit reached',
+        message: 'Please upgrade your plan to add more devices'
+      });
+    }
+
+    // Generate WireGuard keys (simulated for now)
+    const clientPrivateKey = Buffer.from(require('crypto').randomBytes(32)).toString('base64');
+    const clientPublicKey = Buffer.from(require('crypto').randomBytes(32)).toString('base64');
+    
+    // Allocate IP (find next available)
+    const { data: existingConfigs } = await supabase
+      .from('vpn_configs')
+      .select('allocated_ip')
+      .order('allocated_ip', { ascending: false })
+      .limit(1);
+
+    let nextIP = '10.0.0.2';
+    if (existingConfigs && existingConfigs.length > 0) {
+      const lastIP = existingConfigs[0].allocated_ip;
+      const lastOctet = parseInt(lastIP.split('.')[3]);
+      nextIP = `10.0.0.${lastOctet + 1}`;
+    }
+
+    // Save to database
+    const { data: vpnConfig, error: dbError } = await supabase
+      .from('vpn_configs')
+      .insert({
+        user_id: userId,
+        client_public_key: clientPublicKey,
+        client_private_key_encrypted: clientPrivateKey, // Should encrypt in production
+        allocated_ip: nextIP,
+        device_name: deviceName,
+        dns_servers: '1.1.1.1, 1.0.0.1',
+        is_active: true
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      // Log full DB error for diagnostics
+      console.error('Database error inserting vpn_config:', dbError);
+
+      // Fallback: return a non-persistent config so clients can continue to test the
+      // generate/download flow while we investigate the DB issue. This avoids a 500
+      // and preserves UX for immediate testing.
+      const fallbackConfigFile = `[Interface]\nPrivateKey = ${clientPrivateKey}\nAddress = ${nextIP}/32\nDNS = 1.1.1.1, 1.0.0.1\n\n[Peer]\nPublicKey = ${serverPublicKey}\nEndpoint = ${serverEndpoint}:51820\nAllowedIPs = 0.0.0.0/0, ::/0\nPersistentKeepalive = 25\n`;
+
+      return res.status(200).json({
+        success: true,
+        persistent: false,
+        message: 'Returned non-persistent config due to database error. Inspect server logs for details.',
+        config: {
+          user_id: userId,
+          device_name: deviceName,
+          allocated_ip: nextIP,
+          client_public_key: clientPublicKey
+        },
+        configFile: fallbackConfigFile,
+        downloadFilename: `${deviceName.replace(/\s+/g, '-')}-vpn.conf`
+      });
+    }
+
+    // Generate .conf file content
+    const serverPublicKey = process.env.WIREGUARD_SERVER_PUBLIC_KEY || '4nEWZs+9Mvt9x1PmvFiCDpMMBK/JLkOamgUA66JoTTw=';
+    const serverEndpoint = process.env.WIREGUARD_SERVER_ENDPOINT || 'your-server-ip';
+
+    const configFile = `[Interface]
+PrivateKey = ${clientPrivateKey}
+Address = ${nextIP}/32
+DNS = 1.1.1.1, 1.0.0.1
+
+[Peer]
+PublicKey = ${serverPublicKey}
+Endpoint = ${serverEndpoint}:51820
+AllowedIPs = 0.0.0.0/0, ::/0
+PersistentKeepalive = 25
+`;
+
+    res.json({
+      success: true,
+      config: vpnConfig,
+      configFile,
+      downloadFilename: `${deviceName.replace(/\s+/g, '-')}-vpn.conf`
+    });
+
+  } catch (error) {
+    // Log full error for diagnostics
+    console.error('Error generating VPN config (falling back to non-persistent):', error && error.stack ? error.stack : error);
+
+    try {
+      // Attempt to return a non-persistent config so clients can still use the flow
+      const crypto = require('crypto');
+      const clientPrivateKey = crypto.randomBytes(32).toString('base64');
+      const base = 2 + (Math.floor(Date.now() / 1000) % 250);
+      const fallbackIp = `10.0.0.${base}`;
+      const serverPublicKey = process.env.WIREGUARD_SERVER_PUBLIC_KEY || '4nEWZs+9Mvt9x1PmvFiCDpMMBK/JLkOamgUA66JoTTw=';
+      const serverEndpoint = process.env.WIREGUARD_SERVER_ENDPOINT || 'your-server-ip';
+
+      const fallbackConfigFile = `[Interface]\nPrivateKey = ${clientPrivateKey}\nAddress = ${fallbackIp}/32\nDNS = 1.1.1.1, 1.0.0.1\n\n[Peer]\nPublicKey = ${serverPublicKey}\nEndpoint = ${serverEndpoint}:51820\nAllowedIPs = 0.0.0.0/0, ::/0\nPersistentKeepalive = 25\n`;
+
+      return res.status(200).json({
+        success: true,
+        persistent: false,
+        message: 'Returned non-persistent config due to internal error. Check server logs for details.',
+        configFile: fallbackConfigFile,
+        downloadFilename: `vpn-fallback-${Date.now()}.conf`
+      });
+    } catch (fallbackErr) {
+      console.error('Fallback error generating config:', fallbackErr);
+      return res.status(500).json({ error: 'Failed to generate VPN configuration' });
+    }
+  }
+});
+
+// Get user's VPN configurations
+app.get('/api/v1/vpn/configs', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const { data: configs, error } = await supabase
+      .from('vpn_configs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({ error: 'Failed to fetch VPN configurations' });
+    }
+
+    res.json({ configs: configs || [] });
+  } catch (error) {
+    console.error('Error fetching VPN configs:', error);
+    res.status(500).json({ error: 'Failed to fetch VPN configurations' });
+  }
+});
+
+// Delete VPN configuration
+app.delete('/api/v1/vpn/configs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('vpn_configs')
+      .update({ is_active: false })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({ error: 'Failed to delete VPN configuration' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting VPN config:', error);
+    res.status(500).json({ error: 'Failed to delete VPN configuration' });
+  }
+});
+
+// Get user's data usage
+app.get('/api/v1/vpn/usage', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    // Get current month's usage
+    const { data: usage, error } = await supabase
+      .from('bandwidth_logs')
+      .select('bytes_sent, bytes_received')
+      .eq('user_id', userId)
+      .gte('measured_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+
+    const totalSent = usage?.reduce((sum, log) => sum + (log.bytes_sent || 0), 0) || 0;
+    const totalReceived = usage?.reduce((sum, log) => sum + (log.bytes_received || 0), 0) || 0;
+    const totalBytes = totalSent + totalReceived;
+    const totalMB = (totalBytes / 1048576).toFixed(2);
+
+    // Get user's limit
+    const { data: userData } = await supabase
+      .from('users')
+      .select(`
+        subscription_tier:subscription_tiers(data_limit_mb)
+      `)
+      .eq('id', userId)
+      .single();
+
+    const limitMB = userData?.subscription_tier?.data_limit_mb || 500;
+
+    res.json({
+      usage: {
+        bytes_sent: totalSent,
+        bytes_received: totalReceived,
+        total_bytes: totalBytes,
+        total_mb: parseFloat(totalMB),
+        limit_mb: limitMB,
+        unlimited: limitMB === null,
+        percentage_used: limitMB ? (parseFloat(totalMB) / limitMB * 100).toFixed(1) : 0
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching usage:', error);
+    res.status(500).json({ error: 'Failed to fetch usage data' });
+  }
+});
+
+// -------------------------------
+// Lightweight TEST endpoints (non-persistent)
+// These are safe endpoints that do not write to the DB and can be used
+// to exercise the dashboard generate/download flows in production while
+// we debug the real implementation.
+// -------------------------------
+
+app.post('/api/v1/vpn/generate-config-test', async (req, res) => {
+  try {
+    const { userId, deviceName } = req.body || {};
+    if (!userId || !deviceName) {
+      return res.status(400).json({ error: 'userId and deviceName are required' });
+    }
+
+    const crypto = require('crypto');
+    const clientPrivateKey = crypto.randomBytes(32).toString('base64');
+    const clientPublicKey = crypto.randomBytes(32).toString('base64');
+    const base = 2 + (Math.floor(Date.now() / 1000) % 250);
+    const allocatedIp = `10.0.0.${base}`;
+
+    const serverPublicKey = process.env.WIREGUARD_SERVER_PUBLIC_KEY || '4nEWZs+9Mvt9x1PmvFiCDpMMBK/JLkOamgUA66JoTTw=';
+    const serverEndpoint = process.env.WIREGUARD_SERVER_ENDPOINT || 'your-server-ip';
+
+    const configFile = `[Interface]\nPrivateKey = ${clientPrivateKey}\nAddress = ${allocatedIp}/32\nDNS = 1.1.1.1, 1.0.0.1\n\n[Peer]\nPublicKey = ${serverPublicKey}\nEndpoint = ${serverEndpoint}:51820\nAllowedIPs = 0.0.0.0/0, ::/0\nPersistentKeepalive = 25\n`;
+
+    res.json({
+      success: true,
+      configFile,
+      downloadFilename: `${deviceName.replace(/\s+/g, '-')}-vpn.conf`,
+      config: {
+        device_name: deviceName,
+        allocated_ip: allocatedIp,
+        client_public_key: clientPublicKey
+      }
+    });
+  } catch (err) {
+    console.error('Error in generate-config-test:', err);
+    res.status(500).json({ error: 'Failed to generate test VPN configuration' });
+  }
+});
+
+app.get('/api/v1/vpn/configs', async (req, res, next) => {
+  // If query contains mock=true, return mock data. Otherwise fall back to existing handler above by calling next().
+  try {
+    const { mock } = req.query || {};
+    if (mock === 'true') {
+      return res.json({ configs: [
+        {
+          id: 'test-1',
+          device_name: 'Test Device',
+          allocated_ip: '10.0.0.2',
+          created_at: new Date().toISOString(),
+          is_active: true,
+          bytes_sent: 0,
+          bytes_received: 0
+        }
+      ]});
+    }
+    // Not a mock request - pass through to the real handler above
+    return next();
+  } catch (err) {
+    console.error('Error in test configs handler:', err);
+    res.status(500).json({ error: 'Failed to fetch test configs' });
+  }
+});
+
+app.get('/api/v1/vpn/usage-test', async (req, res) => {
+  try {
+    const usage = {
+      bytes_sent: 0,
+      bytes_received: 0,
+      total_bytes: 0,
+      total_mb: 0,
+      limit_mb: 500,
+      unlimited: false,
+      percentage_used: '0.0'
+    };
+    res.json({ usage });
+  } catch (err) {
+    console.error('Error in usage-test:', err);
+    res.status(500).json({ error: 'Failed to fetch usage (test)' });
+  }
+});
+
+// ==============================================
 // ERROR HANDLERS
 // ==============================================
 

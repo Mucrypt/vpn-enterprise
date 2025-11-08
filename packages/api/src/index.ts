@@ -331,6 +331,89 @@ app.delete('/api/v1/vpn/clients/:name', async (req, res) => {
   }
 });
 
+// Lightweight testing endpoints for VPN config generation (non-persistent)
+app.post('/api/v1/vpn/generate-config', async (req, res) => {
+  try {
+    const { userId, deviceName } = req.body;
+    if (!userId || !deviceName) {
+      return res.status(400).json({ error: 'userId and deviceName are required' });
+    }
+
+    // Generate simple keys (not actual WireGuard keypair generation here)
+    const crypto = require('crypto');
+    const clientPrivateKey = crypto.randomBytes(32).toString('base64');
+    const clientPublicKey = crypto.randomBytes(32).toString('base64');
+
+    // Simple IP allocation: use timestamp to pick an IP in 10.0.0.x
+    const base = 2 + (Math.floor(Date.now() / 1000) % 250);
+    const allocatedIp = `10.0.0.${base}`;
+
+    const serverPublicKey = process.env.WIREGUARD_SERVER_PUBLIC_KEY || '4nEWZs+9Mvt9x1PmvFiCDpMMBK/JLkOamgUA66JoTTw=';
+    const serverEndpoint = process.env.WIREGUARD_SERVER_ENDPOINT || 'your-server-ip';
+
+    const configFile = `[Interface]\nPrivateKey = ${clientPrivateKey}\nAddress = ${allocatedIp}/32\nDNS = 1.1.1.1, 1.0.0.1\n\n[Peer]\nPublicKey = ${serverPublicKey}\nEndpoint = ${serverEndpoint}:51820\nAllowedIPs = 0.0.0.0/0, ::/0\nPersistentKeepalive = 25\n`;
+
+    // Return config for immediate download (non-persistent)
+    res.json({
+      success: true,
+      configFile,
+      downloadFilename: `${deviceName.replace(/\s+/g, '-')}-vpn.conf`,
+      config: {
+        device_name: deviceName,
+        allocated_ip: allocatedIp,
+        client_public_key: clientPublicKey,
+      }
+    });
+  } catch (error: any) {
+    console.error('Error generating VPN config (test endpoint):', error);
+    res.status(500).json({ error: 'Failed to generate VPN configuration' });
+  }
+});
+
+// Return non-persistent (mock) list of configs for testing
+app.get('/api/v1/vpn/configs', async (req, res) => {
+  try {
+    // For testing we return an empty array or a mocked item if query contains mock=true
+    const { userId, mock } = req.query as any;
+    if (mock === 'true') {
+      return res.json({ configs: [
+        {
+          id: 'test-1',
+          device_name: 'Test Device',
+          allocated_ip: '10.0.0.2',
+          created_at: new Date().toISOString(),
+          is_active: true,
+          bytes_sent: 0,
+          bytes_received: 0
+        }
+      ]});
+    }
+    res.json({ configs: [] });
+  } catch (error: any) {
+    console.error('Error fetching test vpn configs:', error);
+    res.status(500).json({ error: 'Failed to fetch VPN configurations' });
+  }
+});
+
+// Non-persistent usage response for testing
+app.get('/api/v1/vpn/usage', async (req, res) => {
+  try {
+    const usage = {
+      bytes_sent: 0,
+      bytes_received: 0,
+      total_bytes: 0,
+      total_mb: 0,
+      limit_mb: 500,
+      unlimited: false,
+      percentage_used: '0.0'
+    };
+    res.json({ usage });
+  } catch (error: any) {
+    console.error('Error fetching usage (test):', error);
+    res.status(500).json({ error: 'Failed to fetch usage data' });
+  }
+});
+
 // Error handling middleware
 app.use((err: any, req: any, res: any, next: any) => {
   console.error('Unhandled error:', err);
