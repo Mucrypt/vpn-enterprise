@@ -92,7 +92,7 @@ const limiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // Limit each IP to 20 login attempts per windowMs (increased for testing)
+  max: 100, // Temporarily increased to 100 for testing database trigger
   message: JSON.stringify({
     success: false,
     message: 'Too many login attempts, please try again later.'
@@ -109,7 +109,7 @@ const authLimiter = rateLimit({
 });
 
 app.use('/api/', limiter);
-app.use('/auth/', authLimiter);
+app.use('/api/v1/auth/', authLimiter); // Fixed: should be /api/v1/auth/ not /auth/
 
 // Body parser with size limits
 app.use(express.json({ limit: '10kb' }));
