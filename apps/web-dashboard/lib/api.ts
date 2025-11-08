@@ -13,8 +13,13 @@ export async function fetchAPI(endpoint: string, options?: RequestInit) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || 'API request failed');
+    const errorBody = await response.json().catch(() => ({}));
+    const errorMessage = errorBody?.message || errorBody?.error || JSON.stringify(errorBody) || response.statusText || 'API request failed';
+    const err = new Error(`${response.status} ${response.statusText} - ${errorMessage}`);
+    // attach the original response body for richer handling in callers
+    (err as any).body = errorBody;
+    (err as any).status = response.status;
+    throw err;
   }
 
   return response.json();

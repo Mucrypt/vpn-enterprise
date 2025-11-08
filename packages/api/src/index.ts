@@ -140,6 +140,38 @@ app.get('/api/v1/user/profile', authMiddleware, async (req: AuthRequest, res) =>
   }
 });
 
+// Notifications (user)
+app.get('/api/v1/user/notifications', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const limit = Number(req.query.limit) || 10;
+    // Return a mocked set of notifications for development
+    const notifications = [] as any[];
+    const unread_count = 0;
+    res.json({ notifications, unread_count });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch notifications', message: error.message });
+  }
+});
+
+app.put('/api/v1/user/notifications/:id/read', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    // In a full implementation we'd mark notification read in DB; here we mock success
+    res.json({ success: true, id });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to mark notification read', message: error.message });
+  }
+});
+
+app.put('/api/v1/user/notifications/read-all', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    // Mock marking all as read
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to mark notifications read', message: error.message });
+  }
+});
+
 // =============================================
 // ADMIN ROUTES (Protected - Admin only)
 // =============================================
