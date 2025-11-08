@@ -257,13 +257,26 @@ app.post('/api/v1/auth/login', authLimiter, async (req, res) => {
       });
     }
 
+    // Fetch user role from public.users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role, full_name, avatar_url')
+      .eq('id', data.user.id)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user data:', userError);
+    }
+
     res.status(200).json({
       success: true,
       message: 'Login successful',
       user: {
         id: data.user.id,
         email: data.user.email,
-        role: data.user.user_metadata?.role || 'user'
+        role: userData?.role || 'user',
+        full_name: userData?.full_name || null,
+        avatar_url: userData?.avatar_url || null
       },
       session: {
         access_token: data.session.access_token,

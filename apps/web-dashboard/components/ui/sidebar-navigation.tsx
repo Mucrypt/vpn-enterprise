@@ -48,6 +48,11 @@ export function SidebarNavigation() {
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   const navItems = isAdmin ? adminNavItems : userNavItems;
 
+  // Debug: log user role to help troubleshoot
+  console.log('Sidebar - User:', user);
+  console.log('Sidebar - Is Admin:', isAdmin);
+  console.log('Sidebar - Nav Items Count:', navItems.length);
+
   return (
     <div
       className={cn(
