@@ -422,6 +422,72 @@ app.get('/admin/statistics', async (req, res) => {
 });
 
 // ==============================================
+// ADMIN ENDPOINTS
+// ==============================================
+
+// Get all users (admin)
+app.get('/api/v1/admin/users', async (req, res) => {
+  try {
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, email, role, created_at, last_login')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json(users || []);
+  } catch (error) {
+    console.error('Admin users fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Get audit logs (admin)
+app.get('/api/v1/admin/audit-logs', async (req, res) => {
+  try {
+    // Mock audit logs for now
+    const logs = [
+      {
+        id: '1',
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        user: 'romeomukulah@gmail.com',
+        action: 'USER_LOGIN',
+        resource: 'Authentication',
+        ip_address: req.ip || '127.0.0.1',
+        status: 'success',
+        details: 'Successful login from dashboard'
+      }
+    ];
+    res.json(logs);
+  } catch (error) {
+    console.error('Audit logs fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch audit logs' });
+  }
+});
+
+// Get security events (admin)
+app.get('/api/v1/admin/security/events', async (req, res) => {
+  try {
+    // Mock security events
+    const events = [
+      {
+        id: '1',
+        timestamp: new Date().toISOString(),
+        type: 'login_success',
+        severity: 'info',
+        user: 'romeomukulah@gmail.com',
+        ip: req.ip || '127.0.0.1',
+        details: 'User logged in successfully'
+      }
+    ];
+    res.json(events);
+  } catch (error) {
+    console.error('Security events fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch security events' });
+  }
+});
+
+// ==============================================
 // ERROR HANDLERS
 // ==============================================
 
