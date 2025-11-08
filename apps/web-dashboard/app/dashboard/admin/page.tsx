@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useClientDate } from '@/hooks/useClientDate';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -8,8 +9,11 @@ import { Settings, Users, Server, Database, Bell, Lock, Globe, Zap } from 'lucid
 import toast from 'react-hot-toast';
 
 export default function AdminPage() {
-  const [stats, setStats] = useState<any>({});
+  const [users, setUsers] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const lastBackupDate = useClientDate();
 
   useEffect(() => {
     loadAdminData();
@@ -249,7 +253,7 @@ export default function AdminPage() {
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm font-medium text-blue-900 mb-1">Last Backup</p>
               <p className="text-xs text-blue-700">
-                {new Date().toLocaleString()}
+                {lastBackupDate ? lastBackupDate.toLocaleString() : 'Loading...'}
               </p>
             </div>
             <Button variant="outline" size="sm" className="w-full">
