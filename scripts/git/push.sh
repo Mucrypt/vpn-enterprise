@@ -6,9 +6,14 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 MSG="${1:-}"
+
 if [ -z "$MSG" ]; then
-  echo "Usage: $0 'commit message'"
-  exit 2
+  # Prompt for a commit message if none provided
+  read -rp "Commit message (leave empty to cancel): " MSG
+  if [ -z "$MSG" ]; then
+    echo "Aborting: no commit message provided. No changes were pushed."
+    exit 1
+  fi
 fi
 
 echo "🔁 Staging changes..."
