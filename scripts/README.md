@@ -1,91 +1,233 @@
 # Scripts — VPN Enterprise
 
-This folder contains helper scripts used for building, deploying and managing the project.
+This folder provides focused helper scripts to build, deploy and manage the project. The goal is to make it easy to push
+changes locally or from CI to Vercel (API and Web), while still supporting on-prem / Docker-based workflows.
+
+TL;DR (most-common commands)
+
+- One-command push+deploy (interactive prompt for commit message):
+  ./scripts/auto-deploy.sh
+
+- Push+deploy with inline commit message (non-interactive):
+  ./scripts/auto-deploy.sh "My release: fix X"
+
+- Deploy only (no commit):
+  ./scripts/deploy-vercel.sh --skip-api-build
+
 
 Prerequisites
+
 - Node.js & npm
-- Docker (for local docker-based deploys)
-- Vercel CLI (`npm i -g vercel`) or use `npx vercel`.
-- A GitHub remote named `origin` and permission to push to the `main` branch.
+- Docker (only needed for the Docker deployment scripts)
+- Vercel CLI (optional locally): `npm i -g vercel` or use `npx vercel`
+- A Git remote named `origin` and permission to push to `main`
 
-Environment variables
-- `VERCEL_TOKEN` (optional) — provide to the vercel CLI in CI to run non-interactive deploys.
-- `.env` — project environment file used by many scripts (see `quick-start.sh`).
+Environment & Secrets
 
-Key scripts
+- `.env` — local environment variables used by many scripts (see repo root `quick-start.sh`).
+- `VERCEL_TOKEN` — CI-only secret: create a Vercel personal token and store it in GitHub Actions as `VERCEL_TOKEN`.
 
-- `scripts/build-api-vercel.sh` — Prepares `packages/api/dist` for Vercel by building workspace packages and copying compiled output into `packages/api/dist/lib/`. Also swaps to the Vercel-friendly `package.vercel.json` during deploy prep (it creates a backup). Run this before deploying the API if you want the compiled `dist` to be used by Vercel.
+Important scripts (what they do)
 
-- `scripts/deploy-vercel.sh` — Unified Vercel deploy helper. It runs `scripts/build-api-vercel.sh` (unless you pass `--skip-api-build`), then deploys the API and Web Dashboard with the `vercel` CLI using `--prod --yes`.
+- `scripts/build-api-vercel.sh`
+  - Builds workspace packages and prepares `packages/api/dist` for Vercel.
+  - Copies built outputs into `packages/api/dist/lib/` to keep the API bundle self-contained for Vercel.
+  - Swaps `packages/api/package.json` with `package.vercel.json` (backs up the original to `package.json.backup`).
 
-- `scripts/git/push.sh "commit message"` — Stages, commits, and pushes all changes to `origin/main`. Use a descriptive commit message. It will skip push if there are no changes.
+- `scripts/deploy-vercel.sh` (main deploy helper)
+  - Default behavior: runs the API build helper, then deploys API and Web Dashboard to Vercel using the CLI.
+  - Options:
+    - `--skip-api-build` — skip the API build step
+    - `--api-project <slug>` — pass a Vercel project slug for the API deploy
+    - `--web-project <slug>` — pass a Vercel project slug for the Web deploy
+    - `--vercel-args '<extra args>'` — pass extra arguments to the vercel CLI
+  - The script restores `packages/api/package.json` automatically if a backup exists.
 
-- `scripts/auto-deploy.sh "commit message"` — Orchestrator: runs the push helper then runs `deploy-vercel.sh`. Useful for simple one-command releases from your workstation.
+- `scripts/git/push.sh`
+  - Stages all changes, asks for (or accepts) a commit message, commits and pushes to `origin/main`.
+  # scripts/README — VPN Enterprise
 
-- `scripts/deploy-all.sh` — (Existing) Another helper that directly runs `vercel --prod` for the API and Dashboard. It assumes the projects are already configured with the expected slugs.
+  This document explains the helper scripts in `./scripts/` and the recommended local and CI workflows so you (or any teammate) can pick the project back up later and know exactly how to build and deploy it.
 
-- `scripts/deployment/*` — Docker-based build, deploy, health-check and rollback scripts for on-prem or server deployments (not required for Vercel-hosted services). Useful for staging or local self-hosted environments.
+  ## Summary (quick commands)
 
-Typical workflows
+  - One-command interactive push + deploy (recommended):
+    - `./scripts/auto-deploy.sh`
+  - Non-interactive push + deploy with message:
+    - `./scripts/auto-deploy.sh "My release: fix X"`
+  - Deploy only (no commit):
+    - `./scripts/deploy-vercel.sh --skip-api-build`
+  - Makefile short-hands (repo root):
+    - `make deploy`         # runs `./scripts/deploy-vercel.sh`
+    - `make deploy-skip-api`
+    - `make auto-deploy`
 
-1) Quick local deploy to Vercel (build API for Vercel, then deploy both):
+  ## Prerequisites
 
-```bash
-# from repo root
-./scripts/deploy-vercel.sh
-```
+  - Node.js & npm (v16+/v18+ recommended)
+  - Git with a remote named `origin` and permission to push to `main`
+  - Optional: Docker (only if you intend to use the Docker deployment scripts)
+  - Optional: Vercel CLI for local testing: `npm i -g vercel` or use `npx vercel`
 
-2) Skip rebuilding API (if you already prepared `packages/api/dist`):
+  ## Why these scripts exist
 
-```bash
-./scripts/deploy-vercel.sh --skip-api-build
-```
+  The repo is a monorepo (apps/ + packages/). Deploying to Vercel or running production-like builds requires: building TypeScript packages, producing a self-contained `packages/api/dist` for the serverless target, and calling Vercel from the appropriate subdirectory. The scripts automate these steps so you don't need to remember the exact sequence later.
 
-3) Commit changes and auto-deploy (convenience):
+  ## What changed recently (useful when you come back)
 
-```bash
-./scripts/auto-deploy.sh "My release: fix X and Y"
-```
+  - A repo `Makefile` with common targets: `build`, `deploy`, `deploy-skip-api`, `auto-deploy`, `push` (call `make` from repository root).
+  - Two shell aliases appended to `~/.bashrc` (if not already present):
+    - `deploy-vc` → `/home/$(whoami)/vpn-enterprise/scripts/deploy-vercel.sh`
+    - `auto-deploy` → `/home/$(whoami)/vpn-enterprise/scripts/auto-deploy.sh`
+    (If you prefer not to modify your shell config, remove those lines from `~/.bashrc`.)
 
-4) Only push to GitHub (no deploy):
+  ## Important scripts (what they do)
 
-```bash
-./scripts/git/push.sh "WIP: my changes"
-```
+  - `scripts/build-api-vercel.sh`
+    - Builds relevant workspace packages and prepares `packages/api/dist` for Vercel.
+    - It may copy built outputs into `packages/api/dist/lib/` and temporarily swap `packages/api/package.json` with `package.vercel.json` to shape the bundle for Vercel.
 
-CI / Automation recommendations
+  - `scripts/deploy-vercel.sh` (main deploy helper)
+    - Default: runs the API build helper then deploys API and Web Dashboard to Vercel using the CLI.
+    - Options:
+      - `--skip-api-build` — skip the API build step
+      - `--api-project <slug>` — pass a Vercel project slug for the API deploy
+      - `--web-project <slug>` — pass a Vercel project slug for the Web deploy
+      - `--vercel-args '<extra args>'` — pass additional args to `vercel`
+    - Behavior: restores `packages/api/package.json` automatically if a backup exists.
 
-- Use `VERCEL_TOKEN` in your CI secrets and call `npx vercel --prod --confirm` to deploy from CI. Example GitHub Actions job:
+  - `scripts/git/push.sh`
+    - Stages all changes, prompts for (or accepts) a commit message, commits and pushes to `origin/main`.
+    - If there is nothing to commit it will notify and skip the push.
 
-```yaml
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-      - name: Build API for Vercel
-        run: bash ./scripts/build-api-vercel.sh
-      - name: Deploy API to Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx vercel --prod --confirm --cwd packages/api
-      - name: Deploy Web to Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx vercel --prod --confirm --cwd apps/web-dashboard
-```
+  - `scripts/auto-deploy.sh`
+    - Orchestrator: runs `git/push.sh` then `deploy-vercel.sh` and forwards extra flags.
 
-Notes & safety
-- The scripts make some assumptions about repo layout and configured Vercel project slugs. Verify the slugs in your Vercel dashboard match the URLs referenced in the messages.
-- `build-api-vercel.sh` will swap `package.json` for `package.vercel.json` by backing up the original — remember to restore if you need the original locally. The script prints instructions.
-- For production secrets and tokens, use your CI provider's secrets store (GitHub Actions secrets) — never hard-code tokens.
+  - `scripts/deployment/*` (Docker)
+    - `build.sh`, `deploy.sh`, `health-check.sh`, `rollback.sh` — use these for on-prem or Docker compose deployments.
 
-If you want, I can:
-- Add a GitHub Actions workflow file under `.github/workflows/deploy.yml` that runs the CI snippet above.
-- Make the API build script restore `package.json` automatically after the vercel deploy completes to avoid manual restoration steps.
+  ## Local developer flows (recommended)
 
-— End of scripts/README
+  1) Work & test locally (run the servers you need, run unit tests for packages you changed).
+
+  2) When ready, either:
+
+    - Interactive push + deploy (recommended):
+
+      ```bash
+      ./scripts/auto-deploy.sh
+      ```
+
+    - Non-interactive push + deploy with message (convenient in CI or scripted releases):
+
+      ```bash
+      ./scripts/auto-deploy.sh "Release: fix X" --skip-api-build
+      ```
+
+    - Deploy only (no commit) if you want to quickly test the built artifacts:
+
+      ```bash
+      ./scripts/deploy-vercel.sh --skip-api-build
+      ```
+
+  ## Notes about the API build
+
+  - The API is TypeScript. Before Vercel deploys the bridge requires compiled JS under `packages/api/dist`. `build-api-vercel.sh` runs `tsc` for the API and ensures the dist is packaged for Vercel.
+  - If a `package.json.backup` appears under `packages/api`, it means the build helper swapped `package.json` during packaging. `deploy-vercel.sh` tries to restore it; to restore manually:
+
+  ```bash
+  mv packages/api/package.json.backup packages/api/package.json
+  ```
+
+  ## CI: GitHub Actions
+
+  - There is a `.github/workflows/deploy.yml` workflow that runs on pushes to `main` and uses a `VERCEL_TOKEN` secret to call the Vercel CLI.
+  - The workflow has an early-check step that fails clearly if the secret is missing (this prevents confusing CI runs).
+
+  ## Managing Vercel tokens & repository secrets
+
+  - Create a token in the Vercel dashboard: https://vercel.com/account/tokens — copy it (shown only once).
+  - Add it to GitHub Repository Secrets (Settings → Secrets and variables → Actions) with the name `VERCEL_TOKEN`.
+  - Never paste tokens into chat or code — if you ever accidentally expose a token, revoke it immediately via Vercel and create a new one.
+
+  ## Local verification using a token (optional, for testing only)
+
+  ```bash
+  export VERCEL_TOKEN="<token>"
+  npx vercel --prod --confirm --cwd packages/api --token "$VERCEL_TOKEN"
+  npx vercel --prod --confirm --cwd apps/web-dashboard --token "$VERCEL_TOKEN"
+  ```
+
+  ## Authentication / session notes (where to look)
+
+  - The API's Express app lives at `packages/api/src/app.ts` and contains routes for session refresh and logout (e.g. `/api/v1/auth/refresh`, `/api/v1/auth/logout`).
+  - The client fetch wrapper that performs a silent refresh lives at `apps/web-dashboard/lib/api.ts`. If you change auth flow, update both client and server.
+
+  ## Troubleshooting & verification checklist (when you return later)
+
+  1) Local build sanity
+     - `make build` or run `npm run build` in `packages/api` — ensure `packages/api/dist` appears.
+  2) Verify API bridge for Vercel
+     - Check `packages/api/api/index.js` exists and requires `../dist/index.js`.
+  3) Run deploy script and capture URLs
+     - `./scripts/deploy-vercel.sh` prints the Vercel inspect/production URLs. Save them for later.
+  4) If something goes wrong with package.json swap
+     - Restore the backup: `mv packages/api/package.json.backup packages/api/package.json` and re-run build.
+  5) Check Vercel logs for runtime errors
+     - Use the Vercel dashboard Links (`Inspect`) from the deploy output or `vercel logs <deploymentId>`.
+  6) Session/auth issues
+     - If clients start getting 401s, test `/api/v1/auth/refresh` manually and check cookies (httpOnly refresh cookie must be present).
+
+  ## Quick commands (copy/paste)
+
+  ```bash
+  # Makefile targets
+  make deploy
+  make deploy-skip-api
+  make auto-deploy
+
+  # One-command interactive push + deploy
+  ./scripts/auto-deploy.sh
+
+  # Non-interactive push + deploy with message
+  ./scripts/auto-deploy.sh "Release: small fix" --skip-api-build
+
+  # Deploy only (no commit)
+  ./scripts/deploy-vercel.sh --skip-api-build
+
+  # Push only
+  ./scripts/git/push.sh
+  ./scripts/git/push.sh "My commit message"
+
+  # Restore API package.json if needed
+  mv packages/api/package.json.backup packages/api/package.json
+  ```
+
+  ## Safety, rollback & housekeeping
+
+  - Revoke and rotate any token you think may be compromised.
+  - For rollbacks: in Vercel dashboard you can restore a previous deployment. For code rollbacks, revert the commit and re-run `./scripts/auto-deploy.sh`.
+
+  ## Where to look (quick repo map)
+
+  - API entry: `packages/api/src/app.ts` (Express app)
+  - API Vercel bridge: `packages/api/api/index.js`
+  - API build helper: `scripts/build-api-vercel.sh`
+  - Deploy helper: `scripts/deploy-vercel.sh`
+  - Git helper: `scripts/git/push.sh`
+  - Orchestrator: `scripts/auto-deploy.sh`
+  - Web client fetch wrapper (silent refresh): `apps/web-dashboard/lib/api.ts`
+
+  If you prefer I can also:
+
+  - Add an optional small test script to verify the silent-refresh flow end-to-end locally.
+  - Add a small health-check script that pings the deployed API and returns a concise status.
+
+  ## Contact & notes
+
+  - Do NOT paste tokens or secrets into PRs or chat logs. Use GitHub Secrets. If you accidentally paste a token, revoke it and rotate immediately.
+  - If you want I can add a tiny `scripts/verify-deploy.sh` that checks the production URLs and returns a quick pass/fail status.
+
+  ---
+
+  End of scripts/README

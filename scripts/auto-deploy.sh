@@ -1,3 +1,27 @@
+# -----------------------------------------------------------------------------
+# auto-deploy.sh
+#
+# Orchestrates the deployment workflow:
+#   1. Commits and pushes local changes to GitHub using a helper script.
+#   2. Deploys the project to Vercel using a deployment script.
+#
+# Usage:
+#   ./scripts/auto-deploy.sh [commit-message] [deploy-vercel-args...]
+#
+# Arguments:
+#   commit-message         Optional. Commit message for git push. If omitted,
+#                         the push helper script will prompt interactively.
+#   deploy-vercel-args     Optional. Additional arguments passed to the
+#                         deploy-vercel.sh script (e.g., --skip-api-build).
+#
+# Environment:
+#   ROOT_DIR               The project root directory, determined relative to
+#                         the script's location.
+#
+# Exit Codes:
+#   Non-zero exit code on failure.
+#
+# -----------------------------------------------------------------------------
 #!/bin/bash
 # Orchestrator: push changes to GitHub, then deploy to Vercel
 set -euo pipefail
