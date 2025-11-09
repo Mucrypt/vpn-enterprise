@@ -1,0 +1,32 @@
+name: infra-verify
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Start dev compose stack
+        working-directory: infrastructure/docker
+        run: |
+          docker compose -f docker-compose.dev.yml up -d --build
+
+      - name: Wait for services to warm up
+        run: sleep 20
+
+      - name: Run infrastructure verifier
+        run: |
+          bash -x infrastructure/verify-stack.sh || (docker compose -f infrastructure/docker/docker-compose.dev.yml down && exit 1)
+
+      - name: Tear down compose stack
+        if: always()
+        working-directory: infrastructure/docker
+        run: docker compose -f docker-compose.dev.yml down --volumes --remove-orphans
