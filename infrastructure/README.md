@@ -1,3 +1,159 @@
+# infrastructure — VPN Enterprise
+
+This document explains the contents of the `infrastructure/` folder, how to run the Docker-based stacks (dev and prod), the nginx configuration, and the included monitoring stack (Prometheus, Grafana, Promtail). It also contains operational guidance and troubleshooting steps so on-call engineers and future maintainers can pick this up quickly.
+
+Contents overview
+
+- `docker/`
+    - `docker-compose.dev.yml` — development compose file that wires up local API, web, database, and reverse proxy in a single environment.
+    - `docker-compose.yml` — production-ish compose file (intended for self-hosting or staging).
+    - `Dockerfile.api` — container build for the API service (used by compose and CI if you build docker images).
+    - `Dockerfile.web` — container build for the web dashboard.
+    - `nginx/`
+        - `nginx.conf` — main nginx config
+        - `conf.d/` — site-specific vhost configs (`default.conf`, `dev.conf`)
+        - `ssl/` — placeholder for TLS certs for on-prem deployments (gitignored or contains .gitkeep here)
+
+- `monitoring/`
+    - `prometheus/` — `prometheus.yml` with scrape configs for services
+    - `grafana/` — dashboards and datasource config
+    - `promtail/` — config for shipping logs to Loki or configured log endpoints
+
+Quick start — development (docker-compose)
+
+1. Prerequisites
+
+     - Docker & Docker Compose installed (Docker Engine + Compose v1/v2)
+     - Sufficient disk space for images/volumes
+     - If you plan to use TLS locally, add certs to `infrastructure/docker/nginx/ssl/` (or mount them at runtime)
+
+2. Start the development stack
+
+```bash
+cd infrastructure/docker
+docker compose -f docker-compose.dev.yml up --build
+```
+
+3. Bring the stack down when finished
+
+```bash
+docker compose -f docker-compose.dev.yml down --volumes
+```
+
+Notes
+
+- The dev compose file is intended to run local copies of the API, web, and any supporting services (db, redis). It also includes an nginx reverse proxy to replicate host routing.
+- If you modify Dockerfiles, re-run `--build` or manually `docker build` the images and restart the compose stack.
+
+Production / staging with `docker-compose.yml`
+
+- `docker-compose.yml` is a starting point for self-hosted or on-prem deployments. It is not a replacement for a real orchestrator (Kubernetes, Nomad) in large-scale environments.
+- For production, ensure:
+    - TLS termination is handled (nginx + Let's Encrypt or a managed LB)
+    - Secrets are injected via environment variables or a secret manager (do not commit secrets)
+    - External volumes/backups for any persistent storage (Postgres data, logs)
+
+Example to run production compose (careful — this expects configured env and volumes):
+
+```bash
+cd infrastructure/docker
+docker compose -f docker-compose.yml up -d --build
+```
+
+Reverse proxy (nginx)
+
+- `infrastructure/docker/nginx/nginx.conf` is the main global config. Per-site configs live under `conf.d/`.
+- `conf.d/default.conf` and `conf.d/dev.conf` contain host-based routing and proxy_pass rules for the API and web dashboard.
+- TLS/SSL
+    - `infrastructure/docker/nginx/ssl/` is where TLS certs are expected for on-prem deployments. For production, use a trusted CA (Let's Encrypt or a corporate CA).
+    - If you use Let's Encrypt, manage cert renewal (certbot or an automated ACME client). Mount renewed certs into the nginx container and trigger a reload: `docker compose exec nginx nginx -s reload`.
+
+Monitoring (Prometheus / Grafana / Promtail)
+
+- The monitoring folder contains starter configs for a basic monitoring stack:
+    - Prometheus: `monitoring/prometheus/prometheus.yml` — scrape targets for services (adjust job targets to match your deployment hostnames/ports).
+    - Grafana: `monitoring/grafana/datasources/datasources.yml` and `monitoring/grafana/dashboards/` — preconfigured dashboards/DS.
+    - Promtail: `monitoring/promtail/promtail-config.yml` — tails container logs and forwards them to a Loki/Log endpoint configured in Grafana.
+
+Bringing up the monitoring stack (example)
+
+```bash
+cd infrastructure/monitoring
+docker compose -f ./docker-compose.yml up -d
+# or, if you have a single compose file referencing these services, bring them up there.
+```
+
+Operational runbook (common tasks)
+
+1) See container logs
+
+```bash
+docker compose -f infrastructure/docker/docker-compose.yml logs -f <service>
+```
+
+2) Restart a service (nginx example)
+
+```bash
+docker compose -f infrastructure/docker/docker-compose.yml restart nginx
+```
+
+3) Update TLS certs and reload nginx
+
+```bash
+# after placing new certs into infrastructure/docker/nginx/ssl/
+docker compose -f infrastructure/docker/docker-compose.yml exec nginx nginx -s reload
+```
+
+4) Backup Postgres data
+
+```bash
+docker exec -t <postgres-container> pg_dumpall -U <user> > /path/to/backup.sql
+```
+
+Troubleshooting
+
+- Container fails to start: check `docker compose logs <service>` and the service's healthcheck.
+- Port conflicts: ensure the host ports in docker-compose do not collide with other services.
+- Nginx 502 errors: the proxied upstream (API or web) may not be ready or listening on the expected host/port — check the service logs.
+- Monitoring missing data: verify Prometheus scrape targets and that services expose metrics endpoints (e.g., `/metrics`).
+
+Security & secrets
+
+- Do not store production secrets in the repository. Use environment variables, Docker secrets, or a secrets manager.
+- Limit access to the host(s) running these containers. Use firewalls and restrict management ports (SSH, Docker API).
+
+Enterprise notes & best practices
+
+- Orchestration: for production scale, migrate to an orchestrator (Kubernetes, ECS, Nomad). Compose is fine for small infra or staging.
+- Observability: wire application metrics (Prometheus), structured logs (Loki), and tracing (Jaeger or similar) before scaling.
+- Automated deployments: integrate CI to build images and push to a registry, then deploy images to the orchestrator instead of building on host.
+- Secrets & rotation: centralize secrets, enforce rotation policies, and audit access.
+
+Maintenance checklist (for regular ops)
+
+1) Verify backups for DB and critical data
+2) Check monitoring alerts and dashboards daily
+3) Rotate TLS certificates and secrets as needed
+4) Patch base images and dependencies periodically
+5) Run security scans on images (Trivy / Clair)
+
+Where to look for configuration
+
+- Docker compose files: `infrastructure/docker/docker-compose.dev.yml`, `infrastructure/docker/docker-compose.yml`
+- Dockerfiles: `infrastructure/docker/Dockerfile.api`, `infrastructure/docker/Dockerfile.web`
+- Nginx config: `infrastructure/docker/nginx/` (conf.d/ and ssl/)
+- Monitoring: `infrastructure/monitoring/`
+
+Suggested follow-ups I can implement
+
+- Add a `infrastructure/verify-stack.sh` that performs quick health checks for API, web, Prometheus, and Grafana and returns pass/fail.
+- Add a small CI job that builds images and runs `infrastructure/verify-stack.sh` against a disposable environment.
+- Add example `docker-compose.override.yml` (local developer tweaks) and a small `Makefile` for common infra tasks.
+
+---
+
+End of infrastructure/README
+
 # 🚀 VPN Enterprise - Infrastructure
 
 **Enterprise-grade infrastructure for VPN service deployment**
