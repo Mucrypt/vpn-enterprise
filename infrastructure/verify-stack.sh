@@ -76,7 +76,8 @@ if [ "$SKIP_PROMETHEUS" != "true" ]; then
       PROM_CONT=$(docker ps --format '{{.Names}} {{.Image}}' | grep -i prometheus | awk '{print $1}' | head -n1 || true)
       if [ -n "$PROM_CONT" ]; then
         echo "Host check failed; trying inside container: $PROM_CONT"
-        if docker exec "$PROM_CONT" sh -c "curl -fsS -m 5 $PROMETHEUS_HEALTH_URL" >/dev/null 2>&1; then
+        # Try curl, then wget fallback inside container
+        if docker exec "$PROM_CONT" sh -c "curl -fsS -m 5 $PROMETHEUS_HEALTH_URL >/dev/null 2>&1 || (wget -q -T5 -O- $PROMETHEUS_HEALTH_URL >/dev/null 2>&1)" >/dev/null 2>&1; then
           echo "[PASS] Prometheus (in container) -> $PROMETHEUS_HEALTH_URL"
         else
           echo "[FAIL] Prometheus (in container) -> $PROMETHEUS_HEALTH_URL"
@@ -98,10 +99,11 @@ if [ "$SKIP_GRAFANA" != "true" ]; then
   if ! check_with_retries "Grafana" "$GRAFANA_HEALTH_URL"; then
     # Try checking inside a running grafana container as a fallback
     if command -v docker >/dev/null 2>&1; then
-      GRAF_CONT=$(docker ps --format '{{.Names}} {{.Image}}' | grep -i grafana | awk '{print $1}' | head -n1 || true)
+      # Prefer grafana container but avoid matching promtail (image name contains 'grafana')
+      GRAF_CONT=$(docker ps --format '{{.Names}} {{.Image}}' | grep -i grafana | grep -vi promtail | awk '{print $1}' | head -n1 || true)
       if [ -n "$GRAF_CONT" ]; then
         echo "Host check failed; trying inside container: $GRAF_CONT"
-        if docker exec "$GRAF_CONT" sh -c "curl -fsS -m 5 $GRAFANA_HEALTH_URL" >/dev/null 2>&1; then
+        if docker exec "$GRAF_CONT" sh -c "curl -fsS -m 5 $GRAFANA_HEALTH_URL >/dev/null 2>&1 || (wget -q -T5 -O- $GRAFANA_HEALTH_URL >/dev/null 2>&1)" >/dev/null 2>&1; then
           echo "[PASS] Grafana (in container) -> $GRAFANA_HEALTH_URL"
         else
           echo "[FAIL] Grafana (in container) -> $GRAFANA_HEALTH_URL"
