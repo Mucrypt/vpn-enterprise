@@ -1,0 +1,14 @@
+{
+  "name": "web-dashboard-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --project=chromium --grep @smoke",
+    "install-browsers": "npx playwright install --with-deps"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.35.0",
+    "@types/node": "^20.5.4"
+  }
+}
