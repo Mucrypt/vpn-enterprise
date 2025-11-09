@@ -25,7 +25,8 @@ const connectionTracker = new ConnectionTracker();
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  // Allow common local dev origins: Next.js dev server (host:3001) and legacy localhost:3000
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3001', 'http://localhost:3000'],
   credentials: true
 }));
 

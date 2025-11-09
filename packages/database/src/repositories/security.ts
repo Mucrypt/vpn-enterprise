@@ -1,5 +1,5 @@
-import { supabase, supabaseAdmin, supabaseAdminUntyped } from '../client';
-import { Database, UserSecuritySettings } from '../types';
+import { supabase, supabaseAdmin, supabaseAdminUntyped } from '@vpn-enterprise/database/src/client';
+import { Database, UserSecuritySettings } from '@vpn-enterprise/database/src/types';
 
 type UserSecuritySettingsInsert = Database['public']['Tables']['user_security_settings']['Insert'];
 type UserSecuritySettingsUpdate = Database['public']['Tables']['user_security_settings']['Update'];

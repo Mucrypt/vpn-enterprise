@@ -1,5 +1,5 @@
-import { supabase, supabaseAdminUntyped } from '../client';
-import { Database, SecurityAuditLog, KillSwitchEvent } from '../types';
+import { supabase, supabaseAdminUntyped } from '@vpn-enterprise/database/src/client';
+import { Database, SecurityAuditLog, KillSwitchEvent } from '@vpn-enterprise/database/src/types';
 
 type SecurityAuditLogInsert = Database['public']['Tables']['security_audit_log']['Insert'];
 type KillSwitchEventInsert = Database['public']['Tables']['kill_switch_events']['Insert'];

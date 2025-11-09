@@ -24,3 +24,16 @@ auto-deploy:
 # Push only (git helper will prompt if no message supplied)
 push:
 	./scripts/git/push.sh
+
+
+# Run infrastructure verification and web smoke E2E tests (if present)
+.PHONY: web-verify
+web-verify:
+	@echo "Running infrastructure verification..."
+	./infrastructure/verify-stack.sh
+	@echo "If Playwright E2E exists, running smoke tests..."
+	@if [ -d "apps/web-dashboard/e2e" ]; then \
+		cd apps/web-dashboard/e2e && npm ci && npm run install-browsers && npx playwright test --project=chromium --grep @smoke; \
+	else \
+		echo "No E2E directory found at apps/web-dashboard/e2e -- skipping Playwright tests."; \
+	fi

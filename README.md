@@ -39,206 +39,170 @@ vpn-enterprise/
 ## ✨ Features
 
 ### Core Features
-- ✅ **WireGuard Integration** - Fast, modern VPN protocol
-- ✅ **User Authentication** - Powered by Supabase Auth
-- ✅ **Subscription Management** - Free, Basic, Premium, Enterprise tiers
-- ✅ **Multi-Device Support** - Connect multiple devices per user
-- ✅ **Server Load Balancing** - Automatic server selection
-- ✅ **Connection Tracking** - Real-time connection monitoring
-- ✅ **Data Usage Analytics** - Track bandwidth and data usage
-- ✅ **Global Server Network** - Deploy servers worldwide
+```markdown
+# 🔐 VPN Enterprise — Enterprise-grade, monetizable VPN platform
 
-### Database Schema
-- **servers** - VPN server information and status
-- **user_subscriptions** - User subscription plans and billing
-- **user_devices** - User devices with WireGuard keys
-- **connection_logs** - Connection history and analytics
-- **server_statistics** - Server performance metrics
+VPN Enterprise is a production-ready platform that combines WireGuard, Node.js, Supabase, and Next.js to provide a commercial-grade VPN service. The project is designed to be deployed for customers (SaaS and on-prem), and includes the dashboard, API, database schema, and infrastructure automation needed to run a scalable, monetizable VPN offering.
 
-## 🚀 Quick Start
+Build status: experimental | License: ISC | Platform: Docker, Vercel, Supabase
 
-### Prerequisites
-- Node.js 18+ and npm
-- Supabase account (https://supabase.com)
-- Ubuntu server with WireGuard installed
-- (Optional) Stripe account for payments
+Quick links
+- Docs: ./docs/DEPLOYMENT_GUIDE.md and ./infrastructure/README.md
+- Dev helpers: `./scripts/start-dev.sh`, `./scripts/stop-dev.sh`, `./infrastructure/verify-stack.sh`
+- API entry: `packages/api/src/index.ts`
 
-### 1. Clone and Install
+Why this project
+- Real-world stack: WireGuard for performance and security, Supabase for auth & Postgres, Next.js for the dashboard.
+- Designed for monetization: subscription tiers, billing integration points, and enterprise features baked into the data model.
+- Developer-friendly: monorepo with npm workspaces, Docker compose for dev and prod, and helper scripts for fast iteration.
 
-\`\`\`bash
+## 🏗️ Architecture
+
+```
+┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
+│   Next.js Web   │◄────►│   Node.js API    │◄────►│    Supabase     │
+│    Dashboard    │      │   (Express.js)   │      │   (PostgreSQL)  │
+└─────────────────┘      └──────────────────┘      └─────────────────┘
+                         ▲
+                         │
+                         ▼
+                   ┌──────────────────┐
+                   │  WireGuard VPN   │
+                   │     Servers      │
+                   └──────────────────┘
+```
+
+## 📦 Project Structure
+
+```
+vpn-enterprise/
+├── packages/
+│   ├── api/              # REST API server (Express.js)
+│   ├── auth/             # Authentication & authorization
+│   ├── database/         # Supabase database layer
+│   ├── vpn-core/         # VPN server management
+│   ├── billing/          # Subscription & payment handling
+│   └── shared/           # Shared utilities
+├── apps/
+│   └── web-dashboard/    # Next.js user dashboard
+└── infrastructure/
+   ├── docker/           # Docker configurations
+   └── monitoring/       # Monitoring & logging
+```
+
+## ✨ Features
+
+### Core Features
+- ✅ WireGuard integration for high-performance encrypted tunnels
+- ✅ Supabase-based auth and user management
+- ✅ Subscription management and billing hooks
+- ✅ Multi-device support and device key management
+- ✅ Server selection and load balancing utilities
+- ✅ Connection tracking and usage analytics
+
+### Database schema highlights
+- `servers`, `user_subscriptions`, `user_devices`, `connection_logs`, `server_statistics`
+
+## 🚀 Quick start (developer)
+
+1) Clone and install
+
+```bash
 git clone <your-repo>
 cd vpn-enterprise
 npm install
-\`\`\`
+```
 
-### 2. Set Up Supabase
+2) Copy env template and edit required values
 
-1. **Create a Supabase project**: https://app.supabase.com
-
-2. **Run the database schema**:
-   - Go to SQL Editor in Supabase
-   - Copy and execute `/packages/database/schema.sql`
-
-3. **Get your credentials**:
-   - Project Settings → API
-   - Copy `Project URL` and `anon/public key`
-   - Copy `service_role key` (keep it secret!)
-
-### 3. Configure Environment Variables
-
-\`\`\`bash
+```bash
 cp .env.example .env
-\`\`\`
+# Edit .env: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, etc.
+```
 
-Edit `.env` with your Supabase credentials:
+3) Use the start helper for the development stack (recommended)
 
-\`\`\`env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
-\`\`\`
+```bash
+chmod +x ./scripts/start-dev.sh ./scripts/stop-dev.sh
+./scripts/start-dev.sh
+```
 
-### 4. Start the Development Server
+Dev endpoints
+- API: http://localhost:3000
+- Web (Next dev): http://localhost:3001
 
-\`\`\`bash
-# Start API server
-cd packages/api
-npm run dev
-\`\`\`
+For a production-like deployment (nginx reverse-proxy + internal network), see `infrastructure/docker/docker-compose.yml` and `docs/DEPLOYMENT_GUIDE.md`.
 
-The API will be running at http://localhost:3000
+## 💰 Monetization & Business model
 
-## 📡 API Endpoints
+This project is built to be monetized. The repo includes hooks and data models to support multiple revenue streams:
 
-### Public Endpoints
+- Subscription tiers (Free, Basic, Premium, Enterprise) — billing integration points are provided under `packages/billing` and server-side checks live in `packages/api`.
+- Enterprise plans — dedicated servers, higher SLAs, and priority support. Add-ons can include dedicated IPs, higher throughput allocations, and on-prem deployment options.
+- Usage-based billing — connection logs and server statistics (stored in `connection_logs` and `server_statistics`) can feed per-GB or per-session billing.
+- Marketplace partnerships — provide white-label or partner APIs to resellers.
 
-\`\`\`
-GET  /health                    # Health check
-GET  /api/v1/servers            # List available VPN servers
-POST /api/v1/auth/signup        # User registration
-POST /api/v1/auth/login         # User login
-\`\`\`
+Suggested pricing model (example)
+- Free: limited data, 1 device — good for user acquisition
+- Basic: $9/mo — 3 devices, unlimited data
+- Premium: $15/mo — 5 devices, premium servers
+- Enterprise: custom pricing — dedicated capacity, SLA, SSO and support
 
-### Protected Endpoints (Require Authentication)
+Operational notes for monetization
+- Use Supabase RLS to enforce data access control and protect billing records.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only; never expose it to client code.
+- Add audit logs and billing reconciliation (monthly jobs) to avoid disputes.
 
-\`\`\`
-GET    /api/v1/user/profile           # Get user profile
-GET    /api/v1/user/subscription      # Get subscription info
-GET    /api/v1/user/devices           # List user devices
-POST   /api/v1/user/devices           # Add new device
-DELETE /api/v1/user/devices/:id       # Remove device
+## � Development & contrib
 
-GET    /api/v1/vpn/status             # VPN server status
-POST   /api/v1/vpn/connect            # Start VPN connection
-POST   /api/v1/vpn/disconnect         # End VPN connection
-GET    /api/v1/vpn/history            # Connection history
-\`\`\`
+Run tests
 
-### Admin Endpoints
-
-\`\`\`
-POST   /api/v1/admin/servers          # Add new server
-PUT    /api/v1/admin/servers/:id      # Update server
-DELETE /api/v1/admin/servers/:id      # Remove server
-GET    /api/v1/admin/users            # List all users
-GET    /api/v1/admin/statistics       # Platform statistics
-\`\`\`
-
-## 🔧 Development
-
-### Run Tests
-\`\`\`bash
+```bash
 npm test
-\`\`\`
+```
 
-### Build for Production
-\`\`\`bash
+Build (monorepo)
+
+```bash
 npm run build
-\`\`\`
+```
 
-### Start Production Server
-\`\`\`bash
+Start production server (example)
+
+```bash
+cd packages/api
+npm run build
 npm start
-\`\`\`
+```
 
-## 🌐 WireGuard Setup
+Developer helpers
 
-Your WireGuard server should already be configured. To integrate it:
+- `./scripts/start-dev.sh` — bring up dev compose and tail logs
+- `./scripts/stop-dev.sh` — stop dev compose and remove orphans
+- `./infrastructure/verify-stack.sh` — quick health verification for API and web
 
-1. **Get server public key**:
-\`\`\`bash
-sudo cat /etc/wireguard/public.key
-\`\`\`
-
-2. **Add server to database**:
-Use Supabase dashboard or API to add server information.
-
-3. **Configure environment**:
-Update `.env` with your WireGuard configuration.
-
-## 📊 Subscription Tiers
-
-| Plan       | Price    | Devices | Data Limit | Features              |
-|------------|----------|---------|------------|-----------------------|
-| Free       | $0/month | 1       | 10 GB/mo   | Basic features        |
-| Basic      | $9/month | 3       | Unlimited  | All servers           |
-| Premium    | $15/month| 5       | Unlimited  | Premium servers + P2P |
-| Enterprise | Custom   | Unlimited| Unlimited  | Dedicated support     |
-
-## 🔒 Security Best Practices
-
-1. **Never commit `.env` files** - They contain sensitive keys
-2. **Use HTTPS in production** - Encrypt all traffic
-3. **Rotate keys regularly** - Update WireGuard and API keys
-4. **Enable RLS in Supabase** - Row-level security is enabled by default
-5. **Use service role key only server-side** - Never expose to clients
-
-## 📦 Package Details
-
-### @vpn-enterprise/api
-Express.js REST API server with rate limiting, CORS, and security headers.
-
-### @vpn-enterprise/auth
-Authentication service using Supabase Auth with JWT validation.
-
-### @vpn-enterprise/database
-Type-safe Supabase client with repository pattern for data access.
-
-### @vpn-enterprise/vpn-core
-WireGuard integration, server management, and connection tracking.
-
-### @vpn-enterprise/billing
-(Coming soon) Stripe integration for subscription management.
-
-## 🚀 Deployment
-
-### Deploy to Production
-
-1. **Set up a VPS** (AWS, DigitalOcean, Oracle Cloud, etc.)
-2. **Install WireGuard** on the server
-3. **Configure environment variables** for production
-4. **Use PM2** or similar for process management
-5. **Set up NGINX** as reverse proxy
-6. **Configure SSL/TLS** with Let's Encrypt
-
-### Deploy with Docker
-
-\`\`\`bash
-docker-compose up -d
-\`\`\`
-
-## 📝 License
-
-ISC
+Where to look
+- API entry & routes: `packages/api/src/app.ts`, `packages/api/src/index.ts`
+- Web app: `apps/web-dashboard`
+- Infra: `infrastructure/docker/` (dev / prod compose & nginx)
+- Docs & deployment guide: `docs/DEPLOYMENT_GUIDE.md`
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions welcome. A few guidelines to keep the project healthy:
 
-## 📧 Support
+- Keep changes small and focused. For API changes, update `packages/api/src/app.ts` and add tests where appropriate.
+- If you change a package, run `npm install` at repo root and `npm run build` for the changed package.
+- Don't commit secrets. Use `.env.example` as the template. Local secrets should live in `.env` (already added to `.gitignore`).
 
-For issues and questions, please open an issue on GitHub.
+See `CONTRIBUTING.md` in `apps/web-dashboard/` for frontend guidelines.
+
+## 📧 Support & commercial contact
+
+File issues on GitHub for bugs and feature requests. For commercial inquiries (partnerships, enterprise licensing, custom deployments), open an issue with the `business` label or contact the project owner listed in `.github/CODEOWNERS`.
 
 ---
 
-Built with ❤️ for enterprise-grade VPN services
+Built with ambition — aiming to be the fastest, most secure, and most enterprise-ready VPN platform.
+```
+npm start

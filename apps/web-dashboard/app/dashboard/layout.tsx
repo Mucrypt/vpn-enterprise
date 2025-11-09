@@ -1,4 +1,4 @@
-import { SidebarNavigation } from '@/components/ui/sidebar-navigation';
+import { SidebarNavigation } from '@/components/layout/sidebar-navigation';
 import { TopBar } from '@/components/ui/top-bar';
 import { ReactNode } from 'react';
 

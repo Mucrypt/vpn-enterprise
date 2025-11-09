@@ -4,14 +4,18 @@
  */
 
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { Server, VPNConnection, UserDevice, UserStats } from '@/src/types/vpn';
 import { SecurityDashboard, ThreatAnalytics } from '@/src/types/security';
 
-// Use your computer's local IP for development (find with `ifconfig` or `ipconfig`)
-// For production, this should be your actual API endpoint
-const API_BASE_URL = __DEV__ 
-  ? 'http://10.0.2.2:3000/api/v1' // Android emulator
-  : 'https://api.vpnenterprise.com/api/v1';
+// Determine base URL for API depending on environment and platform. Priority:
+// 1. EXPO_EXTRA_API_URL / process.env.EXPO_API_URL (set in app.json -> extra) to override
+// 2. In dev: Android emulator -> 10.0.2.2, iOS simulator -> localhost
+// 3. In production: use the canonical API hostname
+const overrideUrl = (Constants?.expoConfig?.extra as any)?.API_URL || process.env.EXPO_API_URL || process.env.API_URL;
+const API_BASE_URL = overrideUrl
+  || (__DEV__ ? (Platform.OS === 'android' ? 'http://10.0.2.2:5000/api/v1' : 'http://localhost:5000/api/v1') : 'https://api.vpnenterprise.com/api/v1');
 
 class VPNEnterpriseAPI {
   private client: AxiosInstance;

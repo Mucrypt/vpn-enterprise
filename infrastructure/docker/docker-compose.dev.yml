@@ -3,8 +3,6 @@
 # ==============================================
 # Lightweight setup for local development
 
-version: '3.9'
-
 services:
   # ============================================
   # API SERVER (Development)
@@ -15,23 +13,26 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.api
       target: builder
     container_name: vpn-api-dev
+    # Use the image-installed node_modules (preserved by anonymous volume) for faster starts
     command: npm run dev --workspace=@vpn-enterprise/api
     environment:
       - NODE_ENV=development
-      - PORT=3000
+      - PORT=5000
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
     env_file:
       - ../../.env
     ports:
-      - "3000:3000"
+      - "5000:5000"
     volumes:
       - ../../packages/api:/app/packages/api
       - ../../packages/auth:/app/packages/auth
       - ../../packages/database:/app/packages/database
       - ../../packages/vpn-core:/app/packages/vpn-core
       - /app/node_modules
+      # Preserve built dependencies installed during image build under packages/api/node_modules
+      - /app/packages/api/node_modules
     networks:
       - vpn-dev-network
 
@@ -50,7 +51,7 @@ services:
       - NODE_ENV=development
       - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
     env_file:
       - ../../apps/web-dashboard/.env.local
     ports:

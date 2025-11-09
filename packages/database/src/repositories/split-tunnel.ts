@@ -1,5 +1,5 @@
-import { supabase, supabaseAdmin, supabaseAdminUntyped } from '../client';
-import { Database, SplitTunnelRule, Platform } from '../types';
+import { supabase, supabaseAdmin, supabaseAdminUntyped } from '@vpn-enterprise/database/src/client';
+import { Database, SplitTunnelRule, Platform } from '@vpn-enterprise/database/src/types';
 
 type SplitTunnelRuleInsert = Database['public']['Tables']['split_tunnel_rules']['Insert'];
 type SplitTunnelRuleUpdate = Database['public']['Tables']['split_tunnel_rules']['Update'];

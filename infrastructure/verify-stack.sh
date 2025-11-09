@@ -1,4 +1,60 @@
 #!/usr/bin/env bash
+# Enhanced health-check + diagnostics for dev stack
+# Usage: ./infrastructure/verify-stack.sh
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+# If nginx is present and running, the publicly reachable endpoints are behind nginx
+if docker ps --format '{{.Names}}' | grep -q '^vpn-nginx$'; then
+  API_URL="http://localhost/api/health"
+  WEB_URL="http://localhost/"
+else
+  API_URL="http://localhost:3000/health"
+  WEB_URL="http://localhost:3001"
+fi
+
+echo "Checking API health (${API_URL}) ..."
+TMP_API_BODY=$(mktemp /tmp/verify_api_body.XXXXXX || echo /tmp/verify_api_body)
+if curl -fsS --max-time 5 "${API_URL}" -o "${TMP_API_BODY}"; then
+  echo "API health: OK"
+else
+  echo "API health: FAILED" >&2
+  echo "----- CURL VERBOSE OUTPUT (API) -----"
+  curl -v --max-time 10 "${API_URL}" || true
+  echo "----- RESPONSE BODY (if any) -----"
+  sed -n '1,200p' "${TMP_API_BODY}" || true
+  echo
+  echo "----- Docker containers and ports (docker ps) -----"
+  docker ps --format 'table {{.Names}}	{{.Image}}	{{.Status}}	{{.Ports}}' || true
+  echo
+  echo "----- Compose service status (if docker compose is available) -----"
+  docker compose -f "${ROOT_DIR}/infrastructure/docker/docker-compose.dev.yml" ps || true
+  exit 2
+fi
+
+echo "Checking Web dashboard (${WEB_URL}) ..."
+if curl -fsS --max-time 5 "${WEB_URL}" -o /tmp/verify_web_body.txt; then
+  echo "Web dashboard: OK"
+else
+  echo "Web dashboard: FAILED" >&2
+  echo "----- CURL VERBOSE OUTPUT (WEB) -----"
+  curl -v --max-time 10 "${WEB_URL}" || true
+  echo "----- RESPONSE BODY (if any) -----"
+  TMP_WEB_BODY=$(mktemp /tmp/verify_web_body.XXXXXX || echo /tmp/verify_web_body)
+  sed -n '1,200p' "${TMP_WEB_BODY}" || true
+  echo
+  echo "----- Docker containers and ports (docker ps) -----"
+  docker ps --format 'table {{.Names}}	{{.Image}}	{{.Status}}	{{.Ports}}' || true
+  echo
+  echo "----- Compose service status (if docker compose is available) -----"
+  docker compose -f "${ROOT_DIR}/infrastructure/docker/docker-compose.dev.yml" ps || true
+  exit 3
+fi
+
+echo "All checks passed."
+#!/usr/bin/env bash
 set -euo pipefail
 
 # infrastructure/verify-stack.sh

@@ -1,0 +1,40 @@
+name: web-e2e-smoke
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch: {}
+
+jobs:
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies (root)
+        run: npm ci
+
+      - name: Build web-dashboard
+        run: npm run build --workspace=apps/web-dashboard
+
+      - name: Start web dashboard
+        run: |
+          nohup npm --prefix apps/web-dashboard run start &
+          # wait for server to come up
+          n=0; until curl -fsS http://localhost:3000/ >/dev/null 2>&1 || [ $n -ge 30 ]; do n=$((n+1)); sleep 1; done
+
+      - name: Install Playwright browsers
+        run: |
+          cd apps/web-dashboard/e2e && npm ci
+          cd apps/web-dashboard/e2e && npm run install-browsers
+
+      - name: Run Playwright smoke tests
+        run: |
+          cd apps/web-dashboard/e2e
+          npx playwright test --project=chromium --grep @smoke

@@ -8,7 +8,11 @@
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["database", "supabase", "vpn"],
+  "keywords": [
+    "database",
+    "supabase",
+    "vpn"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -17,7 +21,7 @@
     "dotenv": "^16.3.1"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/node": "^20.19.24",
     "typescript": "^5.9.3"
   }
 }

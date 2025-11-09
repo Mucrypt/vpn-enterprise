@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from './types';
+import { Database } from '@vpn-enterprise/database/src/types';
 
 export class SupabaseDatabase {
   private static instance: SupabaseClient<Database>;

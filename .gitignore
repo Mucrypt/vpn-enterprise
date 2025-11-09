@@ -1,3 +1,17 @@
+# Local ignores
+.env
+/.env
+/.env.local
+node_modules/
+dist/
+/.next
+packages/*/node_modules/
+apps/*/node_modules/
+server_private.key
+server_public.key
+
+# scripts
+scripts/*.log
 # ============================================
 # VPN ENTERPRISE - ROOT .gitignore
 # ============================================

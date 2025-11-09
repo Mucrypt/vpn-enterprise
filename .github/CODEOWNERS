@@ -1,0 +1,9 @@
+# Codeowners for the repository
+# Web dashboard ownership: assign to the repo owner
+/apps/web-dashboard/ @Mucrypt
+
+# API package owners
+/packages/api/ @Mucrypt
+
+# Default fallback owner for the repo
+/* @Mucrypt
