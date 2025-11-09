@@ -24,18 +24,22 @@ echo "📋 Bundling workspace dependencies..."
 
 # Create lib directory for workspace packages to avoid overwriting API files
 mkdir -p dist/lib
-cp -r ../database/dist/* dist/lib/
-cp -r ../auth/dist/* dist/lib/
-cp -r ../vpn-core/dist/* dist/lib/
+cp -r ../database/dist/* dist/lib/ || true
+cp -r ../auth/dist/* dist/lib/ || true
+cp -r ../vpn-core/dist/* dist/lib/ || true
 
-# Save original package.json
-echo "💾 Backing up package.json..."
-cp package.json package.json.backup
+# Save original package.json (if not already backed up)
+if [ ! -f package.json.backup ]; then
+	echo "💾 Backing up package.json..."
+	cp package.json package.json.backup
+fi
 
 # Use Vercel-friendly package.json
-echo "📝 Using Vercel package.json..."
+echo "📝 Using Vercel package.json for deploy..."
 cp package.vercel.json package.json
 
-echo "✅ API ready for Vercel deployment!"
-echo "🚀 Run: cd packages/api && vercel --prod"
-echo "⚠️  Don't forget to restore: mv package.json.backup package.json"
+# create a marker so deploy wrapper can restore later
+touch .vercel-swap
+
+echo "✅ API prepared for Vercel deployment. The deploy wrapper will restore package.json after deploy."
+echo "🚀 Next: run the Vercel CLI from packages/api or use scripts/deploy-vercel.sh to deploy both projects."

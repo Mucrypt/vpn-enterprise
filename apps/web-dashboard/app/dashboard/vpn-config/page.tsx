@@ -157,15 +157,17 @@ export default function VPNConfigPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="relative flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">VPN Configuration</h1>
           <p className="text-gray-600 mt-1">Download WireGuard configs for your devices</p>
         </div>
-        <Button onClick={() => setShowAddDevice(true)} disabled={showAddDevice}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Device
-        </Button>
+        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+          <Button onClick={() => setShowAddDevice(true)} disabled={showAddDevice} className="z-[9999] shadow bg-black text-white hover:bg-gray-900">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Device
+          </Button>
+        </div>
       </div>
 
       {/* Data Usage */}
@@ -289,7 +291,7 @@ export default function VPNConfigPage() {
               <p className="text-gray-600 mb-4">
                 Add your first device to start using the VPN
               </p>
-              <Button onClick={() => setShowAddDevice(true)}>
+              <Button onClick={() => setShowAddDevice(true)} className="bg-black text-white hover:bg-gray-900">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Device
               </Button>

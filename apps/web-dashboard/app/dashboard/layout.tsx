@@ -8,7 +8,7 @@ export default function DashboardLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen" data-env={process.env.NODE_ENV}>
       <SidebarNavigation />
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar />

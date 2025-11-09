@@ -1,8 +1,27 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
+// Defer importing the auth store to avoid circulars at module-eval time in some SSR setups
+function logoutAndRedirect() {
+  try {
+    // import lazily so this module can be used in non-auth contexts without pulling store code
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { useAuthStore } = require('./store');
+    // If the store exists, call logout to clear tokens and redirect
+    if (useAuthStore && typeof useAuthStore.getState === 'function') {
+      useAuthStore.getState().logout();
+      return;
+    }
+  } catch (e) {
+    // fallback: clear local storage and redirect
+    localStorage.removeItem('access_token');
+    document.cookie = 'access_token=; path=/; max-age=0';
+    window.location.href = '/auth/login';
+  }
+}
+
 export async function fetchAPI(endpoint: string, options?: RequestInit) {
-  const token = localStorage.getItem('access_token');
-  
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
     ...options,
     headers: {
@@ -13,12 +32,68 @@ export async function fetchAPI(endpoint: string, options?: RequestInit) {
   });
 
   if (!response.ok) {
+    // If unauthorized, try silent refresh once
+    if (response.status === 401) {
+      try {
+        // Attempt to refresh using httpOnly cookie. This requires credentials to be included.
+        const refreshResp = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (refreshResp.ok) {
+          const refreshBody = await refreshResp.json().catch(() => ({}));
+          const newAccess = refreshBody?.session?.access_token || refreshBody?.access_token || refreshBody?.session?.token;
+          if (newAccess) {
+            localStorage.setItem('access_token', newAccess);
+
+            // Retry original request once with new token
+            const retryHeaders = {
+              'Content-Type': 'application/json',
+              ...(options?.headers || {}),
+              Authorization: `Bearer ${newAccess}`,
+            } as any;
+
+            const retryResp = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
+              ...options,
+              headers: retryHeaders,
+            });
+
+            if (retryResp.ok) return retryResp.json();
+            // otherwise fall through and handle error normally
+          }
+        }
+      } catch (e) {
+        // ignore and continue to final logout handling below
+      }
+
+      // If refresh failed, show a small notification (if available) then logout
+      try {
+        // lazy require toast to avoid SSR errors
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const toast = require('react-hot-toast').default;
+        if (toast && typeof toast.error === 'function') {
+          toast.error('Session expired. Please sign in again.');
+        }
+      } catch (e) {
+        // ignore toast errors
+      }
+
+      // perform logout and redirect
+      logoutAndRedirect();
+    }
+
     const errorBody = await response.json().catch(() => ({}));
     const errorMessage = errorBody?.message || errorBody?.error || JSON.stringify(errorBody) || response.statusText || 'API request failed';
     const err = new Error(`${response.status} ${response.statusText} - ${errorMessage}`);
     // attach the original response body for richer handling in callers
     (err as any).body = errorBody;
     (err as any).status = response.status;
+
+    // If unauthorized, immediately clear auth and redirect to login so the UX isn't stuck.
+    // older code handled 401 by logging out immediately; now handled above during refresh attempt
+
     throw err;
   }
 

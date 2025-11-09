@@ -1,0 +1,32 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install repo dependencies
+        run: npm ci
+      - name: Build API for Vercel
+        run: bash ./scripts/build-api-vercel.sh
+      - name: Deploy API to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel --prod --confirm --cwd packages/api
+      - name: Restore packages/api package.json (if present)
+        run: |
+          if [ -f packages/api/package.json.backup ]; then
+            mv packages/api/package.json.backup packages/api/package.json || true
+          fi
+      - name: Deploy Web to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel --prod --confirm --cwd apps/web-dashboard

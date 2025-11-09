@@ -64,7 +64,7 @@ export class AuthService {
   /**
    * Sign in an existing user
    */
-  static async signIn(email: string, password: string): Promise<AuthUser> {
+  static async signIn(email: string, password: string): Promise<{ user: AuthUser; session: any }> {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -76,12 +76,14 @@ export class AuthService {
     // Get user subscription
     const subscription = await SubscriptionRepository.getByUserId(data.user.id);
 
-    return {
+    const user: AuthUser = {
       id: data.user.id,
       email: data.user.email!,
       role: data.user.role,
       subscription,
     };
+
+    return { user, session: data.session };
   }
 
   /**
@@ -123,8 +125,10 @@ export class AuthService {
   /**
    * Refresh session
    */
-  static async refreshSession(): Promise<any> {
-    const { data, error } = await supabase.auth.refreshSession();
+  static async refreshSession(refreshToken?: string): Promise<any> {
+    // If a refresh token is provided, pass it to supabase to exchange for a new session.
+    const opts = refreshToken ? { refresh_token: refreshToken } : undefined;
+    const { data, error } = await supabase.auth.refreshSession(opts as any);
     if (error) throw error;
     return data.session;
   }
