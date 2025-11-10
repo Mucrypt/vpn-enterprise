@@ -22,6 +22,7 @@ import { AuditRepository, SecurityRepository } from '@vpn-enterprise/database';
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const app = express();
+console.log('[DIAG] Express app constructed');
 const vpnManager = new VPNServerManager();
 const loadBalancer = new ServerLoadBalancer();
 const connectionTracker = new ConnectionTracker();
@@ -110,6 +111,7 @@ app.get('/health', (req, res) => {
 // Dev debug endpoint: inspect incoming auth headers and cookies
 // Only registered in non-production to help debug CORS/auth problems during local development.
 if (process.env.NODE_ENV !== 'production') {
+  console.log('[DIAG] Registering /api/v1/debug/routes endpoint');
   app.post('/api/v1/debug/request', (req, res) => {
     try {
       const authHeader = req.headers.authorization || null;
@@ -130,39 +132,16 @@ if (process.env.NODE_ENV !== 'production') {
     }
   });
 
-  // Add debug route to list all registered routes
-  app.get('/api/v1/debug/routes', (req, res) => {
-    const routes: any[] = [];
-    app._router.stack.forEach((middleware: any) => {
-      if (middleware.route) {
-        // Routes registered directly on the app
-        routes.push({
-          path: middleware.route.path,
-          methods: Object.keys(middleware.route.methods)
-        });
-      } else if (middleware.name === 'router') {
-        // Router middleware
-        middleware.handle.stack.forEach((handler: any) => {
-          if (handler.route) {
-            routes.push({
-              path: handler.route.path,
-              methods: Object.keys(handler.route.methods)
-            });
-          }
-        });
-      }
-    });
-    res.json({ routes });
-  });
+  // Debug route registration moved to end of file
 }
 
 // ==========================
-// ROUTES (kept identical to previous implementation)
-// Organizations: return organization data for dashboard organizations page
-// Organizations endpoints
-app.get('/api/v1/admin/organizations', adminMiddleware, async (req, res) => {
+// ==================== ORGANIZATION ENDPOINTS ====================
+// Get all organizations - MAKE SURE THIS COMES AFTER MIDDLEWARE SETUP
+app.get('/api/v1/admin/organizations', adminMiddleware, async (req: AuthRequest, res) => {
   try {
-    // Return mock data or implement real database queries
+    console.log('Organizations endpoint called by user:', req.user);
+    // Your existing organizations logic...
     const organizations = [
       {
         id: 'org-1',
@@ -172,7 +151,7 @@ app.get('/api/v1/admin/organizations', adminMiddleware, async (req, res) => {
         max_devices_per_user: 10,
         max_servers: 50,
         created_at: new Date().toISOString(),
-        features: {},
+        features: { advanced_analytics: true, custom_domains: true },
         _count: {
           users: 12,
           servers: 5
@@ -181,18 +160,18 @@ app.get('/api/v1/admin/organizations', adminMiddleware, async (req, res) => {
     ];
     res.json({ organizations });
   } catch (error: any) {
+    console.error('Organizations endpoint error:', error);
     res.status(500).json({ error: 'Failed to fetch organizations', message: error.message });
   }
 });
 
-app.post('/api/v1/admin/organizations', adminMiddleware, async (req, res) => {
-  try {
-    // Create organization logic here
-    const organization = { id: 'org-' + Date.now(), ...req.body, created_at: new Date().toISOString() };
-    res.json(organization);
-  } catch (error: any) {
-    res.status(500).json({ error: 'Failed to create organization', message: error.message });
-  }
+// Other organization routes...
+app.post('/api/v1/admin/organizations', adminMiddleware, async (req: AuthRequest, res) => {
+  // Your create organization logic
+});
+
+app.get('/api/v1/admin/organizations/:orgId/members', adminMiddleware, async (req: AuthRequest, res) => {
+  // Your members logic
 });
 // Threat protection: stats endpoint
 app.get('/api/v1/security/threats/stats', async (req, res) => {
@@ -636,32 +615,9 @@ app.get('/api/v1/user/split-tunnel', authMiddleware, async (req: AuthRequest, re
 // ------------------
 
 // Platform statistics (admin)
-app.get('/api/v1/admin/statistics', adminMiddleware, async (req, res) => {
+app.get('/api/v1/admin/audit/logs', adminMiddleware, async (req, res) => {
   try {
-    const servers = await ServerRepository.getAllActive();
-    // Basic aggregated stats; expand as needed
-    const stats = {
-      totalServers: servers.length,
-      totalUsers: 0,
-      activeConnections: 0,
-    };
-    res.json({ statistics: stats });
-  } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch statistics', message: error.message });
-  }
-});
-
-// Audit logs (admin)
-app.get('/api/v1/admin/audit-logs', adminMiddleware, async (req, res) => {
-  try {
-    const { severity } = req.query as any;
-    let logs;
-    if (severity) {
-      logs = await AuditRepository.getLogsBySeverity(severity, 200);
-    } else {
-      // recent critical events as a fallback
-      logs = await AuditRepository.getRecentCriticalEvents(48);
-    }
+    const logs = await AuditRepository.getRecentCriticalEvents(48);
     res.json({ logs });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch audit logs', message: error.message });
@@ -1246,6 +1202,47 @@ app.put('/api/v1/user/notifications/read-all', authMiddleware, async (req: AuthR
     res.status(500).json({ error: 'Failed to mark notifications read', message: error.message });
   }
 });
+
+// Error handling
+// Register debug route to list all registered routes at the end, after all other routes but before error handling and 404
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/api/v1/debug/routes', (req, res) => {
+    try {
+      const appKeys = Object.keys(app);
+      console.log('[DIAG] Express app keys:', appKeys);
+      let router = (app as any)._router || (app as any).router;
+      if (!router || !router.stack) {
+        return res.status(500).json({
+          error: 'Router stack not available',
+          message: 'Neither app._router nor app.router is available',
+          appKeys
+        });
+      }
+      const routes: any[] = [];
+      router.stack.forEach((middleware: any) => {
+        if (middleware.route) {
+          routes.push({
+            path: middleware.route.path,
+            methods: Object.keys(middleware.route.methods)
+          });
+        } else if (middleware.name === 'router' && middleware.handle && middleware.handle.stack) {
+          middleware.handle.stack.forEach((handler: any) => {
+            if (handler.route) {
+              routes.push({
+                path: handler.route.path,
+                methods: Object.keys(handler.route.methods)
+              });
+            }
+          });
+        }
+      });
+      res.json({ routes });
+    } catch (err: any) {
+      console.error('Error in /api/v1/debug/routes:', err);
+      res.status(500).json({ error: 'Failed to list routes', message: err.message });
+    }
+  });
+}
 
 // Error handling
 app.use((err: any, req: any, res: any, next: any) => {

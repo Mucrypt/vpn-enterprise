@@ -1,6 +1,7 @@
 // Determine API base at runtime
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-const API_BASE_URL = typeof window === 'undefined' ? DEFAULT_API : '';
+// Always use backend API URL for both SSR and browser in local dev
+const API_BASE_URL = DEFAULT_API;
 
 // Single-flight refresh promise
 let refreshPromise: Promise<string | null> | null = null;

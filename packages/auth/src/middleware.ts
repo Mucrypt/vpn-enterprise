@@ -33,6 +33,7 @@ export async function authMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
+    console.log('[authMiddleware] Checking request for:', req.originalUrl);
     cleanTokenCache();
 
     // Log incoming cookies and headers for debugging
@@ -54,12 +55,7 @@ export async function authMiddleware(
     }
 
     if (!token) {
-      console.warn('Auth middleware: no token found', { 
-        url: req.originalUrl, 
-        method: req.method,
-        headers: req.headers,
-        cookies: req.cookies,
-      });
+      console.warn('[authMiddleware] No token found for:', req.originalUrl);
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
@@ -68,6 +64,7 @@ export async function authMiddleware(
     const cached = tokenCache.get(token);
     if (cached && cached.expires > Date.now()) {
       req.user = cached.user;
+      console.log('[authMiddleware] Token verified (cache) for:', req.originalUrl);
       return next();
     }
 
@@ -75,10 +72,7 @@ export async function authMiddleware(
     const { data, error } = await supabase.auth.getUser(token);
 
     if (error || !data.user) {
-      console.warn('Auth middleware: token verification failed', {
-        error: error?.message,
-        url: req.originalUrl,
-      });
+      console.warn('[authMiddleware] Token verification failed for:', req.originalUrl, error?.message);
       res.status(401).json({ error: 'Invalid or expired token' });
       return;
     }
@@ -96,7 +90,7 @@ export async function authMiddleware(
         role = userRow.role as AppUser["role"];
       }
     } catch (e) {
-      console.warn('Failed to fetch user role:', e);
+      console.warn('[authMiddleware] Failed to fetch user role for:', req.originalUrl, e);
     }
 
     const user = {
@@ -111,10 +105,12 @@ export async function authMiddleware(
       expires: Date.now() + CACHE_TTL
     });
 
-    req.user = user;
-    next();
+  req.user = user;
+  console.log('[authMiddleware] Token verified for:', req.originalUrl);
+  console.log('[authMiddleware] Decoded user:', user);
+  next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    console.error('[authMiddleware] Error for:', req.originalUrl, error);
     res.status(500).json({ error: 'Authentication failed' });
   }
 }
@@ -127,6 +123,8 @@ export function adminMiddleware(
   res: Response,
   next: NextFunction
 ): void {
+  console.log('[adminMiddleware] Incoming user object:', req.user);
+  console.log('[adminMiddleware] Incoming Authorization header:', req.headers?.authorization);
   if (!req.user) {
     console.warn('[adminMiddleware] No user found on request', {
       url: req.originalUrl,
@@ -142,73 +140,15 @@ export function adminMiddleware(
   const role = (req.user.role || '').toLowerCase().replace(/\s|-/g, '_');
   const allowedRoles = ['admin', 'super_admin', 'superadmin', 'administrator'];
   if (!allowedRoles.includes(role)) {
-    console.warn('[adminMiddleware] User does not have admin privileges', {
+    console.warn('[adminMiddleware] User does not have admin privileges for:', req.originalUrl, {
       userId: req.user.id,
       role: req.user.role,
-      normalizedRole: role,
-      url: req.originalUrl,
-      method: req.method,
-      headers: req.headers,
-      cookies: req.cookies,
+      normalizedRole: role
     });
-    res.status(403).json({ error: 'Admin access required' });
+    res.status(403).json({ error: 'Admin or Super Admin access required' });
     return;
   }
 
-  console.info('[adminMiddleware] User authenticated as admin', {
-    userId: req.user.id,
-    role: req.user.role,
-    normalizedRole: role,
-    url: req.originalUrl,
-    method: req.method,
-  });
+  console.log('[adminMiddleware] Admin access granted for:', req.originalUrl);
   next();
-}
-
-/**
- * Optional auth middleware
- */
-export async function optionalAuthMiddleware(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const authHeader = req.headers.authorization;
-    let token: string | undefined;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    } else if (req.cookies?.access_token) {
-      token = req.cookies.access_token;
-    }
-
-    if (token) {
-      const { data } = await supabase.auth.getUser(token);
-      if (data.user) {
-        let role: AppUser["role"] = 'user';
-        try {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', data.user.id)
-            .single();
-          const userRow = userData as AppUserRow | null;
-          if (userRow && typeof userRow.role === 'string') {
-            role = userRow.role as AppUser["role"];
-          }
-        } catch (e) {
-          // ignore
-        }
-        req.user = {
-          id: data.user.id,
-          email: data.user.email!,
-          role,
-        };
-      }
-    }
-    next();
-  } catch (error) {
-    next();
-  }
 }
