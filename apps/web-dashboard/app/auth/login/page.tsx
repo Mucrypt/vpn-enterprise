@@ -8,10 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Shield, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import toast from 'react-hot-toast';
+import { api } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
+  const { setUser, setAccessToken } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -25,16 +26,27 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      console.debug('Login: sending request to', `${apiUrl}/api/v1/auth/login`);
       const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(formData),
+        // include credentials so server-set httpOnly cookies (refresh_token) are stored
+        credentials: 'include',
       });
 
-      const data = await response.json();
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (e) {
+        console.error('Login: failed to parse JSON response', e);
+        throw new Error('Invalid JSON response from server');
+      }
+
+      console.debug('Login: response', response.status, data);
 
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
@@ -42,10 +54,21 @@ export default function LoginPage() {
 
       // Store user and token
       if (data.session?.access_token) {
+        // Persist access token in localStorage for Authorization header use
         localStorage.setItem('access_token', data.session.access_token);
-        // Also set cookies for middleware
-        document.cookie = `access_token=${data.session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
-        document.cookie = `user_role=${data.user.role || 'user'}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
+        // In local development, also persist refresh token so the client can
+        // perform refresh flow when httpOnly cookies are not available.
+        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production' && data.session?.refresh_token) {
+          try {
+            localStorage.setItem('refresh_token', data.session.refresh_token);
+          } catch (e) {
+            // ignore
+          }
+        }
+        // Also update the zustand store so the rest of the app sees the token immediately
+        setAccessToken(data.session.access_token);
+        // Note: don't set a client-side cookie for the API host here (cross-origin).
+        // The server will set a httpOnly refresh_token cookie when credentials are included.
       }
       
       setUser({
@@ -55,7 +78,29 @@ export default function LoginPage() {
       });
 
       toast.success('Login successful!');
-      router.push('/dashboard');
+
+      // After successful login, wait a short moment and then fetch the
+      // authoritative profile from the API before navigating. The tiny
+      // delay helps ensure the browser has applied any server-set httpOnly
+      // cookies (refresh_token) so the profile request can use them and
+      // avoid a transient 401 which would trigger a logout redirect.
+      try {
+        await new Promise((r) => setTimeout(r, 120));
+        const profileData = await api.getProfile().catch(() => null);
+        if (profileData?.user) {
+          setUser(profileData.user);
+        }
+      } catch (e) {
+        // ignore - we'll still redirect below as a safe fallback
+      }
+
+      // navigate after ensuring we attempted to hydrate the profile
+      try {
+        router.push('/dashboard');
+      } catch (e) {
+        // fallback to a full redirect if the router is unavailable
+        window.location.href = '/dashboard';
+      }
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
       toast.error(err.message || 'Login failed');

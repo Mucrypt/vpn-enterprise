@@ -1,5 +1,5 @@
 import { SidebarNavigation } from '@/components/layout/sidebar-navigation';
-import { TopBar } from '@/components/ui/top-bar';
+import { TopBar } from '@/components/layout/top-bar';
 import { ReactNode } from 'react';
 
 export default function DashboardLayout({

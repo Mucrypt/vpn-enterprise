@@ -1,4 +1,14 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// Determine API base at runtime:
+// - In the browser we use a relative path so requests go to the Next.js dev
+//   server (same-origin) which proxies /api to the backend. This ensures
+//   cookies (httpOnly refresh token) are sent by the browser during dev.
+// - On the server (SSR) use NEXT_PUBLIC_API_URL or fallback to localhost:5000.
+const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = typeof window === 'undefined' ? DEFAULT_API : '';
+
+// Single-flight refresh promise to avoid concurrent refresh requests which can
+// trigger server-side rate limits when multiple components call API at once.
+let refreshPromise: Promise<{ ok: boolean; body: any; response: Response } | null> | null = null;
 
 // Defer importing the auth store to avoid circulars at module-eval time in some SSR setups
 function logoutAndRedirect() {
@@ -15,14 +25,37 @@ function logoutAndRedirect() {
     // fallback: clear local storage and redirect
     localStorage.removeItem('access_token');
     document.cookie = 'access_token=; path=/; max-age=0';
-    window.location.href = '/auth/login';
+    try {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/auth/login') {
+        window.location.href = '/auth/login';
+      } else {
+        console.debug('logoutAndRedirect: already on /auth/login, skipping redirect');
+      }
+    } catch (err) {
+      try {
+        // best-effort
+        window.location.href = '/auth/login';
+      } catch (err2) {
+        // ignore
+      }
+    }
   }
 }
 
 export async function fetchAPI(endpoint: string, options?: RequestInit) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
 
+  if (typeof window !== 'undefined') {
+    try {
+      console.debug('[fetchAPI] calling', endpoint, 'tokenPreview=', token ? `${String(token).slice(0, 30)}...` : null);
+    } catch (e) {
+      // ignore
+    }
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
+    // include credentials so httpOnly cookies (refresh_token) are sent for endpoints that rely on them
+    credentials: 'include',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -34,19 +67,103 @@ export async function fetchAPI(endpoint: string, options?: RequestInit) {
   if (!response.ok) {
     // If unauthorized, try silent refresh once
     if (response.status === 401) {
+        console.debug('[fetchAPI] received 401 for', endpoint, 'tokenPresent=', !!token);
       try {
-        // Attempt to refresh using httpOnly cookie. This requires credentials to be included.
-        const refreshResp = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        });
+        // In development, cross-origin httpOnly cookies are often blocked by
+        // browser SameSite rules (POST XHR won't send Lax cookies). To make
+        // the dev experience reliable, prefer a localStorage-based refresh
+        // fallback when we don't have an access token locally. This avoids
+        // a round-trip that can't include the cookie and reduces transient
+        // 401 -> refresh -> 401 loops.
+        const isDev = typeof process !== 'undefined' && process.env.NODE_ENV !== 'production';
+        if (!token && isDev) {
+          // Try localStorage fallback first (dev only)
+          const storedRefresh = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+          if (storedRefresh) {
+            console.debug('[fetchAPI] dev: attempting localStorage fallback refresh for', endpoint);
+            try {
+              const fallbackResp = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: storedRefresh }),
+              });
+              const fallbackBody = await fallbackResp.json().catch(() => ({}));
+              console.debug('[fetchAPI] dev fallback refresh ok=', fallbackResp.ok, 'body=', fallbackBody);
+              if (fallbackResp.ok) {
+                const newAccess = fallbackBody?.session?.access_token || fallbackBody?.access_token || fallbackBody?.session?.token;
+                if (newAccess) {
+                  localStorage.setItem('access_token', newAccess);
+                  // Retry original request with new token
+                  const retryHeaders = {
+                    'Content-Type': 'application/json',
+                    ...(options?.headers || {}),
+                    Authorization: `Bearer ${newAccess}`,
+                  } as any;
 
-        if (refreshResp.ok) {
-          const refreshBody = await refreshResp.json().catch(() => ({}));
+                  const retryResp = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
+                    credentials: 'include',
+                    ...options,
+                    headers: retryHeaders,
+                  });
+
+                  if (retryResp.ok) return retryResp.json();
+                }
+              }
+            } catch (e) {
+              console.debug('[fetchAPI] dev fallback refresh error for', endpoint, e);
+            }
+          }
+        }
+
+        // Attempt to refresh using httpOnly cookie. Use a single-flight
+        // promise so concurrent callers await the same refresh instead of
+        // issuing multiple refresh requests which can trigger 429s.
+        if (!refreshPromise) {
+            console.debug('[fetchAPI] starting refreshPromise for', endpoint);
+          refreshPromise = (async () => {
+            try {
+              const r = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+              });
+              const body = await (async () => {
+                try {
+                  return await r.json();
+                } catch (e) {
+                  return {};
+                }
+              })();
+                console.debug('[fetchAPI] refresh response for', endpoint, 'ok=', r.ok, 'bodyPreview=', body);
+              return { ok: r.ok, body, response: r };
+            } catch (err) {
+                console.debug('[fetchAPI] refresh request error for', endpoint, err);
+              return { ok: false, body: null, response: null as any };
+            }
+          })();
+        }
+
+        const refreshResult = await refreshPromise;
+        // clear promise so future 401s can trigger a new attempt
+        refreshPromise = null;
+
+        if (refreshResult && refreshResult.ok) {
+          const refreshBody = refreshResult.body || {};
           const newAccess = refreshBody?.session?.access_token || refreshBody?.access_token || refreshBody?.session?.token;
+            console.debug('[fetchAPI] refreshResult ok, got newAccess=', !!newAccess);
           if (newAccess) {
             localStorage.setItem('access_token', newAccess);
+            // Also set a readable access_token cookie so server-side middleware
+            // that reads cookies can validate the retried request if the
+            // Authorization header is stripped by any proxy during replay.
+            try {
+              if (typeof document !== 'undefined') {
+                document.cookie = `access_token=${newAccess}; path=/`;
+                console.debug('[fetchAPI] set access_token cookie for retry (dev)');
+              }
+            } catch (e) {
+              // ignore cookie set failures
+            }
 
             // Retry original request once with new token
             const retryHeaders = {
@@ -56,6 +173,8 @@ export async function fetchAPI(endpoint: string, options?: RequestInit) {
             } as any;
 
             const retryResp = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
+              // include credentials so httpOnly cookies (if any) are sent
+              credentials: 'include',
               ...options,
               headers: retryHeaders,
             });
@@ -63,6 +182,45 @@ export async function fetchAPI(endpoint: string, options?: RequestInit) {
             if (retryResp.ok) return retryResp.json();
             // otherwise fall through and handle error normally
           }
+        }
+        // If cookie-based refresh failed (likely browser blocked cookie in dev),
+        // attempt a fallback refresh using a refresh_token stored in localStorage
+        // (only used for local development convenience).
+        try {
+          const storedRefresh = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+          if (storedRefresh) {
+            const fallbackResp = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refresh_token: storedRefresh }),
+            });
+
+              console.debug('[fetchAPI] local fallback refresh_token present=', !!storedRefresh);
+            if (fallbackResp.ok) {
+              const fallbackBody = await fallbackResp.json().catch(() => ({}));
+              const newAccess = fallbackBody?.session?.access_token || fallbackBody?.access_token || fallbackBody?.session?.token;
+                console.debug('[fetchAPI] fallback got newAccess=', !!newAccess);
+              if (newAccess) {
+                localStorage.setItem('access_token', newAccess);
+
+                const retryHeaders = {
+                  'Content-Type': 'application/json',
+                  ...(options?.headers || {}),
+                  Authorization: `Bearer ${newAccess}`,
+                } as any;
+
+                const retryResp = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
+                  credentials: 'include',
+                  ...options,
+                  headers: retryHeaders,
+                });
+
+                if (retryResp.ok) return retryResp.json();
+              }
+            }
+          }
+        } catch (e) {
+          // ignore fallback errors and continue to logout flow
         }
       } catch (e) {
         // ignore and continue to final logout handling below
@@ -80,8 +238,48 @@ export async function fetchAPI(endpoint: string, options?: RequestInit) {
         // ignore toast errors
       }
 
-      // perform logout and redirect
-      logoutAndRedirect();
+      // perform logout and redirect, but avoid doing this if we're already
+      // on the login page (prevents redirect/clear-state loops during HMR
+      // or when the login page itself triggers an API call that 401s).
+      try {
+        // Avoid forcing logout immediately after a successful login/hydration.
+        // If the store indicates a recent successful auth, skip the logout and
+        // let the client-side hydrator retry/settle. This is defensive for
+        // dev-only races (HMR/cookie races). If window is not available or
+        // reading the store fails, fall back to the original behavior.
+        let skipLogout = false;
+        try {
+          if (typeof window !== 'undefined') {
+            if (window.location.pathname === '/auth/login') {
+              console.debug('[fetchAPI] refresh/login failed but already on /auth/login — skipping logout/redirect');
+              skipLogout = true;
+            }
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const { useAuthStore: _useAuthStore } = require('./store');
+            if (_useAuthStore && typeof _useAuthStore.getState === 'function') {
+              const st = _useAuthStore.getState() as any;
+              const last = st?.lastSuccessfulAuth || 0;
+              if (Date.now() - last < 5000) {
+                console.debug('[fetchAPI] recent successful auth detected — skipping logout (age ms)=', Date.now() - last);
+                skipLogout = true;
+              }
+            }
+          }
+        } catch (e) {
+          // ignore store read errors and fall back to logout
+        }
+
+        if (!skipLogout) {
+          logoutAndRedirect();
+        }
+      } catch (e) {
+        // best-effort: if anything goes wrong, still attempt the logout redirect
+        try {
+          logoutAndRedirect();
+        } catch (err) {
+          console.debug('[fetchAPI] logoutAndRedirect failed', err);
+        }
+      }
     }
 
     const errorBody = await response.json().catch(() => ({}));

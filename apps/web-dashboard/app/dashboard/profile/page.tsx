@@ -230,7 +230,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <div className="h-20 w-20 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-2xl font-bold">
-                    {profile?.full_name?.[0]?.toUpperCase() || profile?.email[0]?.toUpperCase()}
+                    {profile?.full_name?.[0]?.toUpperCase() || profile?.email?.[0]?.toUpperCase()}
                   </div>
                   <button className="absolute bottom-0 right-0 bg-white rounded-full p-1.5 shadow-lg border-2 border-emerald-500 hover:bg-emerald-50">
                     <Camera className="h-4 w-4 text-emerald-600" />

@@ -2,7 +2,7 @@
 
 import { useAuthStore } from '@/lib/store';
 import { Bell, Search, User, Settings, LogOut, Shield, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
-import { Button } from './button';
+import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { api } from '@/lib/api';

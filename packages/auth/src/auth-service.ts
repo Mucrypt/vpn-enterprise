@@ -1,4 +1,4 @@
-import { supabase } from '@vpn-enterprise/database';
+import { supabase, supabaseAdmin } from '@vpn-enterprise/database';
 import { SubscriptionRepository } from '@vpn-enterprise/database';
 
 export interface AuthUser {
@@ -73,13 +73,27 @@ export class AuthService {
     if (error) throw error;
     if (!data.user) throw new Error('Sign in failed');
 
-    // Get user subscription
+    // Get user subscription and application role from public.users (the
+    // Supabase auth user object may contain a generic auth role like
+    // 'authenticated' which is not the application role we use).
     const subscription = await SubscriptionRepository.getByUserId(data.user.id);
+
+    let appRole: string | undefined = undefined;
+    try {
+      // Use service client to read application role (bypass RLS)
+      const resp: any = await supabaseAdmin.from('users').select('role').eq('id', data.user.id).single();
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('AuthService.signIn: public.users select result', { error: resp.error ? String(resp.error) : null, data: resp.data });
+      }
+      if (!resp.error && resp.data && resp.data.role) appRole = resp.data.role;
+    } catch (e) {
+      // ignore - fall back to auth user role
+    }
 
     const user: AuthUser = {
       id: data.user.id,
       email: data.user.email!,
-      role: data.user.role,
+      role: appRole || (data.user as any).role,
       subscription,
     };
 
@@ -114,10 +128,22 @@ export class AuthService {
 
     const subscription = await SubscriptionRepository.getByUserId(data.user.id);
 
+    // Fetch application role from public.users if available (use service client)
+    let appRole: string | undefined = undefined;
+      try {
+        const resp: any = await supabaseAdmin.from('users').select('role').eq('id', data.user.id).single();
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('AuthService.getCurrentUser: public.users select result', { error: resp.error ? String(resp.error) : null, data: resp.data });
+        }
+        if (!resp.error && resp.data && resp.data.role) appRole = resp.data.role;
+    } catch (e) {
+      // ignore and fall back to auth user role
+    }
+
     return {
       id: data.user.id,
       email: data.user.email!,
-      role: data.user.role,
+      role: appRole || (data.user as any).role,
       subscription,
     };
   }

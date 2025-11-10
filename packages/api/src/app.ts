@@ -11,8 +11,11 @@ import {
   ServerRepository,
   SubscriptionRepository,
   DeviceRepository,
-  ConnectionRepository
+  ConnectionRepository,
+  ClientConfigRepository,
+  SplitTunnelRepository
 } from '@vpn-enterprise/database';
+import { AuditRepository, SecurityRepository } from '@vpn-enterprise/database';
 
 // Load environment variables from repo root
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
@@ -24,18 +27,69 @@ const connectionTracker = new ConnectionTracker();
 
 // Security middleware
 app.use(helmet());
+
+// Configure CORS: read comma-separated origins from ALLOWED_ORIGINS env var.
+// If not provided, fall back to common local dev origins.
+const allowedOrigins = (process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+  : ['http://localhost:3001', 'http://localhost:3000']
+);
+
+// Helpful startup log to diagnose CORS problems in deployed environments.
+console.log('CORS allowed origins:', allowedOrigins);
+
 app.use(cors({
-  // Allow common local dev origins: Next.js dev server (host:3001) and legacy localhost:3000
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3001', 'http://localhost:3000'],
+  // Allow Authorization header and Content-Type for preflight requests so
+  // client-side Authorization: Bearer <token> is accepted by the server.
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Authorization'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. server-to-server, curl, or some native apps)
+    if (!origin) return callback(null, true);
+
+    // During local development allow any localhost origin (convenience for multiple dev servers/ports)
+    if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+    console.warn('Blocked CORS request from origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 
 // Rate limiting
+// Protect the app from excessive requests but return JSON errors and avoid
+// blocking auth/debug endpoints which are used during login/hydration flows.
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100
+  max: 100,
+  // Add standard rate-limit response headers
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Skip rate limiting for auth endpoints and dev debug endpoint to avoid
+  // accidental lockouts during normal login flows in local development.
+  skip: (req: any) => {
+    try {
+      return req.path.startsWith('/api/v1/auth') || req.path.startsWith('/api/v1/debug');
+    } catch (e) {
+      return false;
+    }
+  },
+  // Return a structured JSON error so clients can handle 429 programmatically
+  handler: (req, res /*, next */) => {
+    res.status(429).json({ error: 'Too many requests', message: 'Rate limit exceeded. Please try again later.' });
+  }
 });
-app.use(limiter);
+// Apply rate limiter only in production to avoid accidental lockouts
+// during local development where HMR and frequent client reloads can
+// easily trigger the limiter. In production this remains enabled.
+if (process.env.NODE_ENV === 'production') {
+  app.use(limiter);
+} else {
+  console.debug('Rate limiter is disabled in development');
+}
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
@@ -51,6 +105,30 @@ app.get('/health', (req, res) => {
     version: '1.0.0'
   });
 });
+
+// Dev debug endpoint: inspect incoming auth headers and cookies
+// Only registered in non-production to help debug CORS/auth problems during local development.
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/api/v1/debug/request', (req, res) => {
+    try {
+      const authHeader = req.headers.authorization || null;
+      const cookies = req.cookies || {};
+      // Return presence flags and truncated token for safe debugging
+      const tokenPreview = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+        ? `${authHeader.substring(0, 30)}...` : null;
+      res.json({
+        ok: true,
+        method: req.method,
+        origin: req.headers.origin || null,
+        hasAuthorizationHeader: !!authHeader,
+        authorizationPreview: tokenPreview,
+        cookiesPresent: Object.keys(cookies),
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+}
 
 // ==========================
 // ROUTES (kept identical to previous implementation)
@@ -84,10 +162,14 @@ app.post('/api/v1/auth/login', async (req, res) => {
     // If a refresh token is present in the session, set it as a httpOnly cookie
     try {
       if (session && session.refresh_token) {
+        // Cookie options: browsers require Secure when SameSite=None. Use
+        // SameSite='none' + secure=true in production (HTTPS). For local
+        // development (no HTTPS) fall back to SameSite='lax' so the cookie is
+        // accepted by the browser. Keep path=/ so API endpoints can read it.
         const cookieOptions: any = {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
           path: '/',
         };
 
@@ -95,9 +177,56 @@ app.post('/api/v1/auth/login', async (req, res) => {
         if (session.expires_in) cookieOptions.maxAge = Number(session.expires_in) * 1000;
 
         res.cookie('refresh_token', session.refresh_token, cookieOptions);
+        if (process.env.NODE_ENV !== 'production') {
+          try {
+            console.debug('Login: issued refresh_token cookie (dev):', {
+              cookieOpts: cookieOptions,
+              hasRefresh: !!session.refresh_token,
+              refreshPreview: session.refresh_token ? `${String(session.refresh_token).slice(0, 12)}...` : null,
+            });
+          } catch (e) {
+            // ignore logging failures
+          }
+        }
       }
     } catch (cookieErr) {
       console.warn('Failed to set refresh token cookie:', cookieErr);
+    }
+
+    // Also set a readable access_token cookie and user_role cookie so Next.js
+    // middleware (server-side) can detect authenticated users. access_token is
+    // intentionally NOT httpOnly so middleware can read it in the Edge runtime.
+    try {
+      if (session && session.access_token) {
+        // readable access_token cookie: in production use SameSite=None and
+        // Secure; in development use SameSite=Lax so the cookie will be stored
+        // without HTTPS.
+        const accessCookieOpts: any = {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          path: '/',
+        };
+        if (session.expires_in) accessCookieOpts.maxAge = Number(session.expires_in) * 1000;
+        res.cookie('access_token', session.access_token, accessCookieOpts);
+      }
+
+      // Expose a non-http-only user role cookie used by middleware for admin checks
+      if (user && (user.role || 'user')) {
+        // user_role is non-sensitive and kept readable. Use Lax in dev and
+        // Lax in prod as it's only used by middleware/server-side checks.
+        res.cookie('user_role', user.role || 'user', {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+        });
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('Login: set user_role cookie to', user.role || 'user');
+        }
+      }
+    } catch (cookieErr) {
+      console.warn('Failed to set non-http cookies (access_token/user_role):', cookieErr);
     }
 
     res.json({ user, session });
@@ -110,26 +239,61 @@ app.post('/api/v1/auth/login', async (req, res) => {
 app.post('/api/v1/auth/refresh', async (req, res) => {
   try {
     const refreshToken = req.cookies?.refresh_token || req.body?.refresh_token;
+    // Log presence of refresh token during development to help detect cookie/CSR issues
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.debug('/api/v1/auth/refresh called - cookiePresent=', !!req.cookies?.refresh_token, 'bodyPresent=', !!req.body?.refresh_token);
+      } catch (e) {
+        // ignore
+      }
+    }
     if (!refreshToken) {
       return res.status(401).json({ error: 'No refresh token provided' });
     }
 
   const session = await (AuthService as any).refreshSession(refreshToken);
+    // Session refreshed (no noisy debug logging here). If needed add
+    // targeted logging in a follow-up change.
 
     // Rotate refresh token cookie if provided
     try {
       if (session && session.refresh_token) {
+        // Use SameSite=None + Secure in production (HTTPS). In local dev
+        // fall back to SameSite=Lax so the browser accepts the cookie.
         const cookieOptions: any = {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
           path: '/',
         };
         if (session.expires_in) cookieOptions.maxAge = Number(session.expires_in) * 1000;
         res.cookie('refresh_token', session.refresh_token, cookieOptions);
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('/api/v1/auth/refresh: rotated refresh_token cookie (dev)', {
+            cookieOpts: cookieOptions,
+            hasRefresh: !!session.refresh_token,
+            refreshPreview: session.refresh_token ? `${String(session.refresh_token).slice(0, 12)}...` : null,
+          });
+        }
       }
     } catch (cookieErr) {
       console.warn('Failed to set refresh token cookie during refresh:', cookieErr);
+    }
+
+    // Also rotate the readable access_token and user_role cookies
+    try {
+      if (session && session.access_token) {
+        const accessCookieOpts: any = {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          path: '/',
+        };
+        if (session.expires_in) accessCookieOpts.maxAge = Number(session.expires_in) * 1000;
+        res.cookie('access_token', session.access_token, accessCookieOpts);
+      }
+    } catch (cookieErr) {
+      console.warn('Failed to set access_token cookie during refresh:', cookieErr);
     }
 
     res.json({ session });
@@ -144,8 +308,9 @@ app.post('/api/v1/auth/logout', async (req, res) => {
     await AuthService.signOut();
     // Clear cookie
     res.clearCookie('refresh_token', { path: '/' });
-    // Optionally clear access token cookie as well if used
+    // Clear readable access_token and user_role cookies used by middleware
     res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('user_role', { path: '/' });
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: 'Logout failed', message: error.message });
@@ -159,6 +324,162 @@ app.get('/api/v1/servers', async (req, res) => {
     res.json({ servers });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch servers', message: error.message });
+  }
+});
+
+// VPN client configurations (public read, supports query param userId)
+app.get('/api/v1/vpn/configs', async (req, res) => {
+  try {
+    const userId = String(req.query.userId || '');
+    if (!userId) return res.status(400).json({ error: 'Missing userId query parameter' });
+    const configs = await ClientConfigRepository.getUserConfigs(userId as string);
+    res.json({ configs });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch client configs', message: error.message });
+  }
+});
+
+// VPN usage (per-user total usage)
+app.get('/api/v1/vpn/usage', async (req, res) => {
+  try {
+    const userId = String(req.query.userId || '');
+    if (!userId) return res.status(400).json({ error: 'Missing userId query parameter' });
+    const usage = await ConnectionRepository.getUserDataUsage(userId as string);
+    res.json({ usage });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch vpn usage', message: error.message });
+  }
+});
+
+// Split-tunnel rules (user scoped). Prefer authenticated user but accept userId query for testing.
+app.get('/api/v1/user/split-tunnel', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id || String(req.query.userId || '');
+    if (!userId) return res.status(400).json({ error: 'Missing userId' });
+    const rules = await SplitTunnelRepository.getUserRules(userId as string);
+    res.json({ rules });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch split tunnel rules', message: error.message });
+  }
+});
+
+// ------------------
+// Admin endpoints
+// ------------------
+
+// Platform statistics (admin)
+app.get('/api/v1/admin/statistics', adminMiddleware, async (req, res) => {
+  try {
+    const servers = await ServerRepository.getAllActive();
+    // Basic aggregated stats; expand as needed
+    const stats = {
+      totalServers: servers.length,
+      totalUsers: 0,
+      activeConnections: 0,
+    };
+    res.json({ statistics: stats });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch statistics', message: error.message });
+  }
+});
+
+// Audit logs (admin)
+app.get('/api/v1/admin/audit-logs', adminMiddleware, async (req, res) => {
+  try {
+    const { severity } = req.query as any;
+    let logs;
+    if (severity) {
+      logs = await AuditRepository.getLogsBySeverity(severity, 200);
+    } else {
+      // recent critical events as a fallback
+      logs = await AuditRepository.getRecentCriticalEvents(48);
+    }
+    res.json({ logs });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch audit logs', message: error.message });
+  }
+});
+
+// Admin security events (recent critical)
+app.get('/api/v1/admin/security/events', adminMiddleware, async (req, res) => {
+  try {
+    const events = await AuditRepository.getRecentCriticalEvents(24);
+    res.json({ events });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch security events', message: error.message });
+  }
+});
+
+// Admin: list users (simple implementation for dev)
+app.get('/api/v1/admin/users', adminMiddleware, async (req, res) => {
+  try {
+    // In the absence of a dedicated users repository, return the current
+    // authenticated user as a single-item list (useful for local dev).
+    const userReq = req as AuthRequest;
+    const user = userReq.user;
+    if (!user) return res.json({ users: [] });
+    res.json({ users: [{ id: user.id, email: user.email, role: user.role || 'user' }] });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch users', message: error.message });
+  }
+});
+
+// Admin: set user encryption placeholder (no-op in dev)
+app.put('/api/v1/admin/users/:id/encryption', adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { protocol_id } = req.body || {};
+    // Placeholder: echo back the request for dev usage
+    res.json({ success: true, id, protocol_id });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to set encryption', message: error.message });
+  }
+});
+
+// ------------------
+// User security & sessions
+// ------------------
+
+// Get user's security settings
+app.get('/api/v1/user/security/settings', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.id;
+    const settings = await SecurityRepository.getByUserId(userId);
+    res.json(settings || {});
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch security settings', message: error.message });
+  }
+});
+
+// Update user's security settings (upsert)
+app.put('/api/v1/user/security/settings', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.id;
+    const payload = { ...req.body, user_id: userId };
+    const updated = await SecurityRepository.upsert(payload as any);
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update security settings', message: error.message });
+  }
+});
+
+// Sessions (basic placeholders)
+app.get('/api/v1/user/sessions', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    // If you have session storage, replace this with a real query. Return empty list for now.
+    res.json([]);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch sessions', message: error.message });
+  }
+});
+
+app.delete('/api/v1/user/sessions/:id', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    // Placeholder: revoke session by id if stored; respond success for now
+    res.json({ success: true, id });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to revoke session', message: error.message });
   }
 });
 

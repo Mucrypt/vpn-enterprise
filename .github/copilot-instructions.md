@@ -1,65 +1,60 @@
 <!-- .github/copilot-instructions.md - guidance for AI coding agents working on this repo -->
 # VPN Enterprise — Copilot instructions
 
-This file contains concise, actionable guidance for AI coding assistants working in this monorepo. Keep suggestions minimal, explicit, and repository-aware.
+Concise, repo-aware guidance for AI coding agents working in this monorepo. Focus on small, targeted edits in packages and follow workspace conventions.
 
-1) Big picture (what to know first)
-- Monorepo (npm workspaces) with three main areas: `packages/` (shared libs & API), `apps/` (web-dashboard Next.js + mobile Expo), and `infrastructure/` (Docker, nginx, monitoring).
-- Primary runtime components:
-  - API: `packages/api` (Express, TypeScript). Entry: `packages/api/src/index.ts` and routes in `packages/api/src/app.ts`.
-  - Web: `apps/web-dashboard` (Next.js 16, React 19). Development: `npm run dev` in that folder.
-  - Mobile: `apps/mobile-app` (Expo). Start with `npx expo start`.
-  - Database: Supabase (Postgres) — check `packages/database` and docs under `docs/` and `extra-docs/` for schema.
+## Big picture (what to read first)
+- Monorepo using npm workspaces. Top-level areas:
+  - `packages/` — shared libraries and backend API (Express + TypeScript).
+  - `apps/` — frontend apps: `web-dashboard` (Next.js) and `mobile-app` (Expo).
+  - `infrastructure/` — docker-compose, Dockerfiles, nginx config, monitoring.
 
-2) How to run & common workflows (exact commands)
-- Install all workspaces from repo root:
-  - `npm install` (root uses npm workspaces)
-- Run services locally (without Docker):
-  - API (dev): `cd packages/api && npm run dev` (nodemon -> ts-node)
-  - Web: `cd apps/web-dashboard && npm run dev` (Next dev server)
-  - Mobile: `cd apps/mobile-app && npx expo start`
-- Docker-based local stack (recommended to mirror infra):
-  - `cd infrastructure/docker && docker compose -f docker-compose.dev.yml up --build`
-- Health endpoint (quick check): `GET /health` on the API (default port 3000).
+## Key runtime components & entry points
+- API: `packages/api`. Primary files:
+  - `packages/api/src/app.ts` — routes, middleware, auth wiring.
+  - `packages/api/src/index.ts` — server bootstrap for local runs.
+  - `packages/api/api/index.js` — small Vercel bridge: prefers `dist` compiled bundle, falls back to `src` via ts-node.
+- Web: `apps/web-dashboard` — app code under `app/` and `components/`.
+- Mobile: `apps/mobile-app` — Expo project under `app/` and `src/`.
 
-3) Where to make code changes (patterns & examples)
-- Add or modify API routes: edit `packages/api/src/app.ts`. Follow existing route patterns (auth endpoints, protected routes use `authMiddleware`). Example: new user endpoint -> `app.get('/api/v1/...', authMiddleware, async (req,res)=>{...})`.
-- Shared logic & types: put reusable code in `packages/shared` or create a new package under `packages/` and link via workspaces. Packages are referenced with `file:../<pkg>` in package.json.
-- Database access: use repository classes under `packages/database` (Repository pattern). Prefer those over raw SQL edits unless schema changes are required.
+## Exact dev workflows (use these commands)
+- Install/update workspace deps (run from repo root):
+  - npm install
+- Run locally (no Docker):
+  - API (dev): cd packages/api && npm run dev
+  - Web: cd apps/web-dashboard && npm run dev
+  - Mobile: cd apps/mobile-app && npx expo start
+- Full stack with Docker (mirrors infra):
+  - cd infrastructure/docker && docker compose -f docker-compose.dev.yml up --build
 
-4) Auth, sessions, and cookies (important behaviour)
-- Auth flows are built on `@vpn-enterprise/auth` and Supabase. The API sets refresh tokens as httpOnly cookies in `packages/api/src/app.ts`. Keep refresh-token handling server-side only.
-- Never expose the Supabase `service_role` key to client code. If adding env variables, follow `.env.example` usage and set them only in server-side envs (Vercel secret / Docker secrets).
+## Where to change code (practical patterns)
+- API routes & auth: edit `packages/api/src/app.ts`. Protected routes use `authMiddleware` from `packages/auth`.
+- Shared logic: add a package under `packages/` and reference via workspace `file:` dependency. After edits, run `npm install` at repo root so workspaces resolve.
+- Database: prefer repository classes in `packages/database/src/repositories/*` instead of ad-hoc SQL in app code. Migration SQL is in `extra-docs/`.
 
-5) Build & deployment notes
-- Build API for production: `cd packages/api && npm run build && npm start` (build uses `tsc`).
-- Web is deployed to Vercel in docs/DEPLOYMENT_GUIDE.md — environment variables must use `NEXT_PUBLIC_` prefixes for client-accessible keys. See `docs/DEPLOYMENT_GUIDE.md` for Vercel commands and required env vars.
-- Infra uses `infrastructure/docker/docker-compose*.yml`. Dev compose: `docker compose -f docker-compose.dev.yml up --build` (from `infrastructure/docker`).
-- CI/CD: repository contains scripts in `scripts/` (e.g., `deploy-vercel.sh`, `build-api-vercel.sh`) — prefer using those for consistent deployments.
+## Vercel & build notes (important)
+- Vercel entry uses `packages/api/api/index.js` which loads `dist/index.js` if present, otherwise tries the TS source via ts-node. For production builds prefer creating `dist` with `npm run build` in `packages/api`.
+- Web app uses Next.js; see `apps/web-dashboard/next.config.ts` and `vercel.json` for deployment behavior.
 
-6) Project-specific conventions and gotchas
-- Monorepo package linking: several packages are referenced with `file:` deps (e.g. `@vpn-enterprise/auth` in `packages/api/package.json`). After changing a package, re-run `npm install` at root or `npm run build` in the changed package if it is compiled.
-- React overrides: root `package.json` forces React 19 via `overrides`. Avoid proposing a different React version unless the change is cross-checked with `apps/*/package.json` and tested.
-- Keys at repo root: `server_private.key` and `server_public.key` exist — treat as sensitive. Do not recommend committing new private keys; prefer generating and mounting keys via infrastructure or secrets manager.
-- Environment loading: `packages/api/src/app.ts` loads `.env` from the repo root path; modifying env usage requires updating that path or the Docker env injection.
+## Conventions & gotchas
+- Keep edits package-scoped; avoid repo-wide refactors.
+- Env files: `packages/api` expects `.env` values available (root `.env` is used in many flows). Don't change env-loading without verifying Docker and Vercel scripts.
+- Secrets: `server_private.key` and `server_public.key` exist at repo root. Never commit new secrets; use CI/Docker secrets and `.env` for local dev.
+- React version: repository pins React 19 via root package.json overrides — check `apps/*/package.json` before suggesting version changes.
 
-7) Logs, debugging and troubleshooting
-- API: use `npm run dev` (nodemon) for fast iteration. Check runtime logs printed by `packages/api` and the `/health` endpoint. For production, check `docker compose logs -f <service>` under `infrastructure/docker`.
-- Nginx reverse proxy: configs live in `infrastructure/docker/nginx/conf.d/`. For 502s, first verify the upstream service is running.
+## Quick checklist for common tasks
+- Add API route: edit `packages/api/src/app.ts` -> add handler -> wire auth via `authMiddleware` -> add tests under `packages/api` or `apps/web-dashboard/e2e` as appropriate -> run `cd packages/api && npm run dev` and smoke test `GET /health`.
+- Build API for prod: cd packages/api && npm run build && npm start (ensure `dist` exists so Vercel bridge uses it).
 
-8) Files & directories to consult first (quick links)
-- API entry and routes: `packages/api/src/index.ts`, `packages/api/src/app.ts`
-- Web app: `apps/web-dashboard` (Next config, app/ or src/ folder)
-- Mobile app: `apps/mobile-app` (Expo `app/`)
-- Infra + compose: `infrastructure/docker/docker-compose.dev.yml`, `infrastructure/docker/docker-compose.yml`, `infrastructure/docker/Dockerfile.api`
-- Docs & deployment: `docs/DEPLOYMENT_GUIDE.md`, `infrastructure/README.md`, `README.md` (root)
+## Files to consult (starter map)
+- `packages/api/src/app.ts`, `packages/api/src/index.ts`, `packages/api/api/index.js`
+- `packages/auth/src/*` for middleware and auth flows
+- `packages/database/src/repositories/` for DB access patterns
+- `apps/web-dashboard/app` and `apps/web-dashboard/components` for UI patterns
+- `infrastructure/docker/docker-compose.dev.yml` and Dockerfiles for local stack
 
-9) Safety & repository rules for automated edits
-- Never commit secrets or private keys. If a change requires credentials, instruct the human to add them to the environment or secrets manager and note the exact var names (use `.env.example` as the template).
-- Avoid broad, repo-wide refactors without an explicit human request. Prefer small, focused edits with tests or manual verification steps.
+## Safety & edit rules
+- Do not commit secrets. When a change requires credentials, list exact env var names and ask the human to add them to the secret manager.
+- Prefer targeted edits and include tests or a short verification step. After changes, run `npm install` at the repo root to refresh workspace links.
 
-10) If you add or change public API surface
-- Update the OpenAPI or API docs (if present) and the `docs/` folder. Add or update the health checks in `infrastructure/verify-stack.sh` (or propose one if missing) and include manual test steps.
-
----
-If anything above is unclear or you want me to include sample code snippets (e.g. how to add a new API endpoint or how to run the full Docker dev stack), tell me which area and I will add concrete examples. 
+If you'd like I can also add a short "how to add an API route" checklist as a follow-up or create a tiny template PR that adds a sample route + test. Tell me which you prefer.
