@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { VPNServerManager, ServerLoadBalancer, ConnectionTracker } from '@vpn-enterprise/vpn-core';
 import { AuthService, authMiddleware, adminMiddleware, AuthRequest } from '@vpn-enterprise/auth';
+import { supabase, supabaseAdmin } from '@vpn-enterprise/database';
 import {
   ServerRepository,
   SubscriptionRepository,
@@ -134,6 +135,12 @@ if (process.env.NODE_ENV !== 'production') {
 // ROUTES (kept identical to previous implementation)
 // ==========================
 
+// In-memory single-flight map for refresh operations initiated via the
+// /api/v1/auth/refresh endpoint. This prevents multiple parallel refreshes
+// from rotating the refresh token repeatedly when many requests trigger
+// client-side refreshes at the same time.
+const refreshInFlight: Map<string, Promise<any>> = new Map();
+
 // AUTH
 app.post('/api/v1/auth/signup', async (req, res) => {
   try {
@@ -238,28 +245,76 @@ app.post('/api/v1/auth/login', async (req, res) => {
 // Refresh session using refresh token stored in httpOnly cookie (or body)
 app.post('/api/v1/auth/refresh', async (req, res) => {
   try {
-    const refreshToken = req.cookies?.refresh_token || req.body?.refresh_token;
-    // Log presence of refresh token during development to help detect cookie/CSR issues
+    // In production only accept the httpOnly cookie-supplied refresh token.
+    // Accepting a refresh_token in the request body is only allowed for
+    // local development convenience (e.g. when using the dev fallback).
+    const refreshTokenFromCookie = req.cookies?.refresh_token;
+    const refreshTokenFromBody = req.body?.refresh_token;
+
+    // Diagnostics: log request details for debugging
     if (process.env.NODE_ENV !== 'production') {
       try {
-        console.debug('/api/v1/auth/refresh called - cookiePresent=', !!req.cookies?.refresh_token, 'bodyPresent=', !!req.body?.refresh_token);
+        console.debug('[DIAG] /api/v1/auth/refresh called', {
+          method: req.method,
+          url: req.originalUrl,
+          origin: req.headers.origin,
+          cookiePresent: !!refreshTokenFromCookie,
+          bodyPresent: !!refreshTokenFromBody,
+          cookies: req.cookies,
+          headers: req.headers,
+        });
       } catch (e) {
         // ignore
       }
     }
+
+    const refreshToken = refreshTokenFromCookie || (process.env.NODE_ENV !== 'production' ? refreshTokenFromBody : undefined);
+
     if (!refreshToken) {
-      return res.status(401).json({ error: 'No refresh token provided' });
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[DIAG] /api/v1/auth/refresh: No refresh token provided', {
+          cookies: req.cookies,
+          headers: req.headers,
+        });
+      }
+      return res.status(401).json({ error: 'No refresh token provided', message: 'Browser did not send refresh_token cookie. Check cookie settings, CORS, and browser dev tools.' });
     }
 
-  const session = await (AuthService as any).refreshSession(refreshToken);
+    // Use a single-flight promise keyed by the refresh token to coalesce
+    // concurrent requests and avoid creating multiple refresh operations
+    // against the auth provider which would rotate the refresh token.
+    let session: any;
+    if (refreshInFlight.has(refreshToken)) {
+      session = await refreshInFlight.get(refreshToken);
+    } else {
+      const p = (async () => {
+        try {
+          return await (AuthService as any).refreshSession(refreshToken);
+        } catch (err) {
+          throw err;
+        }
+      })();
+      refreshInFlight.set(refreshToken, p);
+      try {
+        session = await p;
+      } finally {
+        refreshInFlight.delete(refreshToken);
+      }
+    }
     // Session refreshed (no noisy debug logging here). If needed add
     // targeted logging in a follow-up change.
 
-    // Rotate refresh token cookie if provided
+    // Rotate refresh token cookie if provided — but only when the token
+    // returned by the auth provider differs from the one the client sent.
+    // This avoids unnecessary cookie churn when multiple refresh requests
+    // are processed in quick succession and the token hasn't actually
+    // changed (or when the auth provider returns the same value).
     try {
       if (session && session.refresh_token) {
-        // Use SameSite=None + Secure in production (HTTPS). In local dev
-        // fall back to SameSite=Lax so the browser accepts the cookie.
+        const incomingRefresh = refreshTokenFromCookie || undefined;
+        const outgoingRefresh = session.refresh_token;
+
+        // Cookie options: SameSite/secure vary by environment
         const cookieOptions: any = {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
@@ -267,13 +322,24 @@ app.post('/api/v1/auth/refresh', async (req, res) => {
           path: '/',
         };
         if (session.expires_in) cookieOptions.maxAge = Number(session.expires_in) * 1000;
-        res.cookie('refresh_token', session.refresh_token, cookieOptions);
-        if (process.env.NODE_ENV !== 'production') {
-          console.debug('/api/v1/auth/refresh: rotated refresh_token cookie (dev)', {
-            cookieOpts: cookieOptions,
-            hasRefresh: !!session.refresh_token,
-            refreshPreview: session.refresh_token ? `${String(session.refresh_token).slice(0, 12)}...` : null,
-          });
+
+        if (!incomingRefresh || incomingRefresh !== outgoingRefresh) {
+          // Only set/rotate cookie when value differs (or doesn't exist)
+          res.cookie('refresh_token', outgoingRefresh, cookieOptions);
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug('/api/v1/auth/refresh: rotated refresh_token cookie (dev)', {
+              cookieOpts: cookieOptions,
+              hasRefresh: !!outgoingRefresh,
+              refreshPreview: outgoingRefresh ? `${String(outgoingRefresh).slice(0, 12)}...` : null,
+              incomingPreview: incomingRefresh ? `${String(incomingRefresh).slice(0, 12)}...` : null,
+            });
+          }
+        } else {
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug('/api/v1/auth/refresh: refresh_token unchanged — not rotating cookie (dev)', {
+              incomingPreview: incomingRefresh ? `${String(incomingRefresh).slice(0, 12)}...` : null,
+            });
+          }
         }
       }
     } catch (cookieErr) {
@@ -291,6 +357,32 @@ app.post('/api/v1/auth/refresh', async (req, res) => {
         };
         if (session.expires_in) accessCookieOpts.maxAge = Number(session.expires_in) * 1000;
         res.cookie('access_token', session.access_token, accessCookieOpts);
+      }
+      // Try to attach a user_role cookie when possible so server-side
+      // middleware can make fast role checks without an extra DB lookup.
+      try {
+        // If we have an access token, use it to resolve the user id and
+        // then fetch the application role using the service client.
+        if (session && session.access_token) {
+          try {
+            const userResp: any = await supabase.auth.getUser(session.access_token);
+            const userObj = userResp?.data?.user;
+            if (userObj && userObj.id) {
+              const roleResp: any = await supabaseAdmin.from('users').select('role').eq('id', userObj.id).single();
+              const role = roleResp?.data?.role || (userObj as any).role || 'user';
+              res.cookie('user_role', role, {
+                httpOnly: false,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+              });
+            }
+          } catch (e) {
+            // non-fatal: role lookup failed, continue without user_role
+          }
+        }
+      } catch (e) {
+        // ignore
       }
     } catch (cookieErr) {
       console.warn('Failed to set access_token cookie during refresh:', cookieErr);
