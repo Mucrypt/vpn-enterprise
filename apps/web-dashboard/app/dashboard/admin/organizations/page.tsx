@@ -20,9 +20,12 @@ import {
   UserPlus,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/lib/store';
+import toast from 'react-hot-toast';
 
 interface Organization {
   id: string;
@@ -55,6 +58,9 @@ export default function OrganizationsPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const { user: currentUser, isAuthenticated } = useAuthStore();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -71,8 +77,20 @@ export default function OrganizationsPage() {
   });
 
   useEffect(() => {
-    loadOrganizations();
-  }, []);
+    // Check if user is admin before loading organizations
+    if (isAuthenticated && currentUser) {
+      const isAdmin = ['admin', 'super_admin', 'superadmin'].includes(currentUser.role?.toLowerCase() || '');
+      if (isAdmin) {
+        loadOrganizations();
+      } else {
+        setError('Admin access required to view organizations');
+        setLoading(false);
+      }
+    } else {
+      setError('Please log in to access this page');
+      setLoading(false);
+    }
+  }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
     if (selectedOrg) {
@@ -83,10 +101,22 @@ export default function OrganizationsPage() {
   const loadOrganizations = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await api.getOrganizations();
       setOrganizations(data.organizations || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load organizations:', error);
+      
+      if (error.status === 401) {
+        setError('Authentication failed. Please log in again.');
+        toast.error('Session expired. Please log in again.');
+      } else if (error.status === 403) {
+        setError('Admin access required to view organizations');
+        toast.error('Admin access required');
+      } else {
+        setError('Failed to load organizations. Please try again.');
+        toast.error('Failed to load organizations');
+      }
     } finally {
       setLoading(false);
     }
@@ -96,40 +126,44 @@ export default function OrganizationsPage() {
     try {
       const data = await api.getOrganizationMembers(orgId);
       setTeamMembers(data.members || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load team members:', error);
+      if (error.status === 401 || error.status === 403) {
+        toast.error('Access denied to load team members');
+      } else {
+        toast.error('Failed to load team members');
+      }
     }
   };
 
-  const handleCreateOrganization = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Handler for creating organization
+  const handleCreateOrganization = async () => {
     try {
-      await api.createOrganization(formData);
+      setLoading(true);
+      const org = await api.createOrganization(formData);
+      setOrganizations((prev) => [...prev, org]);
       setShowCreateForm(false);
-      setFormData({
-        name: '',
-        billing_tier: 'enterprise',
-        max_users: 100,
-        max_devices_per_user: 10,
-        max_servers: 50,
-      });
-      loadOrganizations();
-    } catch (error) {
-      console.error('Failed to create organization:', error);
+      toast.success('Organization created');
+    } catch (error: any) {
+      toast.error('Failed to create organization');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleInviteUser = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Handler for inviting team member
+  const handleInviteMember = async () => {
     if (!selectedOrg) return;
-    
     try {
-      await api.inviteOrganizationMember(selectedOrg.id, inviteData);
+      setLoading(true);
+      const member = await api.inviteOrganizationMember(selectedOrg.id, inviteData);
+      setTeamMembers((prev) => [...prev, member]);
       setShowInviteForm(false);
-      setInviteData({ email: '', role: 'user', full_name: '' });
-      loadTeamMembers(selectedOrg.id);
-    } catch (error) {
-      console.error('Failed to invite user:', error);
+      toast.success('Member invited');
+    } catch (error: any) {
+      toast.error('Failed to invite member');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -138,9 +172,15 @@ export default function OrganizationsPage() {
     
     try {
       await api.removeOrganizationMember(selectedOrg.id, memberId);
+      toast.success('Member removed successfully');
       loadTeamMembers(selectedOrg.id);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to remove member:', error);
+      if (error.status === 401 || error.status === 403) {
+        toast.error('Admin access required to remove members');
+      } else {
+        toast.error('Failed to remove member');
+      }
     }
   };
 
@@ -149,9 +189,15 @@ export default function OrganizationsPage() {
     
     try {
       await api.updateOrganizationMember(selectedOrg.id, memberId, { role: newRole });
+      toast.success('Member role updated');
       loadTeamMembers(selectedOrg.id);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update member role:', error);
+      if (error.status === 401 || error.status === 403) {
+        toast.error('Admin access required to update roles');
+      } else {
+        toast.error('Failed to update member role');
+      }
     }
   };
 
@@ -174,6 +220,47 @@ export default function OrganizationsPage() {
     }
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-600">Loading organizations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Organizations & Teams</h1>
+            <p className="text-gray-600 mt-1">Manage enterprise organizations and team members</p>
+          </div>
+        </div>
+
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-red-800 mb-2">Access Denied</h3>
+              <p className="text-red-700 mb-4">{error}</p>
+              {error.includes('log in') && (
+                <Button onClick={() => window.location.href = '/auth/login'}>
+                  Go to Login
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -181,10 +268,16 @@ export default function OrganizationsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Organizations & Teams</h1>
           <p className="text-gray-600 mt-1">Manage enterprise organizations and team members</p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Organization
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={loadOrganizations}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <Button onClick={() => setShowCreateForm(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Organization
+          </Button>
+        </div>
       </div>
 
       {/* Stats Overview */}
@@ -413,7 +506,7 @@ export default function OrganizationsPage() {
             {/* Invite Form */}
             {showInviteForm && (
               <div className="mb-6 p-4 border-2 border-dashed border-emerald-300 rounded-lg bg-emerald-50">
-                <form onSubmit={handleInviteUser} className="space-y-4">
+                <form onSubmit={handleInviteMember} className="space-y-4">
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="invite_email">Email Address *</Label>

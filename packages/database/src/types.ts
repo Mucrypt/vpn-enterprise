@@ -1,4 +1,18 @@
 // Database Type Definitions for VPN Enterprise
+// Custom AppUser type for local usage (not overwritten by supabase codegen)
+export type AppUserRole = 'user' | 'admin' | 'super_admin';
+export interface AppUser {
+  id: string;
+  email: string;
+  role: AppUserRole;
+  last_login?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Type alias for generated Supabase user row
+import type { Database as SupabaseDatabase } from './supabase-types';
+export type AppUserRow = SupabaseDatabase["public"]["Tables"]["users"]["Row"];
 
 export type SubscriptionPlan = 'free' | 'basic' | 'premium' | 'enterprise';
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'trial';

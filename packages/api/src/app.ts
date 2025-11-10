@@ -33,7 +33,7 @@ app.use(helmet());
 // If not provided, fall back to common local dev origins.
 const allowedOrigins = (process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
-  : ['http://localhost:3001', 'http://localhost:3000']
+  : ['http://localhost:3001', 'http://localhost:3000', 'http://localhost:5000']
 );
 
 // Helpful startup log to diagnose CORS problems in deployed environments.
@@ -129,10 +129,186 @@ if (process.env.NODE_ENV !== 'production') {
       res.status(500).json({ ok: false, error: String(err) });
     }
   });
+
+  // Add debug route to list all registered routes
+  app.get('/api/v1/debug/routes', (req, res) => {
+    const routes: any[] = [];
+    app._router.stack.forEach((middleware: any) => {
+      if (middleware.route) {
+        // Routes registered directly on the app
+        routes.push({
+          path: middleware.route.path,
+          methods: Object.keys(middleware.route.methods)
+        });
+      } else if (middleware.name === 'router') {
+        // Router middleware
+        middleware.handle.stack.forEach((handler: any) => {
+          if (handler.route) {
+            routes.push({
+              path: handler.route.path,
+              methods: Object.keys(handler.route.methods)
+            });
+          }
+        });
+      }
+    });
+    res.json({ routes });
+  });
 }
 
 // ==========================
 // ROUTES (kept identical to previous implementation)
+// Organizations: return organization data for dashboard organizations page
+// Organizations endpoints
+app.get('/api/v1/admin/organizations', adminMiddleware, async (req, res) => {
+  try {
+    // Return mock data or implement real database queries
+    const organizations = [
+      {
+        id: 'org-1',
+        name: 'Acme Corporation',
+        billing_tier: 'enterprise',
+        max_users: 100,
+        max_devices_per_user: 10,
+        max_servers: 50,
+        created_at: new Date().toISOString(),
+        features: {},
+        _count: {
+          users: 12,
+          servers: 5
+        }
+      }
+    ];
+    res.json({ organizations });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch organizations', message: error.message });
+  }
+});
+
+app.post('/api/v1/admin/organizations', adminMiddleware, async (req, res) => {
+  try {
+    // Create organization logic here
+    const organization = { id: 'org-' + Date.now(), ...req.body, created_at: new Date().toISOString() };
+    res.json(organization);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create organization', message: error.message });
+  }
+});
+// Threat protection: stats endpoint
+app.get('/api/v1/security/threats/stats', async (req, res) => {
+  try {
+    // TODO: Replace with real DB query for threat stats in production
+    // For now, return mock stats for development/testing
+    const { range } = req.query;
+    const stats = {
+      totalThreats: 5,
+      blocked: 3,
+      severity: {
+        critical: 2,
+        warning: 2,
+        info: 1,
+      },
+      range: range || 'today',
+    };
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch threat stats', message: (error as any).message });
+  }
+});
+
+// Threat protection: recent threats endpoint
+app.get('/api/v1/security/threats/recent', async (req, res) => {
+  try {
+    // TODO: Replace with real DB query for recent threats in production
+    // For now, return mock data for development/testing
+    const { limit } = req.query;
+    const threats = [
+      {
+        id: 't1',
+        type: 'malware',
+        severity: 'critical',
+        detected_at: new Date(Date.now() - 3600 * 1000).toISOString(),
+        status: 'blocked',
+        description: 'Malware detected and blocked',
+      },
+      {
+        id: 't2',
+        type: 'phishing',
+        severity: 'warning',
+        detected_at: new Date(Date.now() - 7200 * 1000).toISOString(),
+        status: 'blocked',
+        description: 'Phishing attempt blocked',
+      }
+    ];
+    res.json({ threats: threats.slice(0, Number(limit) || 50) });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch recent threats', message: (error as any).message });
+  }
+});
+// Analytics: return connection data for dashboard analytics page
+app.get('/api/v1/connections', async (req, res) => {
+  try {
+    // TODO: Replace with real DB query for all connections in production
+    // For now, return a mock list for development/testing
+    const connections = [
+      {
+        id: 'c1',
+        user_id: '1',
+        server_id: 's1',
+        status: 'connected',
+        connected_at: new Date(Date.now() - 3600 * 1000).toISOString(),
+        disconnected_at: null,
+        data_uploaded_mb: 120,
+        data_downloaded_mb: 340,
+        ip_address: '192.168.1.10',
+      },
+      {
+        id: 'c2',
+        user_id: '2',
+        server_id: 's2',
+        status: 'disconnected',
+        connected_at: new Date(Date.now() - 7200 * 1000).toISOString(),
+        disconnected_at: new Date(Date.now() - 3600 * 1000).toISOString(),
+        data_uploaded_mb: 80,
+        data_downloaded_mb: 150,
+        ip_address: '192.168.1.11',
+      }
+    ];
+    res.json(connections);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch connections', message: (error as any).message });
+  }
+});
+// Clients: return all users for dashboard client page
+app.get('/api/v1/users', async (req, res) => {
+  try {
+    // TODO: Replace with real DB query for all users in production
+    // For now, return a mock list for development/testing
+    const users = [
+      {
+        id: '1',
+        email: 'alice@example.com',
+        username: 'alice',
+        subscription_tier: 'premium',
+        is_active: true,
+        max_devices: 3,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: '2',
+        email: 'bob@example.com',
+        username: 'bob',
+        subscription_tier: 'free',
+        is_active: false,
+        max_devices: 1,
+        updated_at: new Date().toISOString(),
+      }
+    ];
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch users', message: (error as any).message });
+  }
+});
 // ==========================
 
 // In-memory single-flight map for refresh operations initiated via the
@@ -510,7 +686,16 @@ app.get('/api/v1/admin/users', adminMiddleware, async (req, res) => {
     const userReq = req as AuthRequest;
     const user = userReq.user;
     if (!user) return res.json({ users: [] });
-    res.json({ users: [{ id: user.id, email: user.email, role: user.role || 'user' }] });
+    res.json({ users: [{
+      id: user.id,
+      email: user.email,
+      username: user.email?.split('@')[0] || '',
+      subscription_tier: 'premium', // mock value
+      is_active: true, // mock value
+      max_devices: 3, // mock value
+      updated_at: new Date().toISOString(),
+      role: user.role || 'user'
+    }] });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch users', message: error.message });
   }
@@ -525,6 +710,423 @@ app.put('/api/v1/admin/users/:id/encryption', adminMiddleware, async (req, res) 
     res.json({ success: true, id, protocol_id });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to set encryption', message: error.message });
+  }
+});
+
+// ==================== ORGANIZATION ENDPOINTS ====================
+
+// Get all organizations
+app.get('/api/v1/admin/organizations', adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    console.log('Organizations endpoint called by user:', req.user);
+    // Use Supabase to get all organizations with counts
+    const { data, error } = await (supabase as any)
+      .from('organizations')
+      .select(`
+        *,
+        users:users(count),
+        servers:servers(count)
+      `)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Database error fetching organizations:', error);
+      return res.status(500).json({ error: 'Database error', message: error.message });
+    }
+
+    // Transform the data to match the expected format
+    const transformedOrganizations = (data as any[])?.map((org: any) => ({
+      id: org.id,
+      name: org.name,
+      billing_tier: org.billing_tier,
+      max_users: org.max_users,
+      max_devices_per_user: org.max_devices_per_user,
+      max_servers: org.max_servers,
+      created_at: org.created_at,
+      features: org.features || {},
+      _count: {
+        users: org.users?.[0]?.count || 0,
+        servers: org.servers?.[0]?.count || 0
+      }
+    })) || [];
+
+    console.log('Returning organizations:', transformedOrganizations.length);
+    res.json({ organizations: transformedOrganizations });
+  } catch (error: any) {
+    console.error('Organizations endpoint error:', error);
+    res.status(500).json({ error: 'Failed to fetch organizations', message: error.message });
+  }
+});
+
+// Create new organization
+app.post('/api/v1/admin/organizations', adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { name, billing_tier, max_users, max_devices_per_user, max_servers } = req.body;
+    console.log('Creating organization:', { name, billing_tier, user: req.user });
+    if (!name) {
+      return res.status(400).json({ error: 'Organization name is required' });
+    }
+
+    // Determine features based on billing tier
+    const features = {
+      advanced_analytics: billing_tier === 'enterprise',
+      custom_domains: billing_tier === 'enterprise',
+      priority_support: billing_tier === 'enterprise',
+      multi_region: ['enterprise', 'business'].includes(billing_tier),
+      api_access: ['enterprise', 'business'].includes(billing_tier)
+    };
+
+    // Insert into database
+    const { data, error } = await (supabase as any)
+      .from('organizations')
+      .insert({
+        name,
+        billing_tier: billing_tier || 'enterprise',
+        max_users: max_users || 100,
+        max_devices_per_user: max_devices_per_user || 10,
+        max_servers: max_servers || 50,
+        features
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Database error creating organization:', error);
+      return res.status(500).json({ error: 'Database error', message: error.message });
+    }
+
+    // Add _count property for frontend compatibility
+    const organizationWithCount = {
+      ...(data as any),
+      _count: {
+        users: 0,
+        servers: 0
+      }
+    };
+
+    console.log('Organization created:', organizationWithCount.id);
+    res.json(organizationWithCount);
+  } catch (error: any) {
+    console.error('Create organization error:', error);
+    res.status(500).json({ error: 'Failed to create organization', message: error.message });
+  }
+});
+
+// Get organization by ID
+app.get('/api/v1/admin/organizations/:id', adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Get organization:', { id, user: req.user });
+    // Mock organization - replace with real database query
+    const organization = {
+      id,
+      name: 'Sample Organization',
+      billing_tier: 'enterprise',
+      max_users: 100,
+      max_devices_per_user: 10,
+      max_servers: 50,
+      created_at: new Date().toISOString(),
+      features: { 
+        advanced_analytics: true, 
+        custom_domains: true,
+        priority_support: true
+      }
+    };
+    res.json({ organization });
+  } catch (error: any) {
+    console.error('Get organization error:', error);
+    res.status(500).json({ error: 'Failed to fetch organization', message: error.message });
+  }
+});
+
+// Update organization
+app.put('/api/v1/admin/organizations/:id', adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    console.log('Update organization:', { id, updates, user: req.user });
+    // Mock update - replace with real database update
+    const organization = {
+      id,
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    res.json({ organization });
+  } catch (error: any) {
+    console.error('Update organization error:', error);
+    res.status(500).json({ error: 'Failed to update organization', message: error.message });
+  }
+});
+
+// Delete organization
+app.delete('/api/v1/admin/organizations/:id', adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Delete organization:', { id, user: req.user });
+    // Mock delete - replace with real database delete
+    res.json({ success: true, id, message: 'Organization deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete organization error:', error);
+    res.status(500).json({ error: 'Failed to delete organization', message: error.message });
+  }
+});
+
+// Get organization members
+app.get('/api/v1/admin/organizations/:orgId/members', adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { orgId } = req.params;
+    console.log('Get organization members:', { orgId, user: req.user });
+    // Get members from database
+    const { data, error } = await (supabase as any)
+      .from('users')
+      .select('id, email, full_name, role, created_at')
+      .eq('organization_id', orgId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Database error fetching members:', error);
+      return res.status(500).json({ error: 'Database error', message: error.message });
+    }
+
+    // Transform to expected format
+    const transformedMembers = (data as any[])?.map((member: any) => ({
+      id: member.id,
+      email: member.email,
+      full_name: member.full_name,
+      role: member.role || 'user',
+      status: 'active', // You might want to add a status field to your users table
+      created_at: member.created_at
+    })) || [];
+
+    res.json({ members: transformedMembers });
+  } catch (error: any) {
+    console.error('Get organization members error:', error);
+    res.status(500).json({ error: 'Failed to fetch organization members', message: error.message });
+  }
+});
+
+// Invite member to organization
+app.post('/api/v1/admin/organizations/:orgId/members', adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { orgId } = req.params;
+    const { email, role, full_name } = req.body;
+    console.log('Invite member:', { orgId, email, role, full_name, user: req.user });
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Check if user already exists
+    const { data: existingUser } = await (supabase as any)
+      .from('users')
+      .select('id, email, organization_id, full_name')
+      .eq('email', email)
+      .single();
+
+    if (existingUser) {
+      // Update existing user's organization and role
+      const { data: updatedUser, error: updateError } = await (supabase as any)
+        .from('users')
+        .update({
+          organization_id: orgId,
+          role: role || 'user',
+          full_name: full_name || existingUser.full_name
+        })
+        .eq('id', existingUser.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Database error updating user:', updateError);
+        return res.status(500).json({ error: 'Database error', message: updateError.message });
+      }
+
+      const member = {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        full_name: updatedUser.full_name,
+        role: updatedUser.role,
+        status: 'active',
+        created_at: updatedUser.created_at
+      };
+
+      return res.json({ member, message: 'User added to organization' });
+    } else {
+      // Create new user invitation (you might want to create an invitations table)
+      // For now, we'll create a placeholder response
+      const member = {
+        id: 'invite-' + Date.now(),
+        email,
+        full_name: full_name || '',
+        role: role || 'user',
+        status: 'pending',
+        created_at: new Date().toISOString()
+      };
+
+      res.json({ member, message: 'Invitation sent successfully' });
+    }
+  } catch (error: any) {
+    console.error('Invite member error:', error);
+    res.status(500).json({ error: 'Failed to invite member', message: error.message });
+  }
+});
+
+// Update organization member
+app.put('/api/v1/admin/organizations/:orgId/members/:memberId', adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { orgId, memberId } = req.params;
+    const { role } = req.body;
+    console.log('Update member role:', { orgId, memberId, role, user: req.user });
+
+    // Update user role in database
+    const { data: updatedMember, error } = await (supabase as any)
+      .from('users')
+      .update({ role })
+      .eq('id', memberId)
+      .eq('organization_id', orgId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Database error updating member:', error);
+      return res.status(500).json({ error: 'Database error', message: error.message });
+    }
+
+    const member = {
+      id: updatedMember.id,
+      email: updatedMember.email,
+      full_name: updatedMember.full_name,
+      role: updatedMember.role,
+      status: 'active',
+      created_at: updatedMember.created_at
+    };
+
+    res.json({ member });
+  } catch (error: any) {
+    console.error('Update member error:', error);
+    res.status(500).json({ error: 'Failed to update member', message: error.message });
+  }
+});
+
+// Remove member from organization
+app.delete('/api/v1/admin/organizations/:orgId/members/:memberId', adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { orgId, memberId } = req.params;
+    console.log('Remove member:', { orgId, memberId, user: req.user });
+
+    // Remove user from organization by setting organization_id to null
+    const { error } = await (supabase as any)
+      .from('users')
+      .update({ organization_id: null })
+      .eq('id', memberId)
+      .eq('organization_id', orgId);
+
+    if (error) {
+      console.error('Database error removing member:', error);
+      return res.status(500).json({ error: 'Database error', message: error.message });
+    }
+
+    res.json({ success: true, memberId, message: 'Member removed successfully' });
+  } catch (error: any) {
+    console.error('Remove member error:', error);
+    res.status(500).json({ error: 'Failed to remove member', message: error.message });
+  }
+});
+
+// ORGANIZATION ENDPOINTS - Add these to your Express app
+app.get('/api/v1/admin/organizations', adminMiddleware, async (req, res) => {
+  try {
+    console.log('Organizations endpoint called by user:', (req as AuthRequest).user);
+    // Mock data - replace with real database queries
+    const organizations = [
+      {
+        id: 'org-1',
+        name: 'Acme Corporation',
+        billing_tier: 'enterprise',
+        max_users: 100,
+        max_devices_per_user: 10,
+        max_servers: 50,
+        created_at: new Date().toISOString(),
+        features: { advanced_analytics: true, custom_domains: true },
+        _count: {
+          users: 12,
+          servers: 5
+        }
+      },
+      {
+        id: 'org-2',
+        name: 'Beta Solutions',
+        billing_tier: 'business',
+        max_users: 50,
+        max_devices_per_user: 5,
+        max_servers: 20,
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        features: { advanced_analytics: true, custom_domains: false },
+        _count: {
+          users: 8,
+          servers: 3
+        }
+      }
+    ];
+    res.json({ organizations });
+  } catch (error: any) {
+    console.error('Organizations endpoint error:', error);
+    res.status(500).json({ error: 'Failed to fetch organizations', message: error.message });
+  }
+});
+
+app.post('/api/v1/admin/organizations', adminMiddleware, async (req, res) => {
+  try {
+    const { name, billing_tier, max_users, max_devices_per_user, max_servers } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Organization name is required' });
+    }
+    // Create mock organization - replace with real database insert
+    const organization = {
+      id: 'org-' + Date.now(),
+      name,
+      billing_tier: billing_tier || 'enterprise',
+      max_users: max_users || 100,
+      max_devices_per_user: max_devices_per_user || 10,
+      max_servers: max_servers || 50,
+      created_at: new Date().toISOString(),
+      features: {},
+      _count: {
+        users: 0,
+        servers: 0
+      }
+    };
+    res.json(organization);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create organization', message: error.message });
+  }
+});
+
+app.get('/api/v1/admin/organizations/:orgId/members', adminMiddleware, async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    // Mock team members - replace with real database queries
+    const members = [
+      {
+        id: 'member-1',
+        email: 'admin@acme.com',
+        full_name: 'John Admin',
+        role: 'admin',
+        status: 'active',
+        created_at: new Date().toISOString()
+      },
+      {
+        id: 'member-2',
+        email: 'user@acme.com',
+        full_name: 'Jane User',
+        role: 'user',
+        status: 'active',
+        created_at: new Date().toISOString()
+      }
+    ];
+    res.json({ members });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch organization members', message: error.message });
   }
 });
 

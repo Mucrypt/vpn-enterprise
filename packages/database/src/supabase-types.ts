@@ -74,6 +74,57 @@ export type Database = {
           },
         ]
       }
+      bandwidth_logs: {
+        Row: {
+          bytes_received: number
+          bytes_sent: number
+          duration_seconds: number | null
+          id: string
+          measured_at: string | null
+          session_end: string | null
+          session_start: string
+          user_id: string | null
+          vpn_config_id: string | null
+        }
+        Insert: {
+          bytes_received?: number
+          bytes_sent?: number
+          duration_seconds?: number | null
+          id?: string
+          measured_at?: string | null
+          session_end?: string | null
+          session_start: string
+          user_id?: string | null
+          vpn_config_id?: string | null
+        }
+        Update: {
+          bytes_received?: number
+          bytes_sent?: number
+          duration_seconds?: number | null
+          id?: string
+          measured_at?: string | null
+          session_end?: string | null
+          session_start?: string
+          user_id?: string | null
+          vpn_config_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bandwidth_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bandwidth_logs_vpn_config_id_fkey"
+            columns: ["vpn_config_id"]
+            isOneToOne: false
+            referencedRelation: "vpn_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_configurations: {
         Row: {
           config_data: string
@@ -594,6 +645,48 @@ export type Database = {
           },
         ]
       }
+      subscription_tiers: {
+        Row: {
+          access_level: string | null
+          can_access_premium_servers: boolean | null
+          created_at: string | null
+          data_limit_mb: number | null
+          id: string
+          max_concurrent_connections: number | null
+          max_devices: number
+          name: string
+          price_monthly: number
+          price_yearly: number | null
+          priority_support: boolean | null
+        }
+        Insert: {
+          access_level?: string | null
+          can_access_premium_servers?: boolean | null
+          created_at?: string | null
+          data_limit_mb?: number | null
+          id?: string
+          max_concurrent_connections?: number | null
+          max_devices: number
+          name: string
+          price_monthly: number
+          price_yearly?: number | null
+          priority_support?: boolean | null
+        }
+        Update: {
+          access_level?: string | null
+          can_access_premium_servers?: boolean | null
+          created_at?: string | null
+          data_limit_mb?: number | null
+          id?: string
+          max_concurrent_connections?: number | null
+          max_devices?: number
+          name?: string
+          price_monthly?: number
+          price_yearly?: number | null
+          priority_support?: boolean | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null
@@ -899,6 +992,7 @@ export type Database = {
           email_verified: boolean | null
           full_name: string | null
           id: string
+          is_active: boolean | null
           last_login: string | null
           login_attempts: number | null
           metadata: Json | null
@@ -908,6 +1002,9 @@ export type Database = {
           phone: string | null
           preferences: Json | null
           role: Database["public"]["Enums"]["user_role_enum"] | null
+          subscription_expires_at: string | null
+          subscription_status: string | null
+          subscription_tier_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -918,6 +1015,7 @@ export type Database = {
           email_verified?: boolean | null
           full_name?: string | null
           id: string
+          is_active?: boolean | null
           last_login?: string | null
           login_attempts?: number | null
           metadata?: Json | null
@@ -927,6 +1025,9 @@ export type Database = {
           phone?: string | null
           preferences?: Json | null
           role?: Database["public"]["Enums"]["user_role_enum"] | null
+          subscription_expires_at?: string | null
+          subscription_status?: string | null
+          subscription_tier_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -937,6 +1038,7 @@ export type Database = {
           email_verified?: boolean | null
           full_name?: string | null
           id?: string
+          is_active?: boolean | null
           last_login?: string | null
           login_attempts?: number | null
           metadata?: Json | null
@@ -946,6 +1048,9 @@ export type Database = {
           phone?: string | null
           preferences?: Json | null
           role?: Database["public"]["Enums"]["user_role_enum"] | null
+          subscription_expires_at?: string | null
+          subscription_status?: string | null
+          subscription_tier_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -956,6 +1061,85 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "users_subscription_tier_id_fkey"
+            columns: ["subscription_tier_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vpn_configs: {
+        Row: {
+          allocated_ip: unknown
+          bytes_received: number | null
+          bytes_sent: number | null
+          client_private_key_encrypted: string
+          client_public_key: string
+          created_at: string | null
+          data_limit_mb: number | null
+          device_name: string | null
+          dns_servers: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          last_handshake: string | null
+          server_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          allocated_ip: unknown
+          bytes_received?: number | null
+          bytes_sent?: number | null
+          client_private_key_encrypted: string
+          client_public_key: string
+          created_at?: string | null
+          data_limit_mb?: number | null
+          device_name?: string | null
+          dns_servers?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_handshake?: string | null
+          server_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          allocated_ip?: unknown
+          bytes_received?: number | null
+          bytes_sent?: number | null
+          client_private_key_encrypted?: string
+          client_public_key?: string
+          created_at?: string | null
+          data_limit_mb?: number | null
+          device_name?: string | null
+          dns_servers?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_handshake?: string | null
+          server_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vpn_configs_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vpn_configs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -963,6 +1147,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_data_limit: { Args: { p_user_id: string }; Returns: boolean }
       log_security_event: {
         Args: {
           p_description: string
@@ -978,7 +1163,13 @@ export type Database = {
       connection_status: "connected" | "disconnected" | "failed"
       subscription_plan: "free" | "basic" | "premium" | "enterprise"
       subscription_status: "active" | "expired" | "cancelled" | "trial"
-      user_role_enum: "super_admin" | "admin" | "user" | "viewer"
+      user_role_enum:
+        | "super_admin"
+        | "admin"
+        | "user"
+        | "viewer"
+        | "superadmin"
+        | "administrator"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1109,7 +1300,14 @@ export const Constants = {
       connection_status: ["connected", "disconnected", "failed"],
       subscription_plan: ["free", "basic", "premium", "enterprise"],
       subscription_status: ["active", "expired", "cancelled", "trial"],
-      user_role_enum: ["super_admin", "admin", "user", "viewer"],
+      user_role_enum: [
+        "super_admin",
+        "admin",
+        "user",
+        "viewer",
+        "superadmin",
+        "administrator",
+      ],
     },
   },
 } as const

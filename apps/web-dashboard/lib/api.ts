@@ -1,528 +1,631 @@
-// Determine API base at runtime:
-// - In the browser we use a relative path so requests go to the Next.js dev
-//   server (same-origin) which proxies /api to the backend. This ensures
-//   cookies (httpOnly refresh token) are sent by the browser during dev.
-// - On the server (SSR) use NEXT_PUBLIC_API_URL or fallback to localhost:5000.
+// Determine API base at runtime
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const API_BASE_URL = typeof window === 'undefined' ? DEFAULT_API : '';
 
-// Single-flight refresh promise to avoid concurrent refresh requests which can
-// trigger server-side rate limits when multiple components call API at once.
-let refreshPromise: Promise<{ ok: boolean; body: any; response: Response } | null> | null = null;
+// Single-flight refresh promise
+let refreshPromise: Promise<string | null> | null = null;
 
-// Defer importing the auth store to avoid circulars at module-eval time in some SSR setups
-function logoutAndRedirect(reason?: string) {
-  // Emit diagnostics about why logout was triggered so we can correlate with
-  // server logs when investigating unexpected logouts.
-  try {
-    console.info('[fetchAPI] logoutAndRedirect invoked', { reason });
-    // emit a small stacktrace to help identify the caller
-    console.info(new Error('logoutAndRedirect stack').stack);
-  } catch (e) {
-    // ignore
+class APIClient {
+  // ==================== SECURITY EVENTS ENDPOINT ====================
+  getSecurityEvents() {
+    return this.fetchAPI('/admin/security/events');
   }
-
-  try {
-    // import lazily so this module can be used in non-auth contexts without pulling store code
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { useAuthStore } = require('./store');
-    // If the store exists, include its lastSuccessfulAuth timestamp in the log
-    try {
-      if (useAuthStore && typeof useAuthStore.getState === 'function') {
-        const st = useAuthStore.getState() as any;
-        console.info('[fetchAPI] logout: storeState=', { lastSuccessfulAuth: st?.lastSuccessfulAuth, user: !!st?.user });
-        useAuthStore.getState().logout();
-        return;
-      }
-    } catch (err) {
-      console.debug('[fetchAPI] logoutAndRedirect: failed to call store.logout', err);
+  // ==================== SECURITY ENDPOINT ====================
+  getAuditLogs(filters?: { severity?: string }) {
+    const queryParams = filters ? `?${new URLSearchParams(filters)}` : '';
+    return this.fetchAPI(`/admin/audit-logs${queryParams}`);
+  }
+  // ==================== ANALYTICS ENDPOINT ====================
+  getConnections() {
+    return this.fetchAPI('/connections');
+  }
+  // ==================== CLIENTS ENDPOINT ====================
+  getUsers() {
+    return this.fetchAPI('/users');
+  }
+  private async refreshToken(): Promise<string | null> {
+    if (refreshPromise) {
+      return refreshPromise;
     }
-  } catch (e) {
-    // ignore and fall through to fallback
-  }
 
-  // fallback: clear local storage and redirect
-  try {
-    if (typeof window !== 'undefined') {
-      try { localStorage.removeItem('access_token'); } catch (e) { /* ignore */ }
-      try { document.cookie = 'access_token=; path=/; max-age=0'; } catch (e) { /* ignore */ }
+    refreshPromise = (async (): Promise<string | null> => {
       try {
-        if (window.location.pathname !== '/auth/login') {
-          window.location.href = '/auth/login';
-        } else {
-          console.debug('logoutAndRedirect: already on /auth/login, skipping redirect');
-        }
-      } catch (err) {
-        try { window.location.href = '/auth/login'; } catch (err2) { /* ignore */ }
-      }
-    }
-  } catch (err) {
-    // ignore
-  }
-}
+        console.debug('[APIClient] Attempting token refresh');
+        
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
 
-export async function fetchAPI(endpoint: string, options?: RequestInit) {
-  // Prefer the in-memory zustand store for the access token. Fall back to
-  // localStorage only if the store can't be required (rare SSR/circular cases).
-  let token: string | null = null;
-  if (typeof window !== 'undefined') {
+        if (!response.ok) {
+          console.warn('[APIClient] Token refresh failed:', response.status);
+          return null;
+        }
+
+        const data = await response.json();
+        const newAccessToken = data.session?.access_token;
+
+        if (newAccessToken) {
+          // Update token in store and localStorage
+          this.updateTokenStorage(newAccessToken);
+          console.debug('[APIClient] Token refresh successful');
+          return newAccessToken;
+        }
+
+        return null;
+      } catch (error) {
+        console.error('[APIClient] Token refresh error:', error);
+        return null;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+
+    return refreshPromise;
+  }
+
+  private getToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    
     try {
-      // lazy require to avoid circulars during module evaluation on the server
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      // Try to get from store first
       const { useAuthStore } = require('./store');
-      token = useAuthStore?.getState?.().accessToken || null;
+      return useAuthStore.getState().accessToken;
     } catch (e) {
-      try {
-        token = localStorage.getItem('access_token');
-      } catch (err) {
-        token = null;
-      }
+      // Fallback to localStorage
+      return localStorage.getItem('access_token');
     }
   }
 
-  if (typeof window !== 'undefined') {
+  private updateTokenStorage(token: string): void {
+    if (typeof window === 'undefined') return;
+
     try {
-      console.debug('[fetchAPI] calling', endpoint, 'tokenPreview=', token ? `${String(token).slice(0, 30)}...` : null);
+      // Update store
+      const { useAuthStore } = require('./store');
+      useAuthStore.getState().setAccessToken(token);
     } catch (e) {
-      // ignore
+      // Fallback to localStorage
+      localStorage.setItem('access_token', token);
     }
-  }
 
-  // If a refresh is already in-flight, wait for it so this request can
-  // reuse the newly issued access token instead of triggering another
-  // refresh flow. This provides a simple request-queuing behaviour.
-  if (typeof window !== 'undefined' && refreshPromise) {
+    // Also set as cookie for server-side usage
     try {
-      console.debug('[fetchAPI] awaiting in-flight refresh before', endpoint);
-      await refreshPromise;
+      document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
     } catch (e) {
-      // ignore - we'll attempt the request below which may trigger its own refresh
+      // Ignore cookie errors
     }
   }
 
-  // Pre-flight refresh: only attempt if no local access token and refresh_token cookie is present
-  if (typeof window !== 'undefined' && !token) {
+  private async handleLogout(): Promise<void> {
+    if (typeof window === 'undefined') return;
+
     try {
-      // Check for refresh_token cookie presence
-      const hasRefreshCookie = document.cookie.split(';').some((c) => c.trim().startsWith('refresh_token='));
-      if (hasRefreshCookie && !refreshPromise) {
-        console.debug('[fetchAPI] pre-flight: initiating cookie-based refresh before', endpoint);
-        refreshPromise = (async () => {
-          try {
-            const r = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-            });
-            const respBody = await r.json().catch(() => ({}));
-            return { ok: r.ok, body: respBody, response: r };
-          } catch (err) {
-            return { ok: false, body: null, response: null as any };
-          }
-        })();
-      }
-
-      if (refreshPromise) {
-        const preflightResult = await refreshPromise;
-        refreshPromise = null;
-        if (preflightResult && preflightResult.ok) {
-          const newAccess = preflightResult.body?.session?.access_token || preflightResult.body?.access_token;
-          if (newAccess) {
-            try {
-              // update in-memory store if available
-              // eslint-disable-next-line @typescript-eslint/no-var-requires
-              const { useAuthStore } = require('./store');
-              useAuthStore.getState().setAccessToken(newAccess);
-            } catch (e) {
-              // fallback to localStorage for very early dev convenience
-              try { localStorage.setItem('access_token', newAccess); } catch (err) { /* ignore */ }
-            }
-            token = newAccess;
-          }
-        }
-      }
+      const { useAuthStore } = require('./store');
+      useAuthStore.getState().logout();
     } catch (e) {
-      // swallow pre-flight failures; the normal request will proceed and
-      // trigger the on-401 refresh logic if needed.
+      // Fallback cleanup
+      localStorage.removeItem('access_token');
+      document.cookie = 'access_token=; path=/; max-age=0';
+      document.cookie = 'refresh_token=; path=/; max-age=0';
+      document.cookie = 'user_role=; path=/; max-age=0';
+      
+      if (!window.location.pathname.startsWith('/auth/login')) {
+        window.location.href = '/auth/login';
+      }
     }
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
-    // include credentials so httpOnly cookies (refresh_token) are sent for endpoints that rely on them
-    credentials: 'include',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options?.headers,
-    },
-  });
+  private async request(endpoint: string, options: RequestInit = {}): Promise<Response> {
+    let token = this.getToken();
+    
+    const config: RequestInit = {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options.headers,
+      },
+      ...options,
+    };
 
-  if (!response.ok) {
-    // If unauthorized, try silent refresh once
-    if (response.status === 401) {
-        console.debug('[fetchAPI] received 401 for', endpoint, 'tokenPresent=', !!token);
-      try {
-        // Attempt to refresh using httpOnly cookie. Use a single-flight
-        // promise so concurrent callers await the same refresh instead of
-        // issuing multiple refresh requests which can trigger 429s.
-        if (!refreshPromise) {
-            console.debug('[fetchAPI] starting refreshPromise for', endpoint);
-          refreshPromise = (async () => {
-            try {
-              const r = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-              });
-              const body = await (async () => {
-                try {
-                  return await r.json();
-                } catch (e) {
-                  return {};
-                }
-              })();
-                console.debug('[fetchAPI] refresh response for', endpoint, 'ok=', r.ok, 'bodyPreview=', body);
-              return { ok: r.ok, body, response: r };
-            } catch (err) {
-                console.debug('[fetchAPI] refresh request error for', endpoint, err);
-              return { ok: false, body: null, response: null as any };
-            }
-          })();
-        }
+    let response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, config);
 
-        const refreshResult = await refreshPromise;
-        // clear promise so future 401s can trigger a new attempt
-        refreshPromise = null;
-
-        if (refreshResult && refreshResult.ok) {
-          const refreshBody = refreshResult.body || {};
-          const newAccess = refreshBody?.session?.access_token || refreshBody?.access_token || refreshBody?.session?.token;
-            console.debug('[fetchAPI] refreshResult ok, got newAccess=', !!newAccess);
-          if (newAccess) {
-            localStorage.setItem('access_token', newAccess);
-            // Also set a readable access_token cookie so server-side middleware
-            // that reads cookies can validate the retried request if the
-            // Authorization header is stripped by any proxy during replay.
-            try {
-              if (typeof document !== 'undefined' && process.env.NODE_ENV !== 'production') {
-                try {
-                  document.cookie = `access_token=${newAccess}; path=/`;
-                  console.debug('[fetchAPI] set access_token cookie for retry (dev)');
-                } catch (e) {
-                  // ignore cookie set failures
-                }
-              }
-            } catch (e) {
-              // ignore cookie set failures
-            }
-
-            // Retry original request once with new token
-            const retryHeaders = {
-              'Content-Type': 'application/json',
-              ...(options?.headers || {}),
-              Authorization: `Bearer ${newAccess}`,
-            } as any;
-
-            const retryResp = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
-              // include credentials so httpOnly cookies (if any) are sent
-              credentials: 'include',
-              ...options,
-              headers: retryHeaders,
-            });
-
-            if (retryResp.ok) return retryResp.json();
-            // otherwise fall through and handle error normally
-          }
-        }
-        // No localStorage fallback - rely on cookie-based refresh only. This
-        // avoids using stale refresh tokens persisted across rotations.
-      } catch (e) {
-        // ignore and continue to final logout handling below
-      }
-
-      // If refresh failed, show a small notification (if available) then logout
-      try {
-        // lazy require toast to avoid SSR errors
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const toast = require('react-hot-toast').default;
-        if (toast && typeof toast.error === 'function') {
-          toast.error('Session expired. Please sign in again.');
-        }
-      } catch (e) {
-        // ignore toast errors
-      }
-
-      // perform logout and redirect, but avoid doing this if we're already
-      // on the login page (prevents redirect/clear-state loops during HMR
-      // or when the login page itself triggers an API call that 401s).
-      try {
-        // Avoid forcing logout immediately after a successful login/hydration.
-        // If the store indicates a recent successful auth, skip the logout and
-        // let the client-side hydrator retry/settle. This is defensive for
-        // dev-only races (HMR/cookie races). If window is not available or
-        // reading the store fails, fall back to the original behavior.
-        let skipLogout = false;
-        try {
-          if (typeof window !== 'undefined') {
-            if (window.location.pathname === '/auth/login') {
-              console.debug('[fetchAPI] refresh/login failed but already on /auth/login — skipping logout/redirect');
-              skipLogout = true;
-            }
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const { useAuthStore: _useAuthStore } = require('./store');
-            if (_useAuthStore && typeof _useAuthStore.getState === 'function') {
-              const st = _useAuthStore.getState() as any;
-              const last = st?.lastSuccessfulAuth || 0;
-              if (Date.now() - last < 15000) {
-                console.debug('[fetchAPI] recent successful auth detected — skipping logout (age ms)=', Date.now() - last);
-                skipLogout = true;
-              }
-            }
-          }
-        } catch (e) {
-          // ignore store read errors and fall back to logout
-        }
-
-        if (!skipLogout) {
-          logoutAndRedirect(`refresh-failed: ${endpoint}`);
-        }
-      } catch (e) {
-        // best-effort: if anything goes wrong, still attempt the logout redirect
-        try {
-          logoutAndRedirect(`refresh-failed-unknown: ${endpoint}`);
-        } catch (err) {
-          console.debug('[fetchAPI] logoutAndRedirect failed', err);
-        }
+    // Handle 401 - token expired
+    if (response.status === 401 && token) {
+      console.debug('[APIClient] Token expired, attempting refresh');
+      
+      const newToken = await this.refreshToken();
+      if (newToken) {
+        // Retry with new token
+        config.headers = {
+          ...config.headers,
+          Authorization: `Bearer ${newToken}`,
+        };
+        response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, config);
+      } else {
+        // Refresh failed, logout user
+        await this.handleLogout();
+        throw new Error('Session expired. Please login again.');
       }
     }
 
-    const errorBody = await response.json().catch(() => ({}));
-    const errorMessage = errorBody?.message || errorBody?.error || JSON.stringify(errorBody) || response.statusText || 'API request failed';
-    const err = new Error(`${response.status} ${response.statusText} - ${errorMessage}`);
-    // attach the original response body for richer handling in callers
-    (err as any).body = errorBody;
-    (err as any).status = response.status;
-
-    // If unauthorized, immediately clear auth and redirect to login so the UX isn't stuck.
-    // older code handled 401 by logging out immediately; now handled above during refresh attempt
-
-    throw err;
+    return response;
   }
 
-  return response.json();
+  async fetchAPI<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
+    const response = await this.request(endpoint, options);
+    
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      const errorMessage = errorBody?.message || errorBody?.error || response.statusText || 'API request failed';
+      
+      const error = new Error(`${response.status} ${response.statusText} - ${errorMessage}`);
+      (error as any).status = response.status;
+      (error as any).body = errorBody;
+      
+      throw error;
+    }
+
+    return response.json();
+  }
+
+  // ==================== AUTH ENDPOINTS ====================
+  async signUp(email: string, password: string) {
+    return this.fetchAPI('/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  }
+
+  async login(email: string, password: string) {
+    return this.fetchAPI('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  }
+
+  async logout() {
+    return this.fetchAPI('/auth/logout', {
+      method: 'POST',
+    });
+  }
+
+  async refreshSession() {
+    return this.fetchAPI('/auth/refresh', {
+      method: 'POST',
+    });
+  }
+
+  // ==================== PUBLIC ENDPOINTS ====================
+  getServers() {
+    return this.fetchAPI('/servers');
+  }
+
+  getVPNConfigs(userId: string) {
+    return this.fetchAPI(`/vpn/configs?userId=${encodeURIComponent(userId)}`);
+  }
+
+  getVPNUsage(userId: string) {
+    return this.fetchAPI(`/vpn/usage?userId=${encodeURIComponent(userId)}`);
+  }
+
+  // ==================== USER ENDPOINTS ====================
+  getProfile() {
+    return this.fetchAPI('/user/profile');
+  }
+
+  updateProfile(data: any) {
+    return this.fetchAPI('/user/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  getSubscription() {
+    return this.fetchAPI('/user/subscription');
+  }
+
+  getDevices() {
+    return this.fetchAPI('/user/devices');
+  }
+
+  addDevice(data: any) {
+    return this.fetchAPI('/user/devices', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteDevice(id: string) {
+    return this.fetchAPI(`/user/devices/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  getUserStats() {
+    return this.fetchAPI('/user/stats');
+  }
+
+  // ==================== SECURITY ENDPOINTS ====================
+  getSecuritySettings() {
+    return this.fetchAPI('/user/security/settings');
+  }
+
+  updateSecuritySettings(data: any) {
+    return this.fetchAPI('/user/security/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  getSessions() {
+    return this.fetchAPI('/user/sessions');
+  }
+
+  revokeSession(sessionId: string) {
+    return this.fetchAPI(`/user/sessions/${sessionId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  enable2FA() {
+    return this.fetchAPI('/user/security/2fa/enable', {
+      method: 'POST',
+    });
+  }
+
+  disable2FA(code: string) {
+    return this.fetchAPI('/user/security/2fa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  changePassword(data: any) {
+    return this.fetchAPI('/user/password', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ==================== VPN ENDPOINTS ====================
+  connect(serverId: string) {
+    return this.fetchAPI('/vpn/connect', {
+      method: 'POST',
+      body: JSON.stringify({ serverId }),
+    });
+  }
+
+  disconnect(connectionId: string) {
+    return this.fetchAPI('/vpn/disconnect', {
+      method: 'POST',
+      body: JSON.stringify({ connectionId }),
+    });
+  }
+
+  getConnectionHistory() {
+    return this.fetchAPI('/user/connections/history');
+  }
+
+  getDataUsage() {
+    return this.fetchAPI('/user/connections/data-usage');
+  }
+
+  // ==================== SPLIT TUNNEL ENDPOINTS ====================
+  getSplitTunnelRules() {
+    return this.fetchAPI('/user/split-tunnel');
+  }
+
+  createSplitTunnelRule(data: any) {
+    return this.fetchAPI('/user/split-tunnel', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateSplitTunnelRule(id: string, data: any) {
+    return this.fetchAPI(`/user/split-tunnel/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteSplitTunnelRule(id: string) {
+    return this.fetchAPI(`/user/split-tunnel/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==================== NOTIFICATION ENDPOINTS ====================
+  getNotifications(params?: { limit?: number }) {
+    const queryParams = params ? `?${new URLSearchParams(params as any)}` : '';
+    return this.fetchAPI(`/user/notifications${queryParams}`);
+  }
+
+  markNotificationRead(id: string) {
+    return this.fetchAPI(`/user/notifications/${id}/read`, {
+      method: 'PUT',
+    });
+  }
+
+  markAllNotificationsRead() {
+    return this.fetchAPI('/user/notifications/read-all', {
+      method: 'PUT',
+    });
+  }
+
+  deleteNotification(id: string) {
+    return this.fetchAPI(`/user/notifications/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  getNotificationSettings() {
+    return this.fetchAPI('/user/notifications/settings');
+  }
+
+  updateNotificationSettings(data: any) {
+    return this.fetchAPI('/user/notifications/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ==================== ADMIN ENDPOINTS ====================
+  getAdminStatistics() {
+    return this.fetchAPI('/admin/statistics');
+  }
+
+  getAdminUsers() {
+    return this.fetchAPI('/admin/users');
+  }
+
+  getAdminAuditLogs(filters?: { severity?: string }) {
+    const queryParams = filters ? `?${new URLSearchParams(filters)}` : '';
+    return this.fetchAPI(`/admin/audit-logs${queryParams}`);
+  }
+
+  getAdminSecurityEvents() {
+    return this.fetchAPI('/admin/security/events');
+  }
+
+  setUserEncryption(userId: string, protocolId: string) {
+    return this.fetchAPI(`/admin/users/${userId}/encryption`, {
+      method: 'PUT',
+      body: JSON.stringify({ protocol_id: protocolId }),
+    });
+  }
+
+  // ==================== ADMIN SERVER ENDPOINTS ====================
+  getAdminServer(id: string) {
+    return this.fetchAPI(`/admin/servers/${id}`);
+  }
+
+  createAdminServer(data: any) {
+    return this.fetchAPI('/admin/servers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateAdminServer(id: string, data: any) {
+    return this.fetchAPI(`/admin/servers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteAdminServer(id: string) {
+    return this.fetchAPI(`/admin/servers/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==================== ADMIN VPN CLIENT ENDPOINTS ====================
+  createAdminVPNClient(data: any) {
+    return this.fetchAPI('/admin/vpn/clients', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  getAdminConnections() {
+    return this.fetchAPI('/admin/connections');
+  }
+
+  // ==================== ADMIN ANALYTICS ENDPOINTS ====================
+  getAdminAnalytics() {
+    return this.fetchAPI('/admin/analytics');
+  }
+
+  // ==================== BILLING ENDPOINTS ====================
+  getInvoices() {
+    return this.fetchAPI('/billing/invoices');
+  }
+
+  getPlans() {
+    return this.fetchAPI('/billing/plans');
+  }
+
+  // ==================== ORGANIZATION ENDPOINTS ====================
+  getOrganizations() {
+    return this.fetchAPI('/admin/organizations');
+  }
+
+  getOrganization(id: string) {
+    return this.fetchAPI(`/admin/organizations/${id}`);
+  }
+
+  createOrganization(data: any) {
+    return this.fetchAPI('/admin/organizations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateOrganization(id: string, data: any) {
+    return this.fetchAPI(`/admin/organizations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteOrganization(id: string) {
+    return this.fetchAPI(`/admin/organizations/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  getOrganizationMembers(orgId: string) {
+    return this.fetchAPI(`/admin/organizations/${orgId}/members`);
+  }
+
+  inviteOrganizationMember(orgId: string, data: any) {
+    return this.fetchAPI(`/admin/organizations/${orgId}/members`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateOrganizationMember(orgId: string, memberId: string, data: any) {
+    return this.fetchAPI(`/admin/organizations/${orgId}/members/${memberId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  removeOrganizationMember(orgId: string, memberId: string) {
+    return this.fetchAPI(`/admin/organizations/${orgId}/members/${memberId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==================== API KEY ENDPOINTS ====================
+  getAPIKeys() {
+    return this.fetchAPI('/user/api-keys');
+  }
+
+  createAPIKey(data: any) {
+    return this.fetchAPI('/user/api-keys', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  revokeAPIKey(keyId: string) {
+    return this.fetchAPI(`/user/api-keys/${keyId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==================== SECURITY & THREAT PROTECTION ENDPOINTS ====================
+  getThreatStats(timeRange: string) {
+    return this.fetchAPI(`/security/threats/stats?range=${timeRange}`);
+  }
+
+  getRecentThreats(params: any) {
+    const queryParams = new URLSearchParams(params).toString();
+    return this.fetchAPI(`/security/threats/recent?${queryParams}`);
+  }
+
+  getKillSwitchEvents(params?: any) {
+    const queryParams = params ? `?${new URLSearchParams(params)}` : '';
+    return this.fetchAPI(`/security/kill-switch/events${queryParams}`);
+  }
+
+  // ==================== SERVER MONITORING ENDPOINTS ====================
+  getServerHealth(serverId?: string) {
+    return serverId 
+      ? this.fetchAPI(`/admin/servers/${serverId}/health`)
+      : this.fetchAPI('/admin/servers/health');
+  }
+
+  getServerMetrics(serverId: string, timeRange: string) {
+    return this.fetchAPI(`/admin/servers/${serverId}/metrics?range=${timeRange}`);
+  }
+
+  // ==================== WEBHOOK ENDPOINTS ====================
+  getWebhooks() {
+    return this.fetchAPI('/admin/webhooks');
+  }
+
+  createWebhook(data: any) {
+    return this.fetchAPI('/admin/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateWebhook(id: string, data: any) {
+    return this.fetchAPI(`/admin/webhooks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteWebhook(id: string) {
+    return this.fetchAPI(`/admin/webhooks/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  testWebhook(id: string) {
+    return this.fetchAPI(`/admin/webhooks/${id}/test`, {
+      method: 'POST',
+    });
+  }
+
+  // ==================== REPORTING ENDPOINTS ====================
+  generateReport(type: string, params: any) {
+    return this.fetchAPI(`/admin/reports/${type}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  exportReport(type: string, format: string, params: any) {
+    return this.fetchAPI(`/admin/reports/${type}/export?format=${format}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // ==================== ENCRYPTION PROTOCOL ENDPOINTS ====================
+  getEncryptionProtocols() {
+    return this.fetchAPI('/admin/encryption/protocols');
+  }
+
+  updateEncryptionProtocol(id: string, data: any) {
+    return this.fetchAPI(`/admin/encryption/protocols/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ==================== DEVELOPMENT ENDPOINTS ====================
+  createDevVPNClient(data: any) {
+    return this.fetchAPI('/vpn/dev/clients', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ==================== DEBUG ENDPOINTS ====================
+  debugRequest() {
+    return this.fetchAPI('/debug/request', {
+      method: 'POST',
+    });
+  }
 }
 
-export const api = {
-  // Servers
-  getServers: () => fetchAPI('/servers'),
-  getServer: (id: string) => fetchAPI(`/admin/servers/${id}`),
-  createServer: (data: any) => fetchAPI('/admin/servers', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  updateServer: (id: string, data: any) => fetchAPI(`/admin/servers/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-  deleteServer: (id: string) => fetchAPI(`/admin/servers/${id}`, {
-    method: 'DELETE',
-  }),
+// Create singleton instance
+export const api = new APIClient();
 
-  // Users
-  getUsers: () => fetchAPI('/admin/users'),
-  getUserStats: () => fetchAPI('/admin/statistics'),
-  
-  // Profile
-  getProfile: () => fetchAPI('/user/profile'),
-  updateProfile: (data: any) => fetchAPI('/user/profile', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-  changePassword: (data: any) => fetchAPI('/user/password', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-  getSubscription: () => fetchAPI('/user/subscription'),
-  
-  // Security Settings
-  getSecuritySettings: () => fetchAPI('/user/security/settings'),
-  updateSecuritySettings: (data: any) => fetchAPI('/user/security/settings', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-  enable2FA: () => fetchAPI('/user/security/2fa/enable', { method: 'POST' }),
-  disable2FA: (code: string) => fetchAPI('/user/security/2fa/disable', {
-    method: 'POST',
-    body: JSON.stringify({ code }),
-  }),
-  
-  // Sessions
-  getSessions: () => fetchAPI('/user/sessions'),
-  revokeSession: (sessionId: string) => fetchAPI(`/user/sessions/${sessionId}`, {
-    method: 'DELETE',
-  }),
-  
-  // API Keys (for advanced users/admins)
-  getAPIKeys: () => fetchAPI('/user/api-keys'),
-  createAPIKey: (data: any) => fetchAPI('/user/api-keys', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  revokeAPIKey: (keyId: string) => fetchAPI(`/user/api-keys/${keyId}`, {
-    method: 'DELETE',
-  }),
-  
-  // Devices
-  getDevices: () => fetchAPI('/user/devices'),
-  addDevice: (data: any) => fetchAPI('/user/devices', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  deleteDevice: (id: string) => fetchAPI(`/user/devices/${id}`, {
-    method: 'DELETE',
-  }),
-
-  // Connections
-  getConnectionHistory: () => fetchAPI('/user/connections/history'),
-  getConnections: () => fetchAPI('/admin/connections'),
-  getDataUsage: () => fetchAPI('/user/connections/data-usage'),
-  
-  // VPN
-  connect: (serverId: string) => fetchAPI('/vpn/connect', {
-    method: 'POST',
-    body: JSON.stringify({ serverId }),
-  }),
-  disconnect: (connectionId: string) => fetchAPI('/vpn/disconnect', {
-    method: 'POST',
-    body: JSON.stringify({ connectionId }),
-  }),
-  // Admin: create a vpn client (supports testMode and options)
-  createAdminVPNClient: (data: any) => fetchAPI('/admin/vpn/clients', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  // Dev helper: create vpn client without auth when running in development server
-  createDevVPNClient: (data: any) => fetchAPI('/vpn/dev/clients', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-
-  // Analytics
-  getAnalytics: () => fetchAPI('/admin/analytics'),
-
-  // Security & Audit
-  getAuditLogs: (filters?: any) => fetchAPI('/admin/audit-logs' + (filters ? `?${new URLSearchParams(filters)}` : '')),
-  getSecurityEvents: () => fetchAPI('/admin/security/events'),
-  
-  // Billing
-  getInvoices: () => fetchAPI('/billing/invoices'),
-  getPlans: () => fetchAPI('/billing/plans'),
-  
-  // Organizations & Teams
-  getOrganizations: () => fetchAPI('/admin/organizations'),
-  getOrganization: (id: string) => fetchAPI(`/admin/organizations/${id}`),
-  createOrganization: (data: any) => fetchAPI('/admin/organizations', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  updateOrganization: (id: string, data: any) => fetchAPI(`/admin/organizations/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-  deleteOrganization: (id: string) => fetchAPI(`/admin/organizations/${id}`, {
-    method: 'DELETE',
-  }),
-  getOrganizationMembers: (orgId: string) => fetchAPI(`/admin/organizations/${orgId}/members`),
-  inviteOrganizationMember: (orgId: string, data: any) => fetchAPI(`/admin/organizations/${orgId}/members`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  updateOrganizationMember: (orgId: string, memberId: string, data: any) => fetchAPI(`/admin/organizations/${orgId}/members/${memberId}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-  removeOrganizationMember: (orgId: string, memberId: string) => fetchAPI(`/admin/organizations/${orgId}/members/${memberId}`, {
-    method: 'DELETE',
-  }),
-  
-  // Split Tunnel Rules
-  getSplitTunnelRules: () => fetchAPI('/user/split-tunnel'),
-  createSplitTunnelRule: (data: any) => fetchAPI('/user/split-tunnel', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  updateSplitTunnelRule: (id: string, data: any) => fetchAPI(`/user/split-tunnel/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  }),
-  deleteSplitTunnelRule: (id: string) => fetchAPI(`/user/split-tunnel/${id}`, {
-    method: 'DELETE',
-  }),
-  
-  // Threat Protection
-  getThreatStats: (timeRange: string) => fetchAPI(`/security/threats/stats?range=${timeRange}`),
-  getRecentThreats: (params: any) => fetchAPI(`/security/threats/recent?${new URLSearchParams(params)}`),
-  
-  // Kill Switch Events
-  getKillSwitchEvents: (params?: any) => fetchAPI('/security/kill-switch/events' + (params ? `?${new URLSearchParams(params)}` : '')),
-  
-  // Server Monitoring
-  getServerHealth: (serverId?: string) => fetchAPI(serverId ? `/admin/servers/${serverId}/health` : '/admin/servers/health'),
-  getServerMetrics: (serverId: string, timeRange: string) => fetchAPI(`/admin/servers/${serverId}/metrics?range=${timeRange}`),
-  
-  // Webhooks
-  getWebhooks: () => fetchAPI('/admin/webhooks'),
-  createWebhook: (data: any) => fetchAPI('/admin/webhooks', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  updateWebhook: (id: string, data: any) => fetchAPI(`/admin/webhooks/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-  deleteWebhook: (id: string) => fetchAPI(`/admin/webhooks/${id}`, {
-    method: 'DELETE',
-  }),
-  testWebhook: (id: string) => fetchAPI(`/admin/webhooks/${id}/test`, {
-    method: 'POST',
-  }),
-  
-  // Advanced Reporting
-  generateReport: (type: string, params: any) => fetchAPI(`/admin/reports/${type}`, {
-    method: 'POST',
-    body: JSON.stringify(params),
-  }),
-  exportReport: (type: string, format: string, params: any) => fetchAPI(`/admin/reports/${type}/export?format=${format}`, {
-    method: 'POST',
-    body: JSON.stringify(params),
-  }),
-  
-  // Encryption Protocols
-  getEncryptionProtocols: () => fetchAPI('/admin/encryption/protocols'),
-  updateEncryptionProtocol: (id: string, data: any) => fetchAPI(`/admin/encryption/protocols/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-  setUserEncryption: (userId: string, protocolId: string) => fetchAPI(`/admin/users/${userId}/encryption`, {
-    method: 'PUT',
-    body: JSON.stringify({ protocol_id: protocolId }),
-  }),
-  
-  // Notifications
-  getNotifications: (params?: any) => fetchAPI('/user/notifications' + (params ? `?${new URLSearchParams(params)}` : '')),
-  markNotificationRead: (id: string) => fetchAPI(`/user/notifications/${id}/read`, {
-    method: 'PUT',
-  }),
-  markAllNotificationsRead: () => fetchAPI('/user/notifications/read-all', {
-    method: 'PUT',
-  }),
-  deleteNotification: (id: string) => fetchAPI(`/user/notifications/${id}`, {
-    method: 'DELETE',
-  }),
-  getNotificationSettings: () => fetchAPI('/user/notifications/settings'),
-  updateNotificationSettings: (data: any) => fetchAPI('/user/notifications/settings', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-};
+// Legacy fetchAPI function for backward compatibility
+export async function fetchAPI<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
+  return api.fetchAPI(endpoint, options);
+}

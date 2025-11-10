@@ -1,21 +1,28 @@
 import { Request, Response, NextFunction } from 'express';
-import { supabase, supabaseAdmin } from '@vpn-enterprise/database';
+import { AppUser } from '@vpn-enterprise/database';
+import type { AppUserRow } from '@vpn-enterprise/database';
+import { supabase } from '@vpn-enterprise/database';
 import { AuthService } from './auth-service';
 
 export interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role?: string;
-  };
+  user?: AppUser;
 }
 
-// Coalesce concurrent refreshSession calls for the same refresh token so the
-// server doesn't issue duplicate refresh requests to the auth backend when
-// multiple incoming requests arrive at the same time. This map stores the
-// in-flight promise keyed by refresh token and is cleared once the promise
-// settles.
-const refreshInFlight: Map<string, Promise<any>> = new Map();
+// Simple in-memory cache for token verification to reduce DB calls
+const tokenCache = new Map<string, { user: any; expires: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Clean expired cache entries
+ */
+function cleanTokenCache() {
+  const now = Date.now();
+  for (const [key, value] of tokenCache.entries()) {
+    if (value.expires < now) {
+      tokenCache.delete(key);
+    }
+  }
+}
 
 /**
  * Middleware to verify JWT token from Supabase
@@ -26,122 +33,85 @@ export async function authMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    // Accept token from Authorization header, cookies (access_token), or query param (for testing)
+    cleanTokenCache();
+
+    // Log incoming cookies and headers for debugging
+    console.info('[authMiddleware] Incoming request', {
+      url: req.originalUrl,
+      method: req.method,
+      headers: req.headers,
+      cookies: req.cookies,
+    });
+
+    // Accept token from Authorization header or cookies
     const authHeader = req.headers.authorization;
     let token: string | undefined;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader?.startsWith('Bearer ')) {
       token = authHeader.substring(7);
-    } else if (req.cookies && req.cookies.access_token) {
+    } else if (req.cookies?.access_token) {
       token = req.cookies.access_token;
-    } else if (req.query && (req.query.access_token || (req.query as any).token)) {
-      token = String(req.query.access_token || (req.query as any).token);
     }
 
     if (!token) {
-      // Attempt silent refresh using httpOnly refresh_token cookie (if present).
-      // This covers the case where the client didn't persist the access_token
-      // locally but the server-set refresh cookie exists and can be exchanged
-      // for a fresh session.
-      const refreshToken = req.cookies?.refresh_token;
-      if (refreshToken) {
-        try {
-          // Use a single-flight promise for this refresh token so concurrent
-          // incoming requests reuse the same refresh operation instead of
-          // issuing multiple refreshes in parallel.
-          let newSession: any;
-          if (refreshInFlight.has(refreshToken)) {
-            newSession = await refreshInFlight.get(refreshToken);
-          } else {
-            const p = (async () => {
-              return await AuthService.refreshSession(refreshToken);
-            })();
-            refreshInFlight.set(refreshToken, p);
-            try {
-              newSession = await p;
-            } finally {
-              // clear the promise once settled
-              refreshInFlight.delete(refreshToken);
-            }
-          }
-
-          const newAccess = newSession?.access_token;
-          if (newAccess) {
-            token = newAccess;
-            // also set a readable access_token cookie so future requests (and middleware)
-            // that read cookies have a chance to find it. Keep sameSite/lax to match app behavior.
-            try {
-              res.cookie('access_token', newAccess, {
-                httpOnly: false,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                path: '/',
-                maxAge: newSession.expires_in ? Number(newSession.expires_in) * 1000 : undefined,
-              } as any);
-            } catch (e) {
-              // non-fatal
-            }
-          }
-        } catch (e) {
-          // silent refresh failed - fall through to original no-token response
-        }
-      }
-
-      if (!token) {
-        console.warn('Auth middleware: no token found on request', { url: req.originalUrl, method: req.method, origin: req.headers.origin });
-        res.status(401).json({ error: 'No authorization token provided' });
-        return;
-      }
+      console.warn('Auth middleware: no token found', { 
+        url: req.originalUrl, 
+        method: req.method,
+        headers: req.headers,
+        cookies: req.cookies,
+      });
+      res.status(401).json({ error: 'Authentication required' });
+      return;
     }
 
-    // Verify token with Supabase. supabase.auth.getUser accepts an access token.
-    const { data, error } = await supabase.auth.getUser(token as string);
-
-    // In development, add extra debug logging when token verification fails.
-    if (process.env.NODE_ENV !== 'production') {
-      const preview = typeof token === 'string' ? `${token.substring(0, 30)}...` : null;
-      if (error || !data.user) {
-        console.warn('Auth middleware: token verification failed', {
-          message: error?.message || 'no user returned',
-          url: req.originalUrl,
-          tokenPreview: preview,
-        });
-      } else {
-        console.debug('Auth middleware: token verified', { url: req.originalUrl, tokenPreview: preview });
-      }
+    // Check cache first
+    const cached = tokenCache.get(token);
+    if (cached && cached.expires > Date.now()) {
+      req.user = cached.user;
+      return next();
     }
+
+    // Verify token with Supabase
+    const { data, error } = await supabase.auth.getUser(token);
 
     if (error || !data.user) {
+      console.warn('Auth middleware: token verification failed', {
+        error: error?.message,
+        url: req.originalUrl,
+      });
       res.status(401).json({ error: 'Invalid or expired token' });
       return;
     }
 
-    // Fetch role from users table (Supabase auth user object may not include application role)
-    let role: string | undefined = undefined;
+    // Get user role from database
+    let role: AppUser["role"] = 'user';
     try {
-      // Use the service role client to bypass RLS when reading application
-      // user metadata. The anon client may be subject to row-level security
-      // that prevents reading the `public.users` row even for the token owner.
-      const resp: any = await supabaseAdmin
+      const { data: userData } = await supabase
         .from('users')
         .select('role')
         .eq('id', data.user.id)
         .single();
-      const userRow: any = resp.data;
-      const userErr: any = resp.error;
-      if (!userErr && userRow) role = userRow.role;
+      const userRow = userData as AppUserRow | null;
+      if (userRow && typeof userRow.role === 'string') {
+        role = userRow.role as AppUser["role"];
+      }
     } catch (e) {
-      // ignore and continue without role
+      console.warn('Failed to fetch user role:', e);
     }
 
-    // Attach user to request
-    req.user = {
+    const user = {
       id: data.user.id,
       email: data.user.email!,
-      role: role || (data.user as any).role,
+      role,
     };
-    console.debug('Auth middleware: authenticated user', { id: req.user.id, role: req.user.role });
 
+    // Cache the verified token
+    tokenCache.set(token, {
+      user,
+      expires: Date.now() + CACHE_TTL
+    });
+
+    req.user = user;
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
@@ -158,21 +128,45 @@ export function adminMiddleware(
   next: NextFunction
 ): void {
   if (!req.user) {
+    console.warn('[adminMiddleware] No user found on request', {
+      url: req.originalUrl,
+      method: req.method,
+      headers: req.headers,
+      cookies: req.cookies,
+    });
     res.status(401).json({ error: 'Not authenticated' });
     return;
   }
 
-  // Allow both admin and super_admin roles
-  if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+  // Normalize role to handle variants
+  const role = (req.user.role || '').toLowerCase().replace(/\s|-/g, '_');
+  const allowedRoles = ['admin', 'super_admin', 'superadmin', 'administrator'];
+  if (!allowedRoles.includes(role)) {
+    console.warn('[adminMiddleware] User does not have admin privileges', {
+      userId: req.user.id,
+      role: req.user.role,
+      normalizedRole: role,
+      url: req.originalUrl,
+      method: req.method,
+      headers: req.headers,
+      cookies: req.cookies,
+    });
     res.status(403).json({ error: 'Admin access required' });
     return;
   }
 
+  console.info('[adminMiddleware] User authenticated as admin', {
+    userId: req.user.id,
+    role: req.user.role,
+    normalizedRole: role,
+    url: req.originalUrl,
+    method: req.method,
+  });
   next();
 }
 
 /**
- * Optional auth middleware (doesn't fail if no token)
+ * Optional auth middleware
  */
 export async function optionalAuthMiddleware(
   req: AuthRequest,
@@ -180,48 +174,41 @@ export async function optionalAuthMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    // Accept token from Authorization header, cookies or query param (non-fatal)
     const authHeader = req.headers.authorization;
     let token: string | undefined;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader?.startsWith('Bearer ')) {
       token = authHeader.substring(7);
-    } else if (req.cookies && req.cookies.access_token) {
+    } else if (req.cookies?.access_token) {
       token = req.cookies.access_token;
-    } else if (req.query && (req.query.access_token || (req.query as any).token)) {
-      token = String(req.query.access_token || (req.query as any).token);
     }
 
     if (token) {
-      const { data } = await supabase.auth.getUser(token as string);
-
+      const { data } = await supabase.auth.getUser(token);
       if (data.user) {
-        // Fetch role from users table to ensure application role is present
-        let role: string | undefined = undefined;
+        let role: AppUser["role"] = 'user';
         try {
-          const resp: any = await supabase
+          const { data: userData } = await supabase
             .from('users')
             .select('role')
             .eq('id', data.user.id)
             .single();
-          const userRow: any = resp.data;
-          const userErr: any = resp.error;
-          if (!userErr && userRow) role = userRow.role;
+          const userRow = userData as AppUserRow | null;
+          if (userRow && typeof userRow.role === 'string') {
+            role = userRow.role as AppUser["role"];
+          }
         } catch (e) {
           // ignore
         }
-
         req.user = {
           id: data.user.id,
           email: data.user.email!,
-          role: role || (data.user as any).role,
+          role,
         };
       }
     }
-
     next();
   } catch (error) {
-    // Continue without auth
     next();
   }
 }

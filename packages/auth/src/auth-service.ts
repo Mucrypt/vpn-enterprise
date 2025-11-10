@@ -1,11 +1,14 @@
 import { supabase, supabaseAdmin } from '@vpn-enterprise/database';
+import { AppUser } from '@vpn-enterprise/database';
+import type { AppUserRow } from '@vpn-enterprise/database';
 import { SubscriptionRepository } from '@vpn-enterprise/database';
 
 export interface AuthUser {
   id: string;
   email: string;
-  role?: string;
+  role: AppUser["role"];
   subscription?: any;
+  last_login?: string;
 }
 
 export class AuthService {
@@ -21,43 +24,28 @@ export class AuthService {
     if (error) throw error;
     if (!data.user) throw new Error('User creation failed');
 
+    // Wait for user to be created in public.users (trigger should handle this)
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     // Create free subscription for new user
-    // Wait a bit for the trigger to create the public.users record
     try {
-      // Retry logic for subscription creation (trigger might take a moment)
-      let attempts = 0;
-      const maxAttempts = 3;
-      
-      while (attempts < maxAttempts) {
-        try {
-          await SubscriptionRepository.create({
-            user_id: data.user.id,
-            plan_type: 'free',
-            status: 'trial',
-            max_devices: 1,
-            started_at: new Date().toISOString(),
-            auto_renew: false,
-          });
-          break; // Success!
-        } catch (subError: any) {
-          attempts++;
-          if (attempts < maxAttempts) {
-            // Wait 500ms before retry (gives trigger time to complete)
-            await new Promise(resolve => setTimeout(resolve, 500));
-          } else {
-            console.error('Failed to create subscription after retries:', subError);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Subscription creation error:', err);
+      await SubscriptionRepository.create({
+        user_id: data.user.id,
+        plan_type: 'free',
+        status: 'active',
+        max_devices: 1,
+        started_at: new Date().toISOString(),
+        auto_renew: false,
+      });
+    } catch (subError) {
+      console.warn('Subscription creation warning:', subError);
       // Don't fail signup if subscription creation fails
     }
 
     return {
       id: data.user.id,
       email: data.user.email!,
-      role: data.user.role,
+      role: 'user', // Default role
     };
   }
 
@@ -73,28 +61,41 @@ export class AuthService {
     if (error) throw error;
     if (!data.user) throw new Error('Sign in failed');
 
-    // Get user subscription and application role from public.users (the
-    // Supabase auth user object may contain a generic auth role like
-    // 'authenticated' which is not the application role we use).
+    // Update last login timestamp
+    try {
+      await supabaseAdmin
+        .from('users')
+        // @ts-ignore Supabase generated types are too restrictive for update
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', data.user.id);
+    } catch (e) {
+      console.warn('Failed to update last login:', e);
+    }
+
+    // Get user subscription and application role
     const subscription = await SubscriptionRepository.getByUserId(data.user.id);
 
-    let appRole: string | undefined = undefined;
+    let appRole: AppUser["role"] = 'user';
     try {
-      // Use service client to read application role (bypass RLS)
-      const resp: any = await supabaseAdmin.from('users').select('role').eq('id', data.user.id).single();
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug('AuthService.signIn: public.users select result', { error: resp.error ? String(resp.error) : null, data: resp.data });
+      const { data: userData, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+      const userRow = userData as AppUserRow | null;
+      if (!userError && userRow && typeof userRow.role === 'string') {
+        appRole = userRow.role as AppUser["role"];
       }
-      if (!resp.error && resp.data && resp.data.role) appRole = resp.data.role;
     } catch (e) {
-      // ignore - fall back to auth user role
+      console.warn('Failed to fetch user role:', e);
     }
 
     const user: AuthUser = {
       id: data.user.id,
       email: data.user.email!,
-      role: appRole || (data.user as any).role,
+      role: appRole,
       subscription,
+      last_login: new Date().toISOString(),
     };
 
     return { user, session: data.session };
@@ -112,8 +113,7 @@ export class AuthService {
    * Get current user session
    */
   static async getSession(): Promise<any> {
-    const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
+    const { data } = await supabase.auth.getSession();
     return data.session;
   }
 
@@ -121,68 +121,49 @@ export class AuthService {
    * Get current user
    */
   static async getCurrentUser(): Promise<AuthUser | null> {
-    const { data, error } = await supabase.auth.getUser();
+    const { data } = await supabase.auth.getUser();
     
-    if (error) throw error;
     if (!data.user) return null;
 
     const subscription = await SubscriptionRepository.getByUserId(data.user.id);
 
-    // Fetch application role from public.users if available (use service client)
-    let appRole: string | undefined = undefined;
-      try {
-        const resp: any = await supabaseAdmin.from('users').select('role').eq('id', data.user.id).single();
-        if (process.env.NODE_ENV !== 'production') {
-          console.debug('AuthService.getCurrentUser: public.users select result', { error: resp.error ? String(resp.error) : null, data: resp.data });
-        }
-        if (!resp.error && resp.data && resp.data.role) appRole = resp.data.role;
+    let appRole: AppUser["role"] = 'user';
+    try {
+      const { data: userData } = await supabaseAdmin
+        .from('users')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+      const userRow = userData as AppUserRow | null;
+      if (userRow && typeof userRow.role === 'string') {
+        appRole = userRow.role as AppUser["role"];
+      }
     } catch (e) {
-      // ignore and fall back to auth user role
+      console.warn('Failed to fetch user role:', e);
     }
 
     return {
       id: data.user.id,
       email: data.user.email!,
-      role: appRole || (data.user as any).role,
+      role: appRole,
       subscription,
     };
   }
 
   /**
-   * Refresh session
+   * Refresh session - simplified version
    */
   static async refreshSession(refreshToken?: string): Promise<any> {
-    // If a refresh token is provided, pass it to supabase to exchange for a new session.
-    const opts = refreshToken ? { refresh_token: refreshToken } : undefined;
-    const { data, error } = await supabase.auth.refreshSession(opts as any);
+    const { data, error } = await supabase.auth.refreshSession();
     if (error) throw error;
     return data.session;
   }
 
   /**
-   * Reset password
+   * Verify token validity
    */
-  static async resetPassword(email: string): Promise<void> {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.APP_URL}/auth/reset-password`,
-    });
-    if (error) throw error;
-  }
-
-  /**
-   * Update password
-   */
-  static async updatePassword(newPassword: string): Promise<void> {
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-    if (error) throw error;
-  }
-
-  /**
-   * Verify if user has active subscription
-   */
-  static async hasActiveSubscription(userId: string): Promise<boolean> {
-    return await SubscriptionRepository.isActive(userId);
+  static async verifyToken(token: string): Promise<boolean> {
+    const { data } = await supabase.auth.getUser(token);
+    return !!data.user;
   }
 }
