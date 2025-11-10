@@ -26,9 +26,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-      console.debug('Login: sending request to', `${apiUrl}/api/v1/auth/login`);
-      const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
+      // Use relative path so Next.js dev server proxy handles cookies
+      console.debug('Login: sending request to', `/api/v1/auth/login`);
+      const response = await fetch(`/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -52,23 +52,10 @@ export default function LoginPage() {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Store user and token
+      // Update in-memory access token. Do NOT persist refresh_token to
+      // localStorage to avoid stale refresh tokens causing rotation races.
       if (data.session?.access_token) {
-        // Persist access token in localStorage for Authorization header use
-        localStorage.setItem('access_token', data.session.access_token);
-        // In local development, also persist refresh token so the client can
-        // perform refresh flow when httpOnly cookies are not available.
-        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production' && data.session?.refresh_token) {
-          try {
-            localStorage.setItem('refresh_token', data.session.refresh_token);
-          } catch (e) {
-            // ignore
-          }
-        }
-        // Also update the zustand store so the rest of the app sees the token immediately
         setAccessToken(data.session.access_token);
-        // Note: don't set a client-side cookie for the API host here (cross-origin).
-        // The server will set a httpOnly refresh_token cookie when credentials are included.
       }
       
       setUser({

@@ -10,6 +10,13 @@ export interface AuthRequest extends Request {
   };
 }
 
+// Coalesce concurrent refreshSession calls for the same refresh token so the
+// server doesn't issue duplicate refresh requests to the auth backend when
+// multiple incoming requests arrive at the same time. This map stores the
+// in-flight promise keyed by refresh token and is cleared once the promise
+// settles.
+const refreshInFlight: Map<string, Promise<any>> = new Map();
+
 /**
  * Middleware to verify JWT token from Supabase
  */
@@ -33,12 +40,31 @@ export async function authMiddleware(
 
     if (!token) {
       // Attempt silent refresh using httpOnly refresh_token cookie (if present).
-      // This covers the case where the client didn't persist the access_token locally
-      // but the server-set refresh cookie exists and can be exchanged for a fresh session.
+      // This covers the case where the client didn't persist the access_token
+      // locally but the server-set refresh cookie exists and can be exchanged
+      // for a fresh session.
       const refreshToken = req.cookies?.refresh_token;
       if (refreshToken) {
         try {
-          const newSession = await AuthService.refreshSession(refreshToken);
+          // Use a single-flight promise for this refresh token so concurrent
+          // incoming requests reuse the same refresh operation instead of
+          // issuing multiple refreshes in parallel.
+          let newSession: any;
+          if (refreshInFlight.has(refreshToken)) {
+            newSession = await refreshInFlight.get(refreshToken);
+          } else {
+            const p = (async () => {
+              return await AuthService.refreshSession(refreshToken);
+            })();
+            refreshInFlight.set(refreshToken, p);
+            try {
+              newSession = await p;
+            } finally {
+              // clear the promise once settled
+              refreshInFlight.delete(refreshToken);
+            }
+          }
+
           const newAccess = newSession?.access_token;
           if (newAccess) {
             token = newAccess;
