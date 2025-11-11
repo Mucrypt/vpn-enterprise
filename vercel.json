@@ -1,0 +1,14 @@
+{
+  "build": {
+    "cwd": ".",
+    "installCommand": "npm install",
+    "outputDirectory": null,
+    "buildCommand": "npm run build --workspace=api"
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/packages/api/api/index.js"
+    }
+  ]
+}

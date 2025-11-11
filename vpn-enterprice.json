@@ -1,0 +1,332 @@
+{
+  "info": {
+    "name": "VPN Enterprise API",
+    "description": "Comprehensive test collection for all API endpoints (auth, user, admin, org, security, vpn, etc.)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/health", "host": ["{{base_url}}"], "path": ["api", "health"] }
+      }
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Sign Up",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"email\": \"test@example.com\", \"password\": \"password123\" }" },
+            "url": { "raw": "{{base_url}}/api/v1/auth/signup", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "signup"] }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"email\": \"test@example.com\", \"password\": \"password123\" }" },
+            "url": { "raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "login"] }
+          }
+        },
+        {
+          "name": "Refresh Session",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/refresh", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "refresh"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/logout", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/profile", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "profile"] }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"username\": \"newname\" }" },
+            "url": { "raw": "{{base_url}}/api/v1/user/profile", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "profile"] }
+          }
+        },
+        {
+          "name": "Subscription",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/subscription", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "subscription"] }
+          }
+        },
+        {
+          "name": "Devices",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/devices", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "devices"] }
+          }
+        },
+        {
+          "name": "Add Device",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"device\": \"device-info\" }" },
+            "url": { "raw": "{{base_url}}/api/v1/user/devices", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "devices"] }
+          }
+        },
+        {
+          "name": "Delete Device",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/devices/{{device_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "devices", "{{device_id}}"] }
+          }
+        },
+        {
+          "name": "Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/stats", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "stats"] }
+          }
+        },
+        {
+          "name": "Security Settings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/security/settings", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "security", "settings"] }
+          }
+        },
+        {
+          "name": "Update Security Settings",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"setting\": \"value\" }" },
+            "url": { "raw": "{{base_url}}/api/v1/user/security/settings", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "security", "settings"] }
+          }
+        },
+        {
+          "name": "Sessions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/sessions", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "sessions"] }
+          }
+        },
+        {
+          "name": "Revoke Session",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/sessions/{{session_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "sessions", "{{session_id}}"] }
+          }
+        },
+        {
+          "name": "Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/notifications", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "notifications"] }
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/notifications/{{notification_id}}/read", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "notifications", "{{notification_id}}", "read"] }
+          }
+        },
+        {
+          "name": "Mark All Notifications Read",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/user/notifications/read-all", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "notifications", "read-all"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Organizations",
+      "item": [
+        {
+          "name": "Get Organizations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/admin/organizations", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "organizations"] }
+          }
+        },
+        {
+          "name": "Create Organization",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"name\": \"OrgName\", \"billing_tier\": \"enterprise\" }" },
+            "url": { "raw": "{{base_url}}/api/v1/admin/organizations", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "organizations"] }
+          }
+        },
+        {
+          "name": "Get Organization by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/admin/organizations/{{org_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "organizations", "{{org_id}}"] }
+          }
+        },
+        {
+          "name": "Update Organization",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"name\": \"NewOrgName\" }" },
+            "url": { "raw": "{{base_url}}/api/v1/admin/organizations/{{org_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "organizations", "{{org_id}}"] }
+          }
+        },
+        {
+          "name": "Delete Organization",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/admin/organizations/{{org_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "organizations", "{{org_id}}"] }
+          }
+        },
+        {
+          "name": "Get Organization Members",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/admin/organizations/{{org_id}}/members", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "organizations", "{{org_id}}", "members"] }
+          }
+        },
+        {
+          "name": "Invite Organization Member",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"email\": \"invitee@example.com\", \"role\": \"user\", \"full_name\": \"Invitee Name\" }" },
+            "url": { "raw": "{{base_url}}/api/v1/admin/organizations/{{org_id}}/members", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "organizations", "{{org_id}}", "members"] }
+          }
+        },
+        {
+          "name": "Update Organization Member",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"role\": \"admin\" }" },
+            "url": { "raw": "{{base_url}}/api/v1/admin/organizations/{{org_id}}/members/{{member_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "organizations", "{{org_id}}", "members", "{{member_id}}"] }
+          }
+        },
+        {
+          "name": "Remove Organization Member",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/admin/organizations/{{org_id}}/members/{{member_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "organizations", "{{org_id}}", "members", "{{member_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Connections",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/connections", "host": ["{{base_url}}"], "path": ["api", "v1", "connections"] }
+      }
+    },
+    {
+      "name": "Servers",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/v1/servers", "host": ["{{base_url}}"], "path": ["api", "v1", "servers"] }
+      }
+    },
+    {
+      "name": "VPN Configs",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/v1/vpn/configs?userId={{user_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "vpn", "configs"], "query": [{ "key": "userId", "value": "{{user_id}}" }] }
+      }
+    },
+    {
+      "name": "VPN Usage",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/v1/vpn/usage?userId={{user_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "vpn", "usage"], "query": [{ "key": "userId", "value": "{{user_id}}" }] }
+      }
+    },
+    {
+      "name": "Split Tunnel Rules",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+        "url": { "raw": "{{base_url}}/api/v1/user/split-tunnel", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "split-tunnel"] }
+      }
+    },
+    {
+      "name": "Threat Stats",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/v1/security/threats/stats?range=today", "host": ["{{base_url}}"], "path": ["api", "v1", "security", "threats", "stats"], "query": [{ "key": "range", "value": "today" }] }
+      }
+    },
+    {
+      "name": "Recent Threats",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/v1/security/threats/recent?limit=10", "host": ["{{base_url}}"], "path": ["api", "v1", "security", "threats", "recent"], "query": [{ "key": "limit", "value": "10" }] }
+      }
+    },
+    {
+      "name": "Users",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/v1/users", "host": ["{{base_url}}"], "path": ["api", "v1", "users"] }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:5000" },
+    { "key": "access_token", "value": "" },
+    { "key": "admin_token", "value": "" },
+    { "key": "user_id", "value": "" },
+    { "key": "device_id", "value": "" },
+    { "key": "notification_id", "value": "" },
+    { "key": "session_id", "value": "" },
+    { "key": "org_id", "value": "" },
+    { "key": "member_id", "value": "" }
+  ]
+}
