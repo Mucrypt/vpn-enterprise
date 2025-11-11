@@ -3,7 +3,10 @@
     "cwd": ".",
     "installCommand": "npm install",
     "outputDirectory": null,
-    "buildCommand": "npm run build --workspace=api"
+    "buildCommand": "npm run build --workspace=api",
+    "env": {
+      "NODE_VERSION": "20"
+    }
   },
   "rewrites": [
     {
