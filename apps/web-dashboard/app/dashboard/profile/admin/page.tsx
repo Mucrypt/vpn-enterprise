@@ -69,7 +69,7 @@ export default function AdminProfilePage() {
       setLoading(true);
       const [keysData, logsData, statsData] = await Promise.all([
         api.getAPIKeys().catch(() => ({ keys: [] })),
-        api.getAuditLogs({ limit: 10 }).catch(() => ({ logs: [] })),
+        api.getAuditLogs().catch(() => ({ logs: [] })),
         api.getUserStats().catch(() => null),
       ]);
 

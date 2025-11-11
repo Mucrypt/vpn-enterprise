@@ -58,8 +58,9 @@ export default function NotificationsPage() {
   const loadNotifications = async () => {
     try {
       setLoading(true);
+      // Only pass allowed properties to getNotifications
       const data = await api.getNotifications(
-        filter === 'unread' ? { unread_only: 'true' } : {}
+        filter === 'unread' ? { limit: 50 } : {}
       );
       setNotifications(data.notifications || []);
     } catch (error) {

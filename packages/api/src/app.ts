@@ -32,10 +32,14 @@ app.use(helmet());
 
 // Configure CORS: read comma-separated origins from ALLOWED_ORIGINS env var.
 // If not provided, fall back to common local dev origins.
-const allowedOrigins = (process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
-  : ['http://localhost:3001', 'http://localhost:3000', 'http://localhost:5000']
-);
+const allowedOrigins =
+  process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+    : [
+        'https://vpn-enterprise-dashboard.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:5000'
+      ];
 
 // Helpful startup log to diagnose CORS problems in deployed environments.
 console.log('CORS allowed origins:', allowedOrigins);
