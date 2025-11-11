@@ -9,28 +9,28 @@ export default function AuthHydrator() {
 
   useEffect(() => {
     const hydrateAuth = async () => {
-      // Skip if already authenticated
-      if (isAuthenticated) return;
-
-      setLoading(true);
-
-      try {
-        const profile = await api.getProfile();
-        
-        if (profile?.user) {
-          const token = localStorage.getItem('access_token');
-          if (token) {
-            setAuth(profile.user, token);
+      // Always set access token cookie from localStorage before profile fetch
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+      if (token) {
+        try {
+          document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
+        } catch (e) {}
+      }
+      // Only hydrate if not authenticated
+      if (!isAuthenticated) {
+        setLoading(true);
+        try {
+          const profile = await api.getProfile();
+          if (profile?.user) {
+            setAuth(profile.user, token || '');
           }
+        } catch (error) {
+          console.warn('Auth hydration failed:', error);
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.warn('Auth hydration failed:', error);
-        // Don't clear auth here - let individual requests handle 401s
-      } finally {
-        setLoading(false);
       }
     };
-
     hydrateAuth();
   }, [setAuth, setLoading, isAuthenticated]);
 

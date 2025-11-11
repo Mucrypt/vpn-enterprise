@@ -9,12 +9,14 @@ let refreshPromise: Promise<string | null> | null = null;
 class APIClient {
   // ==================== SECURITY EVENTS ENDPOINT ====================
   getSecurityEvents() {
-    return this.fetchAPI('/admin/security/events');
+    // Backend returns { events: [...] }
+    return this.fetchAPI('/admin/security/events').then((res) => res?.events || []);
   }
   // ==================== SECURITY ENDPOINT ====================
   getAuditLogs(filters?: { severity?: string }) {
     const queryParams = filters ? `?${new URLSearchParams(filters)}` : '';
-    return this.fetchAPI(`/admin/audit-logs${queryParams}`);
+    // Backend returns { logs: [...] }
+    return this.fetchAPI(`/admin/audit/logs${queryParams}`).then((res) => res?.logs || []);
   }
   // ==================== ANALYTICS ENDPOINT ====================
   getConnections() {
@@ -24,49 +26,49 @@ class APIClient {
   getUsers() {
     return this.fetchAPI('/users');
   }
-  private async refreshToken(): Promise<string | null> {
-    if (refreshPromise) {
-      return refreshPromise;
-    }
-
-    refreshPromise = (async (): Promise<string | null> => {
-      try {
-        console.debug('[APIClient] Attempting token refresh');
-        
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          console.warn('[APIClient] Token refresh failed:', response.status);
-          return null;
-        }
-
-        const data = await response.json();
-        const newAccessToken = data.session?.access_token;
-
-        if (newAccessToken) {
-          // Update token in store and localStorage
-          this.updateTokenStorage(newAccessToken);
-          console.debug('[APIClient] Token refresh successful');
-          return newAccessToken;
-        }
-
-        return null;
-      } catch (error) {
-        console.error('[APIClient] Token refresh error:', error);
-        return null;
-      } finally {
-        refreshPromise = null;
-      }
-    })();
-
+ private async refreshToken(): Promise<string | null> {
+  if (refreshPromise) {
     return refreshPromise;
   }
+
+  refreshPromise = (async (): Promise<string | null> => {
+    try {
+      console.debug('[APIClient] Attempting token refresh');
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.warn('[APIClient] Token refresh failed:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      const newAccessToken = data.session?.access_token;
+
+      if (newAccessToken) {
+        // Update token in store and localStorage
+        this.updateTokenStorage(newAccessToken);
+        console.debug('[APIClient] Token refresh successful');
+        return newAccessToken;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[APIClient] Token refresh error:', error);
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
 
   private getToken(): string | null {
     if (typeof window === 'undefined') return null;
@@ -93,7 +95,7 @@ class APIClient {
       localStorage.setItem('access_token', token);
     }
 
-    // Also set as cookie for server-side usage
+    // Always set as cookie for server-side usage
     try {
       document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
     } catch (e) {
@@ -122,7 +124,16 @@ class APIClient {
 
   private async request(endpoint: string, options: RequestInit = {}): Promise<Response> {
     let token = this.getToken();
-    
+
+    // Always set cookie before request to ensure backend sees it
+    if (typeof window !== 'undefined' && token) {
+      try {
+        document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
+      } catch (e) {
+        // Ignore cookie errors
+      }
+    }
+
     const config: RequestInit = {
       credentials: 'include',
       headers: {
@@ -138,10 +149,15 @@ class APIClient {
     // Handle 401 - token expired
     if (response.status === 401 && token) {
       console.debug('[APIClient] Token expired, attempting refresh');
-      
+
       const newToken = await this.refreshToken();
       if (newToken) {
         // Retry with new token
+        if (typeof window !== 'undefined') {
+          try {
+            document.cookie = `access_token=${newToken}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
+          } catch (e) {}
+        }
         config.headers = {
           ...config.headers,
           Authorization: `Bearer ${newToken}`,

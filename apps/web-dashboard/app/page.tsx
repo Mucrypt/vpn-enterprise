@@ -25,11 +25,7 @@ export default function Home() {
                 Sign In
               </Button>
             </Link>
-            <Link href="/dashboard">
-              <Button size="lg" variant="outline" className="text-lg px-8">
-                Go to Dashboard
-              </Button>
-            </Link>
+            {/* REMOVED: Direct dashboard link for unauthenticated users */}
             <Link href="#features">
               <Button size="lg" variant="outline" className="text-lg px-8">
                 Learn More
@@ -138,9 +134,9 @@ export default function Home() {
           <p className="text-xl mb-8 opacity-90">
             Access your enterprise VPN dashboard and start managing your infrastructure
           </p>
-          <Link href="/dashboard">
+          <Link href="/auth/login"> {/* CHANGED: Link to login instead of dashboard */}
             <Button size="lg" variant="secondary" className="text-lg px-12">
-              Open Dashboard
+              Get Started
             </Button>
           </Link>
         </div>

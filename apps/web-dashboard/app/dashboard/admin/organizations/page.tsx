@@ -26,6 +26,7 @@ import {
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import toast from 'react-hot-toast';
+import ProtectedRoute from '@/components/auth/protected-route';
 
 interface Organization {
   id: string;
@@ -77,20 +78,10 @@ export default function OrganizationsPage() {
   });
 
   useEffect(() => {
-    // Check if user is admin before loading organizations
-    if (isAuthenticated && currentUser) {
-      const isAdmin = ['admin', 'super_admin', 'superadmin'].includes(currentUser.role?.toLowerCase() || '');
-      if (isAdmin) {
-        loadOrganizations();
-      } else {
-        setError('Admin access required to view organizations');
-        setLoading(false);
-      }
-    } else {
-      setError('Please log in to access this page');
-      setLoading(false);
+    if (isAuthenticated) {
+      loadOrganizations();
     }
-  }, [isAuthenticated, currentUser]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (selectedOrg) {
@@ -102,6 +93,9 @@ export default function OrganizationsPage() {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('Loading organizations...');
+      
       const data = await api.getOrganizations();
       setOrganizations(data.organizations || []);
     } catch (error: any) {
@@ -110,6 +104,11 @@ export default function OrganizationsPage() {
       if (error.status === 401) {
         setError('Authentication failed. Please log in again.');
         toast.error('Session expired. Please log in again.');
+        
+        // Trigger logout and redirect to login
+        setTimeout(() => {
+          window.location.href = '/auth/login';
+        }, 2000);
       } else if (error.status === 403) {
         setError('Admin access required to view organizations');
         toast.error('Admin access required');
@@ -137,38 +136,62 @@ export default function OrganizationsPage() {
   };
 
   // Handler for creating organization
-  const handleCreateOrganization = async () => {
+  const handleCreateOrganization = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
       setLoading(true);
       const org = await api.createOrganization(formData);
       setOrganizations((prev) => [...prev, org]);
       setShowCreateForm(false);
-      toast.success('Organization created');
+      setFormData({
+        name: '',
+        billing_tier: 'enterprise',
+        max_users: 100,
+        max_devices_per_user: 10,
+        max_servers: 50,
+      });
+      toast.success('Organization created successfully');
     } catch (error: any) {
-      toast.error('Failed to create organization');
+      console.error('Failed to create organization:', error);
+      if (error.status === 401 || error.status === 403) {
+        toast.error('Admin access required to create organizations');
+      } else {
+        toast.error('Failed to create organization');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   // Handler for inviting team member
-  const handleInviteMember = async () => {
+  const handleInviteMember = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!selectedOrg) return;
     try {
       setLoading(true);
       const member = await api.inviteOrganizationMember(selectedOrg.id, inviteData);
       setTeamMembers((prev) => [...prev, member]);
       setShowInviteForm(false);
-      toast.success('Member invited');
+      setInviteData({
+        email: '',
+        role: 'user',
+        full_name: '',
+      });
+      toast.success('Member invited successfully');
     } catch (error: any) {
-      toast.error('Failed to invite member');
+      console.error('Failed to invite member:', error);
+      if (error.status === 401 || error.status === 403) {
+        toast.error('Admin access required to invite members');
+      } else {
+        toast.error('Failed to invite member');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!selectedOrg || !confirm('Remove this member from the organization?')) return;
+    if (!selectedOrg || !confirm('Are you sure you want to remove this member from the organization?')) return;
     
     try {
       await api.removeOrganizationMember(selectedOrg.id, memberId);
@@ -189,7 +212,7 @@ export default function OrganizationsPage() {
     
     try {
       await api.updateOrganizationMember(selectedOrg.id, memberId, { role: newRole });
-      toast.success('Member role updated');
+      toast.success('Member role updated successfully');
       loadTeamMembers(selectedOrg.id);
     } catch (error: any) {
       console.error('Failed to update member role:', error);
@@ -206,22 +229,37 @@ export default function OrganizationsPage() {
       case 'enterprise': return 'text-purple-600 bg-purple-100 border-purple-200';
       case 'business': return 'text-blue-600 bg-blue-100 border-blue-200';
       case 'professional': return 'text-green-600 bg-green-100 border-green-200';
+      case 'starter': return 'text-gray-600 bg-gray-100 border-gray-200';
       default: return 'text-gray-600 bg-gray-100 border-gray-200';
     }
   };
 
   const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'super_admin': return 'text-red-700 bg-red-100 border-red-200';
-      case 'admin': return 'text-orange-700 bg-orange-100 border-orange-200';
+    switch (role.toLowerCase()) {
+      case 'super_admin': 
+      case 'superadmin': return 'text-red-700 bg-red-100 border-red-200';
+      case 'admin': 
+      case 'administrator': return 'text-orange-700 bg-orange-100 border-orange-200';
       case 'user': return 'text-blue-700 bg-blue-100 border-blue-200';
       case 'viewer': return 'text-gray-700 bg-gray-100 border-gray-200';
       default: return 'text-gray-700 bg-gray-100 border-gray-200';
     }
   };
 
+  const formatRoleDisplay = (role: string) => {
+    switch (role.toLowerCase()) {
+      case 'super_admin':
+      case 'superadmin': return 'Super Admin';
+      case 'admin':
+      case 'administrator': return 'Admin';
+      case 'user': return 'User';
+      case 'viewer': return 'Viewer';
+      default: return role;
+    }
+  };
+
   // Show loading state
-  if (loading) {
+  if (loading && organizations.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -232,383 +270,450 @@ export default function OrganizationsPage() {
     );
   }
 
-  // Show error state
-  if (error) {
-    return (
+  return (
+    <ProtectedRoute requiredRole={['admin', 'super_admin', 'superadmin', 'administrator']}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Organizations & Teams</h1>
             <p className="text-gray-600 mt-1">Manage enterprise organizations and team members</p>
           </div>
-        </div>
-
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-red-800 mb-2">Access Denied</h3>
-              <p className="text-red-700 mb-4">{error}</p>
-              {error.includes('log in') && (
-                <Button onClick={() => window.location.href = '/auth/login'}>
-                  Go to Login
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Organizations & Teams</h1>
-          <p className="text-gray-600 mt-1">Manage enterprise organizations and team members</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={loadOrganizations}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-          <Button onClick={() => setShowCreateForm(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Organization
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Organizations</p>
-                <p className="text-2xl font-bold text-gray-900">{organizations.length}</p>
-              </div>
-              <Building2 className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {organizations.reduce((sum, org) => sum + (org._count?.users || 0), 0)}
-                </p>
-              </div>
-              <Users className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active Servers</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {organizations.reduce((sum, org) => sum + (org._count?.servers || 0), 0)}
-                </p>
-              </div>
-              <Server className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Enterprise Tier</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {organizations.filter(o => o.billing_tier === 'enterprise').length}
-                </p>
-              </div>
-              <Crown className="h-8 w-8 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Create Organization Form */}
-      {showCreateForm && (
-        <Card className="border-emerald-200 bg-emerald-50">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Create New Organization</span>
-              <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(false)}>
-                <XCircle className="h-5 w-5" />
-              </Button>
-            </CardTitle>
-            <CardDescription>Set up a new enterprise organization</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleCreateOrganization} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Organization Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Acme Corporation"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="billing_tier">Billing Tier *</Label>
-                  <select
-                    id="billing_tier"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2"
-                    value={formData.billing_tier}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, billing_tier: e.target.value })}
-                  >
-                    <option value="starter">Starter</option>
-                    <option value="professional">Professional</option>
-                    <option value="business">Business</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="max_users">Max Users</Label>
-                  <Input
-                    id="max_users"
-                    type="number"
-                    value={formData.max_users}
-                    onChange={(e) => setFormData({ ...formData, max_users: parseInt(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="max_devices">Max Devices/User</Label>
-                  <Input
-                    id="max_devices"
-                    type="number"
-                    value={formData.max_devices_per_user}
-                    onChange={(e) => setFormData({ ...formData, max_devices_per_user: parseInt(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="max_servers">Max Servers</Label>
-                  <Input
-                    id="max_servers"
-                    type="number"
-                    value={formData.max_servers}
-                    onChange={(e) => setFormData({ ...formData, max_servers: parseInt(e.target.value) })}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Create Organization
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Organizations Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {organizations.map((org) => (
-          <div
-            key={org.id}
-            onClick={() => setSelectedOrg(org)}
-            className="cursor-pointer"
-          >
-            <Card 
-              className={`transition-all hover:shadow-lg ${
-                selectedOrg?.id === org.id ? 'ring-2 ring-emerald-600' : ''
-              }`}
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={loadOrganizations}
+              disabled={loading}
             >
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                    <Building2 className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">{org.name}</CardTitle>
-                    <Badge className={`mt-1 ${getTierColor(org.billing_tier)}`}>
-                      {org.billing_tier}
-                    </Badge>
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 flex items-center">
-                    <Users className="h-4 w-4 mr-1" />
-                    Users
-                  </span>
-                  <span className="font-semibold">
-                    {org._count?.users || 0} / {org.max_users}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 flex items-center">
-                    <Server className="h-4 w-4 mr-1" />
-                    Servers
-                  </span>
-                  <span className="font-semibold">
-                    {org._count?.servers || 0} / {org.max_servers}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 flex items-center">
-                    <Shield className="h-4 w-4 mr-1" />
-                    Devices/User
-                  </span>
-                  <span className="font-semibold">{org.max_devices_per_user}</span>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-xs text-gray-500">
-                  Created: {new Date(org.created_at).toLocaleDateString()}
-                </p>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button 
+              onClick={() => setShowCreateForm(true)}
+              disabled={loading}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Organization
+            </Button>
+          </div>
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-red-800 mb-2">
+                  {error.includes('Admin access') ? 'Access Denied' : 'Authentication Required'}
+                </h3>
+                <p className="text-red-700 mb-4">{error}</p>
+                {error.includes('log in') && (
+                  <Button onClick={() => window.location.href = '/auth/login'}>
+                    Go to Login
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
-          </div>
-        ))}
-      </div>
+        )}
 
-      {/* Team Members Section */}
-      {selectedOrg && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Team Members - {selectedOrg.name}</CardTitle>
-                <CardDescription>Manage users and their roles within this organization</CardDescription>
-              </div>
-              <Button onClick={() => setShowInviteForm(true)}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Invite Member
-              </Button>
+        {/* Stats Overview */}
+        {!error && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Total Organizations</p>
+                      <p className="text-2xl font-bold text-gray-900">{organizations.length}</p>
+                    </div>
+                    <Building2 className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Total Users</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {organizations.reduce((sum, org) => sum + (org._count?.users || 0), 0)}
+                      </p>
+                    </div>
+                    <Users className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Active Servers</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {organizations.reduce((sum, org) => sum + (org._count?.servers || 0), 0)}
+                      </p>
+                    </div>
+                    <Server className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Enterprise Tier</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {organizations.filter(o => o.billing_tier === 'enterprise').length}
+                      </p>
+                    </div>
+                    <Crown className="h-8 w-8 text-yellow-600" />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardHeader>
-          <CardContent>
-            {/* Invite Form */}
-            {showInviteForm && (
-              <div className="mb-6 p-4 border-2 border-dashed border-emerald-300 rounded-lg bg-emerald-50">
-                <form onSubmit={handleInviteMember} className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="invite_email">Email Address *</Label>
-                      <Input
-                        id="invite_email"
-                        type="email"
-                        value={inviteData.email}
-                        onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
-                        placeholder="user@example.com"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="invite_name">Full Name</Label>
-                      <Input
-                        id="invite_name"
-                        value={inviteData.full_name}
-                        onChange={(e) => setInviteData({ ...inviteData, full_name: e.target.value })}
-                        placeholder="John Doe"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="invite_role">Role *</Label>
-                      <select
-                        id="invite_role"
-                        className="w-full rounded-md border border-gray-300 px-3 py-2"
-                        value={inviteData.role}
-                        onChange={(e) => setInviteData({ ...inviteData, role: e.target.value })}
-                      >
-                        <option value="viewer">Viewer</option>
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                        <option value="super_admin">Super Admin</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button type="button" variant="outline" onClick={() => setShowInviteForm(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">
-                      <Mail className="mr-2 h-4 w-4" />
-                      Send Invitation
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            )}
 
-            {/* Members Table */}
-            <div className="space-y-2">
-              {teamMembers.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No team members yet. Invite users to get started.</p>
-                </div>
-              ) : (
-                teamMembers.map((member) => (
-                  <div 
-                    key={member.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold">
-                        {member.full_name?.charAt(0) || member.email.charAt(0).toUpperCase()}
+            {/* Create Organization Form */}
+            {showCreateForm && (
+              <Card className="border-emerald-200 bg-emerald-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Create New Organization</span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setShowCreateForm(false)}
+                      disabled={loading}
+                    >
+                      <XCircle className="h-5 w-5" />
+                    </Button>
+                  </CardTitle>
+                  <CardDescription>Set up a new enterprise organization</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleCreateOrganization} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Organization Name *</Label>
+                        <Input
+                          id="name"
+                          value={formData.name}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+                          placeholder="Acme Corporation"
+                          required
+                          disabled={loading}
+                        />
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {member.full_name || 'No name'}
-                        </p>
-                        <p className="text-sm text-gray-600">{member.email}</p>
+                      <div className="space-y-2">
+                        <Label htmlFor="billing_tier">Billing Tier *</Label>
+                        <select
+                          id="billing_tier"
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 bg-white"
+                          value={formData.billing_tier}
+                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, billing_tier: e.target.value })}
+                          disabled={loading}
+                        >
+                          <option value="starter">Starter</option>
+                          <option value="professional">Professional</option>
+                          <option value="business">Business</option>
+                          <option value="enterprise">Enterprise</option>
+                        </select>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4">
-                      <select
-                        className={`rounded-md border px-3 py-1 text-sm font-medium ${getRoleColor(member.role)}`}
-                        value={member.role}
-                        onChange={(e) => handleUpdateMemberRole(member.id, e.target.value)}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="max_users">Max Users</Label>
+                        <Input
+                          id="max_users"
+                          type="number"
+                          min="1"
+                          value={formData.max_users}
+                          onChange={(e) => setFormData({ ...formData, max_users: parseInt(e.target.value) || 1 })}
+                          disabled={loading}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="max_devices">Max Devices/User</Label>
+                        <Input
+                          id="max_devices"
+                          type="number"
+                          min="1"
+                          value={formData.max_devices_per_user}
+                          onChange={(e) => setFormData({ ...formData, max_devices_per_user: parseInt(e.target.value) || 1 })}
+                          disabled={loading}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="max_servers">Max Servers</Label>
+                        <Input
+                          id="max_servers"
+                          type="number"
+                          min="1"
+                          value={formData.max_servers}
+                          onChange={(e) => setFormData({ ...formData, max_servers: parseInt(e.target.value) || 1 })}
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setShowCreateForm(false)}
+                        disabled={loading}
                       >
-                        <option value="viewer">Viewer</option>
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                        <option value="super_admin">Super Admin</option>
-                      </select>
-                      <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
-                        {member.status}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveMember(member.id)}
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        disabled={loading || !formData.name.trim()}
                       >
-                        <Trash2 className="h-4 w-4 text-red-600" />
+                        {loading ? (
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Create Organization
                       </Button>
                     </div>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Organizations Grid */}
+            {organizations.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {organizations.map((org) => (
+                  <div
+                    key={org.id}
+                    onClick={() => setSelectedOrg(org)}
+                    className="cursor-pointer"
+                  >
+                    <Card 
+                      className={`transition-all hover:shadow-lg ${
+                        selectedOrg?.id === org.id ? 'ring-2 ring-emerald-600' : ''
+                      }`}
+                    >
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                              <Building2 className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-lg">{org.name}</CardTitle>
+                              <Badge className={`mt-1 ${getTierColor(org.billing_tier)}`}>
+                                {org.billing_tier.charAt(0).toUpperCase() + org.billing_tier.slice(1)}
+                              </Badge>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="sm">
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 flex items-center">
+                              <Users className="h-4 w-4 mr-1" />
+                              Users
+                            </span>
+                            <span className="font-semibold">
+                              {org._count?.users || 0} / {org.max_users}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 flex items-center">
+                              <Server className="h-4 w-4 mr-1" />
+                              Servers
+                            </span>
+                            <span className="font-semibold">
+                              {org._count?.servers || 0} / {org.max_servers}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 flex items-center">
+                              <Shield className="h-4 w-4 mr-1" />
+                              Devices/User
+                            </span>
+                            <span className="font-semibold">{org.max_devices_per_user}</span>
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t">
+                          <p className="text-xs text-gray-500">
+                            Created: {new Date(org.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+                ))}
+              </div>
+            ) : (
+              !loading && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center py-8">
+                      <Building2 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Organizations</h3>
+                      <p className="text-gray-600 mb-4">Get started by creating your first organization.</p>
+                      <Button onClick={() => setShowCreateForm(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Organization
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            )}
+
+            {/* Team Members Section */}
+            {selectedOrg && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Team Members - {selectedOrg.name}</CardTitle>
+                      <CardDescription>Manage users and their roles within this organization</CardDescription>
+                    </div>
+                    <Button 
+                      onClick={() => setShowInviteForm(true)}
+                      disabled={loading}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Invite Member
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Invite Form */}
+                  {showInviteForm && (
+                    <div className="mb-6 p-4 border-2 border-dashed border-emerald-300 rounded-lg bg-emerald-50">
+                      <form onSubmit={handleInviteMember} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="invite_email">Email Address *</Label>
+                            <Input
+                              id="invite_email"
+                              type="email"
+                              value={inviteData.email}
+                              onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                              placeholder="user@example.com"
+                              required
+                              disabled={loading}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="invite_name">Full Name</Label>
+                            <Input
+                              id="invite_name"
+                              value={inviteData.full_name}
+                              onChange={(e) => setInviteData({ ...inviteData, full_name: e.target.value })}
+                              placeholder="John Doe"
+                              disabled={loading}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="invite_role">Role *</Label>
+                            <select
+                              id="invite_role"
+                              className="w-full rounded-md border border-gray-300 px-3 py-2 bg-white"
+                              value={inviteData.role}
+                              onChange={(e) => setInviteData({ ...inviteData, role: e.target.value })}
+                              disabled={loading}
+                            >
+                              <option value="viewer">Viewer</option>
+                              <option value="user">User</option>
+                              <option value="admin">Admin</option>
+                              <option value="super_admin">Super Admin</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => setShowInviteForm(false)}
+                            disabled={loading}
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            type="submit" 
+                            disabled={loading || !inviteData.email.trim()}
+                          >
+                            {loading ? (
+                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Mail className="mr-2 h-4 w-4" />
+                            )}
+                            Send Invitation
+                          </Button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* Members Table */}
+                  <div className="space-y-2">
+                    {teamMembers.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>No team members yet. Invite users to get started.</p>
+                      </div>
+                    ) : (
+                      teamMembers.map((member) => (
+                        <div 
+                          key={member.id}
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold">
+                              {member.full_name?.charAt(0) || member.email.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {member.full_name || 'No name'}
+                              </p>
+                              <p className="text-sm text-gray-600">{member.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <select
+                              className={`rounded-md border px-3 py-1 text-sm font-medium ${getRoleColor(member.role)}`}
+                              value={member.role}
+                              onChange={(e) => handleUpdateMemberRole(member.id, e.target.value)}
+                              disabled={loading}
+                            >
+                              <option value="viewer">Viewer</option>
+                              <option value="user">User</option>
+                              <option value="admin">Admin</option>
+                              <option value="super_admin">Super Admin</option>
+                            </select>
+                            <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
+                              {member.status}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveMember(member.id)}
+                              disabled={loading}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+      </div>
+    </ProtectedRoute>
   );
 }

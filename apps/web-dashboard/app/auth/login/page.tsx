@@ -12,7 +12,7 @@ import { api } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser, setAccessToken } = useAuthStore();
+  const { setUser, setAccessToken, setAuth } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -52,17 +52,19 @@ export default function LoginPage() {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Update in-memory access token. Do NOT persist refresh_token to
-      // localStorage to avoid stale refresh tokens causing rotation races.
-      if (data.session?.access_token) {
-        setAccessToken(data.session.access_token);
+      // Use setAuth to update all state fields and mark as authenticated
+      if (data.session?.access_token && data.user) {
+        setAuth(
+          {
+            id: data.user.id,
+            email: data.user.email,
+            role: data.user.role || 'user',
+            last_login: data.user.last_login,
+            subscription: data.user.subscription,
+          },
+          data.session.access_token
+        );
       }
-      
-      setUser({
-        id: data.user.id,
-        email: data.user.email,
-        role: data.user.role || 'user',
-      });
 
       toast.success('Login successful!');
 
@@ -75,7 +77,10 @@ export default function LoginPage() {
         await new Promise((r) => setTimeout(r, 120));
         const profileData = await api.getProfile().catch(() => null);
         if (profileData?.user) {
-          setUser(profileData.user);
+          setAuth(
+            profileData.user,
+            data.session.access_token
+          );
         }
       } catch (e) {
         // ignore - we'll still redirect below as a safe fallback
