@@ -4,6 +4,7 @@
   "description": "VPN Enterprise API - Vercel Deployment",
   "main": "dist/index.js",
   "scripts": {
+    "build": "tsc",
     "start": "node dist/index.js"
   },
   "dependencies": {
