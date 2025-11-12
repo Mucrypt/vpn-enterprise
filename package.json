@@ -22,14 +22,14 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@supabase/supabase-js": "^2.80.0",
     "@supabase/ssr": "^0.7.0",
-    "@vpn-enterprise/auth": "file:packages/auth",
-    "@vpn-enterprise/database": "file:packages/database",
-    "@vpn-enterprise/vpn-core": "file:packages/vpn-core",
+    "@supabase/supabase-js": "^2.80.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.5",
     "@types/jsonwebtoken": "^9.0.10",
+    "@vpn-enterprise/auth": "file:packages/auth",
+    "@vpn-enterprise/database": "file:packages/database",
+    "@vpn-enterprise/vpn-core": "file:packages/vpn-core",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -51,6 +51,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "minimist": "^1.2.8",
     "qrcode-terminal": "^0.12.0"
   },
