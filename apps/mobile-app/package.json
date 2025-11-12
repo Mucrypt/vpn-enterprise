@@ -10,7 +10,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "build": "echo 'Expo projects do not require a build step for web or native. Use expo export for web builds.'"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

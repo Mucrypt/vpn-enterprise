@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: __dirname,
+  },
   /* config options here */
   
   // Enable standalone output for Docker and Vercel
@@ -19,7 +22,12 @@ const nextConfig: NextConfig = {
   
   // Image optimization
   images: {
-    domains: ['wgmgtxlodyxbhxfpnwwm.supabase.co'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'wgmgtxlodyxbhxfpnwwm.supabase.co',
+      },
+    ],
     unoptimized: false,
   },
   
