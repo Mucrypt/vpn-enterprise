@@ -1,10 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: __dirname,
-  },
-  /* config options here */
+experimental: {},
   
   // Enable standalone output for Docker and Vercel
   output: 'standalone',

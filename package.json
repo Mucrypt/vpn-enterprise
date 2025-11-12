@@ -13,7 +13,9 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "generate-client-cli": "node ./scripts/generate-client-cli.js"
+    "generate-client-cli": "node ./scripts/generate-client-cli.js",
+    "build:web-dashboard": "cd apps/web-dashboard && npm run build",
+    "build": "npm run build --workspaces"
   },
   "keywords": [],
   "author": "",
