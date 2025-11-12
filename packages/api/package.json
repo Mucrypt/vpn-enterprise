@@ -17,6 +17,10 @@
     "helmet": "^8.1.0",
     "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+      "typescript": "^5.7.2",
+      "@vpn-enterprise/auth": "workspace:*",
+      "@vpn-enterprise/database": "workspace:*",
+      "@vpn-enterprise/vpn-core": "workspace:*"
   }
 }
