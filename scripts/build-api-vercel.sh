@@ -5,8 +5,9 @@ set -e
 
 echo "🔧 Building API for Vercel..."
 
-# Navigate to project root
-cd /home/mukulah/vpn-enterprise
+
+# Ensure we are at the repo root (works in CI and locally)
+cd "$(git rev-parse --show-toplevel)"
 
 # Build all workspace dependencies
 echo "📦 Building workspace packages..."
