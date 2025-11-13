@@ -1,7 +1,6 @@
 node_modules
 src
 *.ts
-tsconfig.json
 nodemon.json
 .env
 .env.local

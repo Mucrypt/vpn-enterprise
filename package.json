@@ -27,12 +27,15 @@
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "ts-node": "^10.9.1"
+
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "minimist": "^1.2.8",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "typescript": "~5.9.2"
   },
   "engines": {
     "node": ">=20.0.0"
