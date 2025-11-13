@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:web-dashboard": "next build",
     "start": "next start",
     "lint": "eslint"
   },

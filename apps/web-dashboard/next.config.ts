@@ -1,11 +1,7 @@
 import type { NextConfig } from "next";
 
-const nextConfig: any = {
-  experimental: {
-    turbopack: {
-      root: __dirname,
-    },
-  },
+const nextConfig: NextConfig = {
+  // experimental: {},
   // Enable standalone output for Docker and Vercel
   output: 'standalone',
   

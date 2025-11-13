@@ -11,45 +11,23 @@
   "directories": {
     "doc": "docs"
   },
-  "scripts": {
+   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "generate-client-cli": "node ./scripts/generate-client-cli.js",
-    "build:web-dashboard": "cd apps/web-dashboard && npm run build",
-    "build": "tsc -p tsconfig.json"
+    "generate-client-cli": "node ./scripts/generate-client-cli.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "dependencies": {
-    "@supabase/ssr": "^0.7.0",
+ "dependencies": {
     "@supabase/supabase-js": "^2.80.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.5",
     "@types/jsonwebtoken": "^9.0.10",
-    "@vpn-enterprise/auth": "file:packages/auth",
-    "@vpn-enterprise/database": "file:packages/database",
-    "@vpn-enterprise/vpn-core": "file:packages/vpn-core",
     "bcryptjs": "^3.0.3",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
-    "express-rate-limit": "^8.2.1",
-    "helmet": "^8.1.0",
-    "joi": "^18.0.1",
-    "jsonwebtoken": "^9.0.2",
-    "lucide-react": "^0.553.0",
-    "next": "16.0.1",
-    "qrcode": "^1.5.4",
-    "react": "^19.2.0",
-    "react-dom": "^19.1.0",
-    "react-hot-toast": "^2.6.0",
-    "recharts": "^3.3.0",
-    "tailwind-merge": "^3.4.0",
-    "winston": "^3.17.0",
-    "typescript": "^5.7.2",
-    "zustand": "^5.0.8"
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
