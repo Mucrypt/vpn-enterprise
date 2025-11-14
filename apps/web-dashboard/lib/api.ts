@@ -1,7 +1,32 @@
-// Determine API base at runtime
-const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-// Always use backend API URL for both SSR and browser in local dev
-const API_BASE_URL = DEFAULT_API;
+// Determine API base at runtime with robust fallbacks for Vercel vs local
+const ENV_API = process.env.NEXT_PUBLIC_API_URL;
+
+function resolveApiBase(): string {
+  // 1) Explicit env var wins
+  if (ENV_API && ENV_API.trim()) return ENV_API.trim();
+
+  // 2) Browser heuristics: on Vercel dashboard domain, default to API subdomain
+  if (typeof window !== 'undefined') {
+    try {
+      const host = window.location.hostname;
+      if (host.endsWith('vercel.app')) {
+        return 'https://vpn-enterprise-api.vercel.app';
+      }
+    } catch {}
+    // Local browser default
+    return 'http://localhost:5000';
+  }
+
+  // 3) SSR fallback: if running on Vercel, prefer the production API URL
+  if (process.env.VERCEL === '1') {
+    return 'https://vpn-enterprise-api.vercel.app';
+  }
+
+  // 4) Default local dev
+  return 'http://localhost:5000';
+}
+
+const API_BASE_URL = resolveApiBase();
 
 // Single-flight refresh promise
 let refreshPromise: Promise<string | null> | null = null;

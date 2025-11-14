@@ -44,7 +44,8 @@ const allowedOrigins =
 // Helpful startup log to diagnose CORS problems in deployed environments.
 console.log('CORS allowed origins:', allowedOrigins);
 
-app.use(cors({
+// Shared CORS options so both normal requests and preflight (OPTIONS) are handled
+const corsOptions: cors.CorsOptions = {
   // Allow Authorization header and Content-Type for preflight requests so
   // client-side Authorization: Bearer <token> is accepted by the server.
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -59,11 +60,34 @@ app.use(cors({
     }
 
     if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+
+    // Allow Vercel preview deployments for the dashboard (e.g. *.vercel.app
+    // containing the dashboard project name) so preview URLs can call the API.
+    try {
+      const url = new URL(origin);
+      const host = url.hostname;
+      const isVercelPreview = host.endsWith('.vercel.app') && host.includes('vpn-enterprise-dashboard');
+      if (isVercelPreview) return callback(null, true);
+    } catch (_) {
+      // ignore parse failure
+    }
     console.warn('Blocked CORS request from origin:', origin);
     return callback(new Error('Not allowed by CORS'));
   },
-  credentials: true
-}));
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
+
+// Apply CORS for all routes
+app.use(cors(corsOptions));
+// Handle preflight generically without path patterns to avoid router errors
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    // cors() already set headers above; just return 204
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // Rate limiting
 // Protect the app from excessive requests but return JSON errors and avoid

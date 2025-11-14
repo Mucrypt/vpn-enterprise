@@ -26,31 +26,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Use relative path so Next.js dev server proxy handles cookies
-      console.debug('Login: sending request to', `/api/v1/auth/login`);
-      const response = await fetch(`/api/v1/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-        // include credentials so server-set httpOnly cookies (refresh_token) are stored
-        credentials: 'include',
-      });
-
-      let data: any;
-      try {
-        data = await response.json();
-      } catch (e) {
-        console.error('Login: failed to parse JSON response', e);
-        throw new Error('Invalid JSON response from server');
-      }
-
-      console.debug('Login: response', response.status, data);
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
+      // Use central API client so absolute base URL is used on Vercel
+      const data = await api.login(formData.email, formData.password);
+      console.debug('Login: response', 200, data);
 
       // Use setAuth to update all state fields and mark as authenticated
       if (data.session?.access_token && data.user) {
