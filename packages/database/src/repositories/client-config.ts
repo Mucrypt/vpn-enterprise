@@ -1,5 +1,5 @@
-import { supabase, supabaseAdmin, supabaseAdminUntyped } from '@vpn-enterprise/database/src/client';
-import { Database, ClientConfiguration, Platform } from '@vpn-enterprise/database/src/types';
+import { supabase, supabaseAdmin, supabaseAdminUntyped } from '../client';
+import { Database, ClientConfiguration, Platform } from '../types';
 
 type ClientConfigurationInsert = Database['public']['Tables']['client_configurations']['Insert'];
 

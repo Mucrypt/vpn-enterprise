@@ -1,6 +1,8 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { createLogger, transports, format } from 'winston';
+import fs from 'fs';
+import path from 'path';
 
 const execAsync = promisify(exec);
 
@@ -34,6 +36,8 @@ export class VPNServerManager {
   private port: number;
 
   constructor(options: { testMode?: boolean; wgDir?: string; publicIP?: string; interfaceName?: string; port?: number } = {}) {
+    const logDir = process.env.LOG_DIR || (process.env.VERCEL === '1' ? '/tmp/logs' : 'logs');
+    try { fs.mkdirSync(logDir, { recursive: true }); } catch {}
     this.logger = createLogger({
       level: 'info',
       format: format.combine(
@@ -41,7 +45,7 @@ export class VPNServerManager {
         format.json()
       ),
       transports: [
-        new transports.File({ filename: 'logs/vpn-server.log' }),
+        new transports.File({ filename: path.join(logDir, 'vpn-server.log') }),
         new transports.Console()
       ]
     });

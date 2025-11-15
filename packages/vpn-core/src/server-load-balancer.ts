@@ -1,15 +1,19 @@
 import { ServerRepository } from '@vpn-enterprise/database';
 import { createLogger, transports, format } from 'winston';
+import fs from 'fs';
+import path from 'path';
 
 export class ServerLoadBalancer {
   private logger;
 
   constructor() {
+    const logDir = process.env.LOG_DIR || (process.env.VERCEL === '1' ? '/tmp/logs' : 'logs');
+    try { fs.mkdirSync(logDir, { recursive: true }); } catch {}
     this.logger = createLogger({
       level: 'info',
       format: format.combine(format.timestamp(), format.json()),
       transports: [
-        new transports.File({ filename: 'logs/load-balancer.log' }),
+        new transports.File({ filename: path.join(logDir, 'load-balancer.log') }),
         new transports.Console(),
       ],
     });

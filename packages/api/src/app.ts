@@ -2,7 +2,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import { VPNServerManager, ServerLoadBalancer, ConnectionTracker } from '@vpn-enterprise/vpn-core';
@@ -23,6 +23,8 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const app = express();
 console.log('[DIAG] Express app constructed');
+// Behind Vercel/Proxies: trust X-Forwarded-* / Forwarded headers for req.ip
+app.set('trust proxy', 1);
 const vpnManager = new VPNServerManager();
 const loadBalancer = new ServerLoadBalancer();
 const connectionTracker = new ConnectionTracker();
@@ -46,9 +48,22 @@ console.log('CORS allowed origins:', allowedOrigins);
 
 // Shared CORS options so both normal requests and preflight (OPTIONS) are handled
 const corsOptions: cors.CorsOptions = {
-  // Allow Authorization header and Content-Type for preflight requests so
-  // client-side Authorization: Bearer <token> is accepted by the server.
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  // Be explicit and permissive about the headers we accept from browsers
+  // to prevent preflight failures on Vercel/production.
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'apikey',
+    'x-client-info',
+    'x-csrf-token',
+    'x-requested-with',
+    'Accept',
+    'Origin',
+    'User-Agent',
+    'Cookie'
+  ],
+  // Explicitly declare methods so the preflight response includes them
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   exposedHeaders: ['Authorization'],
   origin: (origin, callback) => {
     // Allow requests with no origin (e.g. server-to-server, curl, or some native apps)
@@ -78,16 +93,10 @@ const corsOptions: cors.CorsOptions = {
   optionsSuccessStatus: 204,
 };
 
-// Apply CORS for all routes
+// Apply CORS for all routes and ensure OPTIONS preflights are answered with proper headers
 app.use(cors(corsOptions));
-// Handle preflight generically without path patterns to avoid router errors
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    // cors() already set headers above; just return 204
-    return res.sendStatus(204);
-  }
-  next();
-});
+// Express 5 doesn't accept bare "*" path; use a regex to match all paths
+app.options(/.*/, cors(corsOptions));
 
 // Rate limiting
 // Protect the app from excessive requests but return JSON errors and avoid
@@ -98,6 +107,8 @@ const limiter = rateLimit({
   // Add standard rate-limit response headers
   standardHeaders: true,
   legacyHeaders: false,
+  // Use library-provided helper to properly normalize IPv6/IPv4
+  keyGenerator: (req: any) => ipKeyGenerator(req),
   // Skip rate limiting for auth endpoints and dev debug endpoint to avoid
   // accidental lockouts during normal login flows in local development.
   skip: (req: any) => {
@@ -129,6 +140,14 @@ app.use(cookieParser());
 // ==========================
 // PUBLIC ENDPOINTS
 // ==========================
+
+// Root + favicon handlers to avoid noisy 404s on Vercel
+app.get('/', (req, res) => {
+  res.status(200).json({ ok: true, service: 'vpn-enterprise-api' });
+});
+app.get(['/favicon.ico', '/favicon.png'], (req, res) => {
+  res.status(204).end();
+});
 
 // Health check
 app.get('/health', (req, res) => {

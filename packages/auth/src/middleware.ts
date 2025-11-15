@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppUser } from '@vpn-enterprise/database';
 import type { AppUserRow } from '@vpn-enterprise/database';
-import { supabase } from '@vpn-enterprise/database';
+import { supabase, supabaseAdmin } from '@vpn-enterprise/database';
 import { AuthService } from './auth-service';
 
 export interface AuthRequest extends Request {
@@ -66,7 +66,8 @@ function extractToken(req: Request): string | undefined {
  */
 async function getUserRoleFromDatabase(userId: string): Promise<AppUser["role"]> {
   try {
-    const { data: userData, error } = await supabase
+    // Use the admin/service client to bypass RLS when fetching roles for server-side auth
+    const { data: userData, error } = await (supabaseAdmin as any)
       .from('users')
       .select('role')
       .eq('id', userId)
@@ -105,6 +106,7 @@ export async function authMiddleware(
 ): Promise<void> {
   try {
     const requestUrl = req.originalUrl;
+    const isAdminRoute = typeof requestUrl === 'string' && requestUrl.startsWith('/api/v1/admin');
     console.log('[authMiddleware] Checking request for:', requestUrl);
     
     cleanTokenCache();
@@ -133,7 +135,7 @@ export async function authMiddleware(
 
     // Check cache first for performance
     const cached = tokenCache.get(token);
-    if (cached && cached.expires > Date.now()) {
+    if (!isAdminRoute && cached && cached.expires > Date.now()) {
       req.user = cached.user;
       console.log('[authMiddleware] Token verified (cache) for:', requestUrl);
       return next();
@@ -186,7 +188,7 @@ export async function authMiddleware(
       role,
     };
 
-    // Cache the verified token
+    // Cache the verified token (always refresh on admin routes to keep role fresh)
     tokenCache.set(token, {
       user,
       expires: Date.now() + CACHE_TTL

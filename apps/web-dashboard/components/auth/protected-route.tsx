@@ -11,10 +11,13 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { isAuthenticated, user, isLoading } = useAuthStore();
+  const { isAuthenticated, user, isLoading, hasHydrated } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
+    // Wait until store has hydrated before making any auth-based redirects
+    if (!hasHydrated) return;
+
     if (!isLoading && !isAuthenticated) {
       router.push('/auth/login');
       return;
@@ -32,7 +35,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     }
   }, [isAuthenticated, isLoading, user, requiredRole, router]);
 
-  if (isLoading) {
+  if (isLoading || !hasHydrated) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

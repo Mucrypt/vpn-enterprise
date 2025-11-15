@@ -5,10 +5,14 @@
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
-    "build": "tsc -p tsconfig.json"
+    "build": "node -e \"console.log('Using prebuilt dist from CI script')\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
+    "cookie-parser": "^1.4.6",
+    "@vpn-enterprise/database": "file:dist/vendor/@vpn-enterprise/database",
+    "@vpn-enterprise/auth": "file:dist/vendor/@vpn-enterprise/auth",
+    "@vpn-enterprise/vpn-core": "file:dist/vendor/@vpn-enterprise/vpn-core",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

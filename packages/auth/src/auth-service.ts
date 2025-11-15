@@ -237,7 +237,10 @@ export class AuthService {
    * Refresh session with role synchronization
    */
   static async refreshSession(refreshToken?: string): Promise<any> {
-    const { data, error } = await supabase.auth.refreshSession();
+    // Prefer explicit refresh token when provided (server-side cookie flow)
+    const { data, error } = refreshToken
+      ? await (supabase as any).auth.refreshSession({ refresh_token: refreshToken })
+      : await (supabase as any).auth.refreshSession();
     
     if (error) {
       console.error('[AuthService] Refresh session error:', error);

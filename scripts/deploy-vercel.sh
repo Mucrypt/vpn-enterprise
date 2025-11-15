@@ -7,8 +7,8 @@ cd "$ROOT_DIR"
 
 # Defaults
 SKIP_API_BUILD=0
-API_PROJECT=""
-WEB_PROJECT=""
+API_PROJECT=""  # Ignored for CLI v48+ (uses .vercel link)
+WEB_PROJECT=""  # Ignored for CLI v48+ (uses .vercel link)
 VERCEL_ARGS=""
 
 # parse flags
@@ -17,8 +17,10 @@ while [[ $# -gt 0 ]]; do
     --skip-api-build)
       SKIP_API_BUILD=1; shift;;
     --api-project)
+      # Kept for backward compatibility; Vercel CLI now uses local .vercel link
       API_PROJECT="$2"; shift 2;;
     --web-project)
+      # Kept for backward compatibility; Vercel CLI now uses local .vercel link
       WEB_PROJECT="$2"; shift 2;;
     --vercel-args)
       VERCEL_ARGS="$2"; shift 2;;
@@ -47,9 +49,6 @@ fi
 echo "📡 Deploying API to Vercel (production)"
 cd "$ROOT_DIR/packages/api"
 API_CMD=(vercel --prod --yes)
-if [ -n "$API_PROJECT" ]; then
-  API_CMD+=(--project "$API_PROJECT")
-fi
 if [ -n "$VERCEL_ARGS" ]; then
   API_CMD+=("$VERCEL_ARGS")
 fi
@@ -66,9 +65,6 @@ fi
 echo "🎨 Deploying Web Dashboard to Vercel (production)"
 cd "$ROOT_DIR/apps/web-dashboard"
 WEB_CMD=(vercel --prod --yes)
-if [ -n "$WEB_PROJECT" ]; then
-  WEB_CMD+=(--project "$WEB_PROJECT")
-fi
 if [ -n "$VERCEL_ARGS" ]; then
   WEB_CMD+=("$VERCEL_ARGS")
 fi

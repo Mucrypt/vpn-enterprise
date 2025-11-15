@@ -1,11 +1,49 @@
+"use client";
+
 import Link from 'next/link';
-import { Shield, Lock, Zap, Globe, Users, BarChart } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect } from 'react';
+import { Shield, Lock, Zap, Globe, Users, BarChart, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuthStore } from '@/lib/store';
+import HydrationStatus from '@/components/debug/hydration-status';
 
 export default function Home() {
+  const { isAuthenticated, hasHydrated, isLoading } = useAuthStore();
+  const router = useRouter();
+
+  const handleDashboardClick = useCallback(() => {
+    // If auth store not yet hydrated, ignore click
+    if (!hasHydrated) return;
+    // Route based on auth status
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    } else {
+      router.push('/auth/login');
+    }
+  }, [hasHydrated, isAuthenticated, router]);
+
+  const dashboardButtonDisabled = !hasHydrated || isLoading;
+
+  // Immediate mount: ensure we never stay stuck in Loading due to missed persist callback
+  useEffect(() => {
+    const state = useAuthStore.getState();
+    if (!state.hasHydrated) {
+      state.setHydrated(true);
+      state.setLoading(false);
+      console.debug('[Home] Immediate mount hydration applied');
+    } else if (state.isLoading) {
+      // Safety: clear loading if already hydrated but flag remained
+      state.setLoading(false);
+    }
+  }, []);
+
+  // Removed fallback timeout; immediate mount effect now guarantees hydration.
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <HydrationStatus />
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
@@ -20,12 +58,16 @@ export default function Home() {
             real-time monitoring, and multi-server support.
           </p>
           <div className="flex gap-4 justify-center">
-            <Link href="/auth/login">
-              <Button size="lg" className="text-lg px-8">
-                Sign In
-              </Button>
-            </Link>
-            {/* REMOVED: Direct dashboard link for unauthenticated users */}
+            <Button
+              size="lg"
+              className="text-lg px-8"
+              onClick={handleDashboardClick}
+              disabled={dashboardButtonDisabled}
+            >
+              {dashboardButtonDisabled ? (
+                <span className="flex items-center gap-2"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</span>
+              ) : isAuthenticated ? 'Go to Dashboard' : 'Sign In'}
+            </Button>
             <Link href="#features">
               <Button size="lg" variant="outline" className="text-lg px-8">
                 Learn More
@@ -134,11 +176,17 @@ export default function Home() {
           <p className="text-xl mb-8 opacity-90">
             Access your enterprise VPN dashboard and start managing your infrastructure
           </p>
-          <Link href="/auth/login"> {/* CHANGED: Link to login instead of dashboard */}
-            <Button size="lg" variant="secondary" className="text-lg px-12">
-              Get Started
-            </Button>
-          </Link>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="text-lg px-12"
+            onClick={handleDashboardClick}
+            disabled={dashboardButtonDisabled}
+          >
+            {dashboardButtonDisabled ? (
+              <span className="flex items-center gap-2"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</span>
+            ) : isAuthenticated ? 'Open Dashboard' : 'Get Started'}
+          </Button>
         </div>
       </div>
 

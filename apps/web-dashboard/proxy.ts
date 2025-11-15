@@ -3,64 +3,59 @@ import type { NextRequest } from 'next/server';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (process.env.NODE_ENV === 'production') {
-    console.info('[proxy] Incoming:', { pathname, cookies: request.cookies, headers: request.headers });
-  }
+  const isProd = process.env.NODE_ENV === 'production';
+  const secure = isProd;
 
   // Dashboard session logic
   if (pathname.startsWith('/dashboard')) {
-    if (process.env.NODE_ENV === 'production') {
-      const token = request.cookies.get('access_token')?.value;
-      const refreshCookie = request.cookies.get('refresh_token')?.value;
-      if (!token && refreshCookie) {
-        try {
-          const cookieHeader = request.headers.get('cookie') || '';
-          const resp = await fetch(`${request.nextUrl.origin}/api/v1/auth/refresh`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              cookie: cookieHeader,
-            },
-          });
-          if (resp.ok) {
-            const data = await resp.json().catch(() => ({}));
-            const newAccess = data?.session?.access_token || data?.access_token;
-            const role = data?.user?.role || data?.session?.user?.role || request.cookies.get('user_role')?.value;
-            const res = NextResponse.next();
-            if (newAccess) {
-              res.cookies.set('access_token', newAccess, {
-                httpOnly: false,
-                secure: true,
-                sameSite: 'lax',
-                path: '/',
-              });
-            }
-            if (role) {
-              res.cookies.set('user_role', role, {
-                httpOnly: false,
-                secure: true,
-                sameSite: 'lax',
-                path: '/',
-              });
-            }
-            console.info('[proxy] Refresh succeeded:', { newAccess, role });
-            return res;
-          } else {
-            console.warn('[proxy] Refresh failed:', { status: resp.status, body: await resp.text() });
+    const token = request.cookies.get('access_token')?.value;
+    const refreshCookie = request.cookies.get('refresh_token')?.value;
+
+    // Attempt refresh in both dev and prod using the Next rewrite to /api
+    if (!token && refreshCookie) {
+      try {
+        const cookieHeader = request.headers.get('cookie') || '';
+        const resp = await fetch(`${request.nextUrl.origin}/api/v1/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            cookie: cookieHeader,
+          },
+        });
+        if (resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          const newAccess = data?.session?.access_token || data?.access_token;
+          const role = data?.user?.role || data?.session?.user?.role || request.cookies.get('user_role')?.value;
+          const res = NextResponse.next();
+          if (newAccess) {
+            res.cookies.set('access_token', newAccess, {
+              httpOnly: false,
+              secure,
+              sameSite: 'lax',
+              path: '/',
+            });
           }
-        } catch (e) {
-          console.error('[proxy] Refresh error:', e);
+          if (role) {
+            res.cookies.set('user_role', role, {
+              httpOnly: false,
+              secure,
+              sameSite: 'lax',
+              path: '/',
+            });
+          }
+          return res;
         }
-        const loginUrl = new URL('/auth/login', request.url);
-        loginUrl.searchParams.set('redirect', pathname);
-        return NextResponse.redirect(loginUrl);
+      } catch (e) {
+        // ignore and fall through to redirect
       }
-      if (!token && !refreshCookie) {
-        console.warn('[proxy] No access or refresh token, redirecting to login');
-        const loginUrl = new URL('/auth/login', request.url);
-        loginUrl.searchParams.set('redirect', pathname);
-        return NextResponse.redirect(loginUrl);
-      }
+      const loginUrl = new URL('/auth/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (!token && !refreshCookie) {
+      const loginUrl = new URL('/auth/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
     }
     if (pathname.startsWith('/dashboard/admin')) {
       const userRole = request.cookies.get('user_role')?.value;
@@ -73,12 +68,9 @@ export async function proxy(request: NextRequest) {
 
   // Redirect logged-in users away from auth pages
   if (pathname.startsWith('/auth/')) {
-    if (process.env.NODE_ENV === 'production') {
-      const token = request.cookies.get('access_token')?.value;
-      if (token) {
-        console.info('[proxy] Authenticated user on auth page, redirecting to dashboard');
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-      }
+    const token = request.cookies.get('access_token')?.value;
+    if (token) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
@@ -88,3 +80,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: ['/dashboard/:path*', '/auth/:path*'],
 };
+
+// Ensure Next can consume default export form if required by future versions
+export default proxy;

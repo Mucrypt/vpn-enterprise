@@ -1,4 +1,7 @@
-node_modules
+# Ignore only top-level node_modules; we bundle vendor deps under dist/vendor
+/node_modules
+!dist/vendor/
+!dist/vendor/**
 src
 *.ts
 nodemon.json

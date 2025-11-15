@@ -1,7 +1,7 @@
 // Main database exports
-export { 
-  supabase, 
-  supabaseAdmin, 
+export {
+  supabase,
+  supabaseAdmin,
   supabaseUntyped,
   supabaseAdminUntyped,
   SupabaseDatabase,
@@ -9,14 +9,14 @@ export {
   getSupabaseAdmin,
   getSupabaseUntyped,
   getSupabaseAdminUntyped
-} from '@vpn-enterprise/database/src/client';
-export * from '@vpn-enterprise/database/src/types';
-export { ServerRepository } from '@vpn-enterprise/database/src/repositories/servers';
-export { SubscriptionRepository } from '@vpn-enterprise/database/src/repositories/subscriptions';
-export { ConnectionRepository } from '@vpn-enterprise/database/src/repositories/connections';
-export { DeviceRepository } from '@vpn-enterprise/database/src/repositories/devices';
+} from './client';
+export * from './types';
+export { ServerRepository } from './repositories/servers';
+export { SubscriptionRepository } from './repositories/subscriptions';
+export { ConnectionRepository } from './repositories/connections';
+export { DeviceRepository } from './repositories/devices';
 // Phase 4: Enterprise Features
-export { SecurityRepository } from '@vpn-enterprise/database/src/repositories/security';
-export { SplitTunnelRepository } from '@vpn-enterprise/database/src/repositories/split-tunnel';
-export { ClientConfigRepository } from '@vpn-enterprise/database/src/repositories/client-config';
-export { AuditRepository } from '@vpn-enterprise/database/src/repositories/audit';
+export { SecurityRepository } from './repositories/security';
+export { SplitTunnelRepository } from './repositories/split-tunnel';
+export { ClientConfigRepository } from './repositories/client-config';
+export { AuditRepository } from './repositories/audit';

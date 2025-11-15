@@ -271,7 +271,7 @@ export default function OrganizationsPage() {
   }
 
   return (
-    <ProtectedRoute requiredRole={['admin', 'super_admin', 'superadmin', 'administrator']}>
+    <ProtectedRoute requiredRole={['super_admin', 'superadmin']}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

@@ -5,34 +5,41 @@ import { useAuthStore } from '@/lib/store';
 import { api } from '@/lib/api';
 
 export default function AuthHydrator() {
-  const { setAuth, setLoading, clearAuth, isAuthenticated } = useAuthStore();
+  const { setAuth, setLoading, clearAuth, isAuthenticated, hasHydrated } = useAuthStore();
 
+  // Single client-side hydration pass
   useEffect(() => {
-    const hydrateAuth = async () => {
-      // Always set access token cookie from localStorage before profile fetch
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
-      if (token) {
+    if (typeof window === 'undefined') return;
+    const state = useAuthStore.getState();
+    // Mark hydration complete immediately if not yet done
+    if (!state.hasHydrated) {
+      state.setHydrated(true);
+    }
+    // Sync token from localStorage into store accessToken if missing
+    const token = localStorage.getItem('access_token') || '';
+    if (token && !state.accessToken) {
+      state.setAccessToken(token);
+    }
+    // If user not authenticated, attempt lightweight profile fetch
+    if (!state.isAuthenticated) {
+      setLoading(true);
+      (async () => {
         try {
-          document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
-        } catch (e) {}
-      }
-      // Only hydrate if not authenticated
-      if (!isAuthenticated) {
-        setLoading(true);
-        try {
-          const profile = await api.getProfile();
-          if (profile?.user) {
-            setAuth(profile.user, token || '');
+          if (token) {
+            try {
+              document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
+            } catch {}
           }
-        } catch (error) {
-          console.warn('Auth hydration failed:', error);
+          const profile = await api.getProfile().catch(() => null);
+          if (profile?.user && token) {
+            setAuth(profile.user, token);
+          }
         } finally {
           setLoading(false);
         }
-      }
-    };
-    hydrateAuth();
-  }, [setAuth, setLoading, isAuthenticated]);
+      })();
+    }
+  }, [setAuth, setLoading]);
 
   return null;
 }

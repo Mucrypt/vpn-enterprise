@@ -1,5 +1,7 @@
 import { ConnectionRepository, DeviceRepository } from '@vpn-enterprise/database';
 import { createLogger, transports, format } from 'winston';
+import fs from 'fs';
+import path from 'path';
 import { ConnectionInfo } from './types';
 
 export class ConnectionTracker {
@@ -7,11 +9,13 @@ export class ConnectionTracker {
   private activeConnections: Map<string, string> = new Map(); // userId -> connectionId
 
   constructor() {
+    const logDir = process.env.LOG_DIR || (process.env.VERCEL === '1' ? '/tmp/logs' : 'logs');
+    try { fs.mkdirSync(logDir, { recursive: true }); } catch {}
     this.logger = createLogger({
       level: 'info',
       format: format.combine(format.timestamp(), format.json()),
       transports: [
-        new transports.File({ filename: 'logs/connections.log' }),
+        new transports.File({ filename: path.join(logDir, 'connections.log') }),
         new transports.Console(),
       ],
     });

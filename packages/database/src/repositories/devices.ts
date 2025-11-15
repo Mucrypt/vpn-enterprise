@@ -1,5 +1,5 @@
-import { supabase, supabaseAdmin, supabaseUntyped } from '@vpn-enterprise/database/src/client';
-import { Database } from '@vpn-enterprise/database/src/types';
+import { supabase, supabaseAdmin, supabaseUntyped } from '../client';
+import { Database } from '../types';
 
 type UserDevice = Database['public']['Tables']['user_devices']['Row'];
 type UserDeviceInsert = Database['public']['Tables']['user_devices']['Insert'];
