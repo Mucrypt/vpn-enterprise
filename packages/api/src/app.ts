@@ -695,8 +695,8 @@ app.put('/api/v1/admin/users/:id/encryption', authMiddleware, adminMiddleware, a
 app.get('/api/v1/admin/organizations', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
   try {
     console.log('Organizations endpoint called by user:', req.user);
-    // Use Supabase to get all organizations with counts
-      const { data, error } = await (supabase as any)
+    // Use Supabase Admin to get all organizations with counts (bypass RLS)
+      const { data, error } = await (supabaseAdmin as any)
         .from('organizations')
         .select(`
           *,
@@ -709,6 +709,9 @@ app.get('/api/v1/admin/organizations', authMiddleware, adminMiddleware, async (r
       console.error('Database error fetching organizations:', error);
       return res.status(500).json({ error: 'Database error', message: error.message });
     }
+
+    // Quick SQL response size for diagnostics
+    try { console.debug('Organizations SQL rows:', Array.isArray(data) ? data.length : 0); } catch {}
 
     // Transform the data to match the expected format
     const transformedOrganizations = (data as any[])?.map((org: any) => ({
@@ -752,8 +755,8 @@ app.post('/api/v1/admin/organizations', authMiddleware, adminMiddleware, async (
       api_access: ['enterprise', 'business'].includes(billing_tier)
     };
 
-    // Insert into database
-    const { data, error } = await (supabase as any)
+    // Insert into database with service client (admin)
+    const { data, error } = await (supabaseAdmin as any)
       .from('organizations')
       .insert({
         name,
@@ -852,8 +855,8 @@ app.get('/api/v1/admin/organizations/:orgId/members', authMiddleware, adminMiddl
   try {
     const { orgId } = req.params;
     console.log('Get organization members:', { orgId, user: req.user });
-    // Get members from database
-    const { data, error } = await (supabase as any)
+    // Get members from database via service client (bypass RLS for admin)
+    const { data, error } = await (supabaseAdmin as any)
       .from('users')
       .select('id, email, full_name, role, created_at')
       .eq('organization_id', orgId)
@@ -863,6 +866,9 @@ app.get('/api/v1/admin/organizations/:orgId/members', authMiddleware, adminMiddl
       console.error('Database error fetching members:', error);
       return res.status(500).json({ error: 'Database error', message: error.message });
     }
+
+    // Quick SQL response size for diagnostics
+    try { console.debug('Organization members SQL rows:', Array.isArray(data) ? data.length : 0); } catch {}
 
     // Transform to expected format
     const transformedMembers = (data as any[])?.map((member: any) => ({
@@ -874,6 +880,7 @@ app.get('/api/v1/admin/organizations/:orgId/members', authMiddleware, adminMiddl
       created_at: member.created_at
     })) || [];
 
+    console.log('Returning organization members:', transformedMembers.length);
     res.json({ members: transformedMembers });
   } catch (error: any) {
     console.error('Get organization members error:', error);
@@ -892,7 +899,7 @@ app.post('/api/v1/admin/organizations/:orgId/members', authMiddleware, adminMidd
     }
 
     // Check if user already exists
-    const { data: existingUser } = await (supabase as any)
+    const { data: existingUser } = await (supabaseAdmin as any)
       .from('users')
       .select('id, email, organization_id, full_name')
       .eq('email', email)
@@ -900,7 +907,7 @@ app.post('/api/v1/admin/organizations/:orgId/members', authMiddleware, adminMidd
 
     if (existingUser) {
       // Update existing user's organization and role
-      const { data: updatedUser, error: updateError } = await (supabase as any)
+      const { data: updatedUser, error: updateError } = await (supabaseAdmin as any)
         .from('users')
         .update({
           organization_id: orgId,
@@ -954,7 +961,7 @@ app.put('/api/v1/admin/organizations/:orgId/members/:memberId', authMiddleware, 
     console.log('Update member role:', { orgId, memberId, role, user: req.user });
 
     // Update user role in database
-    const { data: updatedMember, error } = await (supabase as any)
+    const { data: updatedMember, error } = await (supabaseAdmin as any)
       .from('users')
       .update({ role })
       .eq('id', memberId)
@@ -990,7 +997,7 @@ app.delete('/api/v1/admin/organizations/:orgId/members/:memberId', authMiddlewar
     console.log('Remove member:', { orgId, memberId, user: req.user });
 
     // Remove user from organization by setting organization_id to null
-    const { error } = await (supabase as any)
+    const { error } = await (supabaseAdmin as any)
       .from('users')
       .update({ organization_id: null })
       .eq('id', memberId)

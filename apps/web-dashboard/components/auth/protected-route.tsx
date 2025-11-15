@@ -33,9 +33,10 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         return;
       }
     }
-  }, [isAuthenticated, isLoading, user, requiredRole, router]);
+  }, [isAuthenticated, isLoading, user, requiredRole, router, hasHydrated]);
 
-  if (isLoading || !hasHydrated) {
+  // Only gate on hydration; avoid being stuck on global isLoading for unrelated fetches
+  if (!hasHydrated) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
