@@ -137,6 +137,25 @@ app.use(express.json({ limit: '10mb' }));
 // Cookies (used for refresh token cookie)
 app.use(cookieParser());
 
+// Simple audit logger for admin mutations (best-effort, non-blocking)
+async function auditLog(eventType: string, description: string, severity: 'info' | 'warning' | 'critical' = 'info', metadata?: any, userId?: string) {
+  try {
+    await (supabaseAdmin as any)
+      .from('security_audit_log')
+      .insert({
+        user_id: userId || null,
+        event_type: eventType,
+        event_description: description,
+        severity,
+        metadata: metadata || null,
+        created_at: new Date().toISOString()
+      });
+  } catch (e) {
+    // Do not throw; audit should never break the main flow
+    console.warn('[auditLog] Failed to insert audit log:', (e as any)?.message || e);
+  }
+}
+
 // ==========================
 // PUBLIC ENDPOINTS
 // ==========================
@@ -784,6 +803,7 @@ app.post('/api/v1/admin/organizations', authMiddleware, adminMiddleware, async (
     };
 
     console.log('Organization created:', organizationWithCount.id);
+    auditLog('org.create', `Organization created: ${organizationWithCount.id}`, 'info', { name: name, billing_tier }, req.user?.id).catch(()=>{});
     res.json(organizationWithCount);
   } catch (error: any) {
     console.error('Create organization error:', error);
@@ -795,22 +815,46 @@ app.post('/api/v1/admin/organizations', authMiddleware, adminMiddleware, async (
 app.get('/api/v1/admin/organizations/:id', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    console.log('Get organization:', { id, user: req.user });
-    // Mock organization - replace with real database query
+    console.log('Get organization (admin):', { id, user: req.user?.id });
+
+    const { data, error } = await (supabaseAdmin as any)
+      .from('organizations')
+      .select(`
+        *,
+        users:users(count)
+      `)
+      .eq('id', id)
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Database error fetching organization:', error);
+      return res.status(500).json({ error: 'Database error', message: error.message });
+    }
+
+    try { console.debug('Organization SQL found:', data ? 1 : 0); } catch {}
+
+    if (!data) {
+      return res.status(404).json({ error: 'Not Found', message: 'Organization not found' });
+    }
+
+    const org: any = data;
     const organization = {
-      id,
-      name: 'Sample Organization',
-      billing_tier: 'enterprise',
-      max_users: 100,
-      max_devices_per_user: 10,
-      max_servers: 50,
-      created_at: new Date().toISOString(),
-      features: { 
-        advanced_analytics: true, 
-        custom_domains: true,
-        priority_support: true
+      id: org.id,
+      name: org.name,
+      billing_tier: org.billing_tier,
+      max_users: org.max_users,
+      max_devices_per_user: org.max_devices_per_user,
+      max_servers: org.max_servers,
+      created_at: org.created_at,
+      features: org.features || {},
+      _count: {
+        users: org.users?.[0]?.count || 0,
+        servers: org.servers?.[0]?.count || 0
       }
     };
+
     res.json({ organization });
   } catch (error: any) {
     console.error('Get organization error:', error);
@@ -822,15 +866,30 @@ app.get('/api/v1/admin/organizations/:id', authMiddleware, adminMiddleware, asyn
 app.put('/api/v1/admin/organizations/:id', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
-    console.log('Update organization:', { id, updates, user: req.user });
-    // Mock update - replace with real database update
-    const organization = {
-      id,
-      ...updates,
-      updated_at: new Date().toISOString()
-    };
-    res.json({ organization });
+    const body = req.body || {};
+    const updates: any = {};
+    const whitelist = ['name', 'billing_tier', 'max_users', 'max_devices_per_user', 'max_servers', 'features'];
+    for (const key of whitelist) {
+      if (Object.prototype.hasOwnProperty.call(body, key)) updates[key] = body[key];
+    }
+    updates.updated_at = new Date().toISOString();
+
+    console.log('Update organization (admin):', { id, keys: Object.keys(updates), user: req.user?.id });
+
+    const { data, error } = await (supabaseAdmin as any)
+      .from('organizations')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Database error updating organization:', error);
+      return res.status(500).json({ error: 'Database error', message: error.message });
+    }
+
+    auditLog('org.update', `Organization updated: ${id}`, 'info', { keys: Object.keys(updates) }, req.user?.id).catch(()=>{});
+    res.json({ organization: data });
   } catch (error: any) {
     console.error('Update organization error:', error);
     res.status(500).json({ error: 'Failed to update organization', message: error.message });
@@ -841,8 +900,19 @@ app.put('/api/v1/admin/organizations/:id', authMiddleware, adminMiddleware, asyn
 app.delete('/api/v1/admin/organizations/:id', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    console.log('Delete organization:', { id, user: req.user });
-    // Mock delete - replace with real database delete
+    console.log('Delete organization (soft, admin):', { id, user: req.user?.id });
+
+    const { error } = await (supabaseAdmin as any)
+      .from('organizations')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Database error deleting organization:', error);
+      return res.status(500).json({ error: 'Database error', message: error.message });
+    }
+
+    auditLog('org.delete', `Organization soft-deleted: ${id}`, 'warning', {}, req.user?.id).catch(()=>{});
     res.json({ success: true, id, message: 'Organization deleted successfully' });
   } catch (error: any) {
     console.error('Delete organization error:', error);
@@ -932,6 +1002,7 @@ app.post('/api/v1/admin/organizations/:orgId/members', authMiddleware, adminMidd
         created_at: updatedUser.created_at
       };
 
+      auditLog('member.add_existing', `User added to org: ${existingUser.id} -> ${orgId}`, 'info', { role: role || 'user' }, req.user?.id).catch(()=>{});
       return res.json({ member, message: 'User added to organization' });
     } else {
       // Create new user invitation (you might want to create an invitations table)
@@ -945,6 +1016,7 @@ app.post('/api/v1/admin/organizations/:orgId/members', authMiddleware, adminMidd
         created_at: new Date().toISOString()
       };
 
+      auditLog('member.invite', `Invitation created: ${email} -> ${orgId}`, 'info', { role: role || 'user' }, req.user?.id).catch(()=>{});
       res.json({ member, message: 'Invitation sent successfully' });
     }
   } catch (error: any) {
@@ -983,6 +1055,7 @@ app.put('/api/v1/admin/organizations/:orgId/members/:memberId', authMiddleware, 
       created_at: updatedMember.created_at
     };
 
+    auditLog('member.role_update', `Member role updated: ${memberId} in ${orgId}`, 'info', { role }, req.user?.id).catch(()=>{});
     res.json({ member });
   } catch (error: any) {
     console.error('Update member error:', error);
@@ -1008,6 +1081,7 @@ app.delete('/api/v1/admin/organizations/:orgId/members/:memberId', authMiddlewar
       return res.status(500).json({ error: 'Database error', message: error.message });
     }
 
+    auditLog('member.remove', `Member removed: ${memberId} from ${orgId}`, 'warning', {}, req.user?.id).catch(()=>{});
     res.json({ success: true, memberId, message: 'Member removed successfully' });
   } catch (error: any) {
     console.error('Remove member error:', error);
