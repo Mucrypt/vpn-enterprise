@@ -162,7 +162,9 @@ export const authHelpers = {
   },
   isAdmin: () => {
     const { user } = useAuthStore.getState();
-    return !!user && ['admin', 'super_admin', 'superadmin'].includes(user.role);
+    if (!user?.role) return false;
+    const role = user.role.toLowerCase();
+    return ['admin', 'super_admin', 'superadmin'].includes(role);
   },
   getAuthState: () => {
     const s = useAuthStore.getState();

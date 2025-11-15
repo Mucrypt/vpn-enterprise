@@ -61,7 +61,8 @@ export default function OrganizationsPage() {
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const { user: currentUser, isAuthenticated } = useAuthStore();
+  const { user: currentUser, isAuthenticated, hasHydrated } = useAuthStore();
+  const [loadedOnce, setLoadedOnce] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -78,10 +79,10 @@ export default function OrganizationsPage() {
   });
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (hasHydrated && isAuthenticated && !loadedOnce) {
       loadOrganizations();
     }
-  }, [isAuthenticated]);
+  }, [hasHydrated, isAuthenticated, loadedOnce]);
 
   useEffect(() => {
     if (selectedOrg) {
@@ -97,7 +98,10 @@ export default function OrganizationsPage() {
       console.log('Loading organizations...');
       
       const data = await api.getOrganizations();
-      setOrganizations(data.organizations || []);
+      console.debug('[Organizations] Raw response:', data);
+      const orgs = (data && typeof data === 'object' ? (data as any).organizations : undefined) || [];
+      setOrganizations(Array.isArray(orgs) ? orgs : []);
+      setLoadedOnce(true);
     } catch (error: any) {
       console.error('Failed to load organizations:', error);
       
@@ -271,7 +275,7 @@ export default function OrganizationsPage() {
   }
 
   return (
-    <ProtectedRoute requiredRole={['super_admin', 'superadmin']}>
+    <ProtectedRoute requiredRole={['super_admin', 'superadmin', 'admin', 'administrator']}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
