@@ -656,6 +656,95 @@ class APIClient {
     });
   }
 
+  // ==================== HOSTING ENDPOINTS ====================
+  // Public: list hosting plans (optional filter by type)
+  getHostingPlans(params?: { type?: string }) {
+    const query = params?.type ? `?type=${encodeURIComponent(params.type)}` : '';
+    return this.fetchAPI(`/hosting/plans${query}`).then((res) => res?.plans || []);
+  }
+
+  // Auth: list services for current user
+  getHostingServices() {
+    return this.fetchAPI('/hosting/services').then((res) => res?.services || []);
+  }
+
+  // Auth: create a new hosted service
+  createHostedService(payload: {
+    plan_id: string;
+    name: string;
+    domain?: string;
+    config?: Record<string, any>;
+  }) {
+    return this.fetchAPI('/hosting/services', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // Auth: get service details
+  getHostedService(id: string) {
+    return this.fetchAPI(`/hosting/services/${encodeURIComponent(id)}`);
+  }
+
+  // Auth: delete service
+  deleteHostedService(id: string) {
+    return this.fetchAPI(`/hosting/services/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Auth: control actions
+  startHostingService(id: string) {
+    return this.fetchAPI(`/hosting/services/${encodeURIComponent(id)}/start`, {
+      method: 'POST',
+    });
+  }
+
+  stopHostingService(id: string) {
+    return this.fetchAPI(`/hosting/services/${encodeURIComponent(id)}/stop`, {
+      method: 'POST',
+    });
+  }
+
+  restartHostingService(id: string) {
+    return this.fetchAPI(`/hosting/services/${encodeURIComponent(id)}/restart`, {
+      method: 'POST',
+    });
+  }
+
+  createBackup(id: string) {
+    return this.fetchAPI(`/hosting/services/${encodeURIComponent(id)}/backup`, {
+      method: 'POST',
+    });
+  }
+
+  // Auth: simple hosting stats (placeholder, returned by backend if implemented)
+  getHostingStats() {
+    // If backend returns a flat object, pass through; otherwise synthesize from services
+    return this.fetchAPI('/hosting/stats').catch(async () => {
+      try {
+        const services = await this.getHostingServices();
+        const activeServices = services.filter((s: any) => s.status === 'active').length;
+        const totals = services.reduce(
+          (acc: any, s: any) => {
+            acc.totalStorage += Number(s?.resource_usage?.storage || 0);
+            acc.bandwidthUsed += Number(s?.resource_usage?.bandwidth || 0);
+            return acc;
+          },
+          { totalStorage: 0, bandwidthUsed: 0 }
+        );
+        return {
+          totalServices: services.length,
+          activeServices,
+          totalStorage: totals.totalStorage,
+          bandwidthUsed: totals.bandwidthUsed,
+        };
+      } catch {
+        return { totalServices: 0, activeServices: 0, totalStorage: 0, bandwidthUsed: 0 };
+      }
+    });
+  }
+
   // ==================== DEBUG ENDPOINTS ====================
   debugRequest() {
     return this.fetchAPI('/debug/request', {

@@ -188,6 +188,72 @@ export interface EncryptionProtocol {
   description?: string;
   created_at: string;
 }
+// packages/database/src/types/hosting.ts
+export interface HostingPlan {
+  id: string;
+  name: string;
+  type: 'wordpress' | 'ecommerce' | 'game_server' | 'discord_bot' | 'shared' | 'vps';
+  resources: {
+    cpu: number;
+    memory: string; // e.g., '1GB'
+    storage: string;
+    bandwidth?: string;
+    databases?: number;
+    email_accounts?: number;
+  };
+  price_monthly: number;
+  price_yearly?: number;
+  features: string[];
+  max_websites: number;
+  storage_gb: number;
+  bandwidth_gb?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HostedService {
+  id: string;
+  user_id: string;
+  organization_id?: string;
+  plan_id: string;
+  name: string;
+  domain?: string;
+  subdomain?: string;
+  status: 'creating' | 'active' | 'suspended' | 'error' | 'deleting';
+  config: {
+    type: string;
+    version?: string;
+    database?: string;
+    plugins?: string[];
+    mods?: string[];
+    game?: string;
+    slots?: number;
+    botToken?: string;
+    environment_variables?: Record<string, string>;
+  };
+  resource_usage?: {
+    cpu: number;
+    memory: number;
+    storage: number;
+    bandwidth: number;
+  };
+  last_backup?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ServiceDeployment {
+  id: string;
+  service_id: string;
+  version: string;
+  docker_image: string;
+  port: number;
+  internal_ip: string;
+  status: 'deploying' | 'active' | 'failed' | 'stopped';
+  logs: string;
+  created_at: string;
+}
 
 // Database Schema
 export interface Database {

@@ -31,6 +31,9 @@ const userNavItems = [
   { href: '/dashboard/connect', label: 'Connect', icon: Zap },
   { href: '/dashboard/vpn-config', label: 'VPN Config', icon: FileKey },
   { href: '/dashboard/servers', label: 'Servers', icon: Server },
+  { href: '/dashboard/hosting', label: 'Hosting', icon: Server },
+  { href: '/dashboard/hosting', label: 'My Services', icon: Settings },
+  { href: '/dashboard/hosting/create', label: 'Create Service', icon: Zap },
   { href: '/dashboard/split-tunnel', label: 'Split Tunnel', icon: Split },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/dashboard/security', label: 'Security', icon: Shield },
@@ -43,6 +46,9 @@ const adminNavItems = [
   { href: '/dashboard/connect', label: 'Connect', icon: Zap },
   { href: '/dashboard/vpn-config', label: 'VPN Config', icon: FileKey },
   { href: '/dashboard/servers', label: 'Servers', icon: Server },
+  { href: '/dashboard/hosting', label: 'Hosting', icon: Server },
+  { href: '/dashboard/hosting', label: 'My Services', icon: Settings },
+  { href: '/dashboard/hosting/create', label: 'Create Service', icon: Zap },
   { href: '/dashboard/clients', label: 'Clients', icon: Users },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/dashboard/threats', label: 'Threats', icon: AlertTriangle },
@@ -87,7 +93,7 @@ export function SidebarNavigation() {
           
           return (
             <Link
-              key={item.href}
+              key={`${item.href}-${item.label}`}
               href={item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',

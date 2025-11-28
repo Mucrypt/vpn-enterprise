@@ -17,6 +17,7 @@ import {
   SplitTunnelRepository
 } from '@vpn-enterprise/database';
 import { AuditRepository, SecurityRepository } from '@vpn-enterprise/database';
+import { hostingRouter } from './routes/hosting';
 
 // Load environment variables from repo root
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
@@ -177,6 +178,9 @@ app.get('/health', (req, res) => {
     version: '1.0.0'
   });
 });
+
+// Hosting routes
+app.use('/api/v1/hosting', hostingRouter);
 
 // Dev debug endpoint: inspect incoming auth headers and cookies
 // Only registered in non-production to help debug CORS/auth problems during local development.

@@ -294,6 +294,161 @@ export type Database = {
         }
         Relationships: []
       }
+      hosted_services: {
+        Row: {
+          config: Json
+          created_at: string | null
+          domain: string | null
+          id: string
+          last_backup: string | null
+          name: string
+          organization_id: string | null
+          plan_id: string
+          resource_usage: Json | null
+          status: string
+          subdomain: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string | null
+          domain?: string | null
+          id?: string
+          last_backup?: string | null
+          name: string
+          organization_id?: string | null
+          plan_id: string
+          resource_usage?: Json | null
+          status?: string
+          subdomain?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          domain?: string | null
+          id?: string
+          last_backup?: string | null
+          name?: string
+          organization_id?: string | null
+          plan_id?: string
+          resource_usage?: Json | null
+          status?: string
+          subdomain?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hosted_services_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hosted_services_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "hosting_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hosting_invoices: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string | null
+          due_date: string
+          id: string
+          paid_at: string | null
+          service_id: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency?: string | null
+          due_date: string
+          id?: string
+          paid_at?: string | null
+          service_id?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string
+          id?: string
+          paid_at?: string | null
+          service_id?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hosting_invoices_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "hosted_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hosting_plans: {
+        Row: {
+          bandwidth_gb: number | null
+          created_at: string | null
+          features: Json
+          id: string
+          is_active: boolean | null
+          max_websites: number | null
+          name: string
+          price_monthly: number
+          price_yearly: number | null
+          resources: Json
+          storage_gb: number
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          bandwidth_gb?: number | null
+          created_at?: string | null
+          features?: Json
+          id?: string
+          is_active?: boolean | null
+          max_websites?: number | null
+          name: string
+          price_monthly: number
+          price_yearly?: number | null
+          resources?: Json
+          storage_gb: number
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          bandwidth_gb?: number | null
+          created_at?: string | null
+          features?: Json
+          id?: string
+          is_active?: boolean | null
+          max_websites?: number | null
+          name?: string
+          price_monthly?: number
+          price_yearly?: number | null
+          resources?: Json
+          storage_gb?: number
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           amount: number
@@ -554,6 +709,7 @@ export type Database = {
           longitude: number | null
           max_clients: number | null
           name: string
+          organization_id: string | null
           port: number
           protocol: string | null
           public_key: string
@@ -574,6 +730,7 @@ export type Database = {
           longitude?: number | null
           max_clients?: number | null
           name: string
+          organization_id?: string | null
           port?: number
           protocol?: string | null
           public_key: string
@@ -594,12 +751,65 @@ export type Database = {
           longitude?: number | null
           max_clients?: number | null
           name?: string
+          organization_id?: string | null
           port?: number
           protocol?: string | null
           public_key?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "servers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_deployments: {
+        Row: {
+          created_at: string | null
+          docker_image: string | null
+          id: string
+          internal_ip: unknown
+          logs: string | null
+          port: number | null
+          service_id: string
+          status: string
+          version: string
+        }
+        Insert: {
+          created_at?: string | null
+          docker_image?: string | null
+          id?: string
+          internal_ip?: unknown
+          logs?: string | null
+          port?: number | null
+          service_id: string
+          status?: string
+          version: string
+        }
+        Update: {
+          created_at?: string | null
+          docker_image?: string | null
+          id?: string
+          internal_ip?: unknown
+          logs?: string | null
+          port?: number | null
+          service_id?: string
+          status?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_deployments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "hosted_services"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       split_tunnel_rules: {
         Row: {

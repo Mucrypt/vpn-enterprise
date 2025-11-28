@@ -20,3 +20,4 @@ export { SecurityRepository } from './repositories/security';
 export { SplitTunnelRepository } from './repositories/split-tunnel';
 export { ClientConfigRepository } from './repositories/client-config';
 export { AuditRepository } from './repositories/audit';
+export { HostingPlanRepository, HostedServiceRepository } from './repositories/hosting';
