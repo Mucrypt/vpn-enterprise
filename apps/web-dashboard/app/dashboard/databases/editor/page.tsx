@@ -1,7 +1,25 @@
 "use client";
 import React from 'react';
-import { VisualQueryBuilder } from '@vpn-enterprise/editor/src/visual-query-builder';
-import { AdvancedSQLEditor } from '@vpn-enterprise/editor/src/sql-editor';
+
+// Simple placeholder components
+const VisualQueryBuilder = () => (
+  <div className="visual-query-builder p-4 border rounded">
+    <h2 className="text-xl font-semibold mb-2">Visual Query Builder (Alpha)</h2>
+    <p className="text-sm text-gray-600 mb-4">Schema + canvas coming soon.</p>
+  </div>
+);
+
+const AdvancedSQLEditor = () => (
+  <div className="sql-editor border rounded p-3 space-y-2">
+    <textarea 
+      defaultValue="SELECT 1;" 
+      className="w-full h-40 border rounded p-2 font-mono text-sm" 
+    />
+    <button className="px-3 py-1 rounded bg-emerald-600 text-white text-sm">
+      Run Query
+    </button>
+  </div>
+);
 
 export default function DatabasesEditorPage() {
   return (
