@@ -25,8 +25,8 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import Redis from 'ioredis';
 import promClient from 'prom-client';
-// Realtime subscriptions (scaffold)
-import { PostgresSubscriptionEngine } from '@vpn-enterprise/realtime/src/postgres-subscriptions';
+// Realtime subscriptions (scaffold) - temporarily disabled for Supabase migration
+// import { PostgresSubscriptionEngine } from '@vpn-enterprise/realtime/src/postgres-subscriptions';
 
 // Load environment variables from repo root
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
@@ -256,9 +256,10 @@ if (process.env.REALTIME_DISABLE_REDIS === '1') {
     redis = new InMemoryRedisFallback();
   }
 }
-const subscriptionEngine = new PostgresSubscriptionEngine();
+// Subscription engine temporarily disabled for Supabase migration
+// const subscriptionEngine = new PostgresSubscriptionEngine();
 // Initialize subscription engine later when pg pool available (placeholder)
-console.log('[INIT] WebSocket realtime scaffold ready');
+console.log('[INIT] WebSocket realtime scaffold ready (realtime disabled)');
 
 // Introspection endpoint (dev + admin) lists active subscriptions
 app.get('/api/v1/realtime/subscriptions', (req, res) => {
@@ -266,8 +267,9 @@ app.get('/api/v1/realtime/subscriptions', (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
-    const list = subscriptionEngine.listSubscriptions();
-    res.json({ subscriptions: list });
+    // Subscriptions temporarily disabled for Supabase migration
+    const list: any[] = []; // subscriptionEngine.listSubscriptions();
+    res.json({ subscriptions: list, message: 'Realtime subscriptions temporarily disabled' });
   } catch (e: any) {
     res.status(500).json({ error: e.message || String(e) });
   }
@@ -289,22 +291,22 @@ app.post('/api/v1/realtime/mock', (req, res) => {
   }
   const validOps = ['INSERT','UPDATE','DELETE'];
   if (!validOps.includes(op)) return res.status(400).json({ error: 'Invalid op' });
-  subscriptionEngine.broadcastMockEvent(tenantId, table, op, row || {} )
-    .then(() => res.json({ ok: true }))
-    .catch((e: any) => res.status(500).json({ error: e.message || String(e) }));
+  // subscriptionEngine.broadcastMockEvent(tenantId, table, op, row || {} ) // disabled for Supabase migration
+  // Temporary stub response
+  res.json({ ok: true, message: 'Realtime broadcasting temporarily disabled' });
 });
 
-// Dev mock interval broadcaster (optional)
-if (process.env.REALTIME_DEV_MOCK === '1' && process.env.NODE_ENV !== 'production') {
-  setInterval(() => {
-    const subs = subscriptionEngine.listSubscriptions();
-    for (const s of subs) {
-      const [tenantId, tbl] = s.key.split(':');
-      subscriptionEngine.broadcastMockEvent(tenantId, tbl, 'UPDATE', { id: Math.random(), demo: true, ts: new Date().toISOString() });
-    }
-  }, 30000);
-  console.log('[INIT] Dev mock broadcaster enabled');
-}
+// Dev mock interval broadcaster (optional) - temporarily disabled for Supabase migration
+// if (process.env.REALTIME_DEV_MOCK === '1' && process.env.NODE_ENV !== 'production') {
+//   setInterval(() => {
+//     const subs = subscriptionEngine.listSubscriptions();
+//     for (const s of subs) {
+//       const [tenantId, tbl] = s.key.split(':');
+//       subscriptionEngine.broadcastMockEvent(tenantId, tbl, 'UPDATE', { id: Math.random(), demo: true, ts: new Date().toISOString() });
+//     }
+//   }, 30000);
+//   console.log('[INIT] Dev mock broadcaster enabled');
+// }
 
 wss.on('connection', async (socket, req) => {
   // Basic auth: expect ?tenantId=&token=
@@ -344,11 +346,14 @@ wss.on('connection', async (socket, req) => {
       try {
         const msg = JSON.parse(String(data));
         if (msg && msg.action === 'subscribe' && msg.table) {
-          const key = await subscriptionEngine.createSubscription(tenantId, msg.table, msg.filter || {}, (socket as any));
-          socket.send(JSON.stringify({ ok: true, subscribed: key }));
+          // Subscriptions temporarily disabled for Supabase migration
+          // const key = await subscriptionEngine.createSubscription(tenantId, msg.table, msg.filter || {}, (socket as any));
+          const key = 'disabled';
+          socket.send(JSON.stringify({ ok: true, subscribed: key, message: 'Realtime subscriptions temporarily disabled' }));
         } else if (msg && msg.action === 'unsubscribe' && msg.table) {
-          const key = await subscriptionEngine.unsubscribe(tenantId, msg.table, (socket as any));
-          socket.send(JSON.stringify({ ok: true, unsubscribed: key }));
+          // const key = await subscriptionEngine.unsubscribe(tenantId, msg.table, (socket as any));
+          const key = 'disabled';
+          socket.send(JSON.stringify({ ok: true, unsubscribed: key, message: 'Realtime subscriptions temporarily disabled' }));
         } else {
           socket.send(JSON.stringify({ ok: false, error: 'Unsupported message' }));
         }
