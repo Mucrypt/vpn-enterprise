@@ -242,9 +242,10 @@ class InMemoryRedisFallback {
 }
 
 let redis: any;
-if (process.env.REALTIME_DISABLE_REDIS === '1') {
+// Auto-disable Redis in Vercel serverless environment or when explicitly disabled
+if (process.env.REALTIME_DISABLE_REDIS === '1' || process.env.VERCEL === '1') {
   redis = new InMemoryRedisFallback();
-  console.log('[INIT] Redis disabled via REALTIME_DISABLE_REDIS=1, using in-memory fallback');
+  console.log('[INIT] Redis disabled (Vercel serverless environment), using in-memory fallback');
 } else {
   try {
     redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
