@@ -1,0 +1,21 @@
+{
+  "name": "@vpn-enterprise/realtime",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "smoke": "ts-node ./test/smoke.ts"
+  },
+  "dependencies": {
+    "pg": "^8.12.0",
+    "ws": "^8.18.0",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/pg": "^8.11.6"
+  }
+}

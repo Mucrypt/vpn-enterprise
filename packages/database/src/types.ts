@@ -255,6 +255,36 @@ export interface ServiceDeployment {
   created_at: string;
 }
 
+// Decentralized hosting (logical interfaces)
+export interface HostingNode {
+  id: string;
+  name: string;
+  region: string;
+  capabilities: string[];
+  public_key?: string;
+  status: 'healthy' | 'degraded' | 'down';
+  last_heartbeat_at?: string;
+  created_at?: string;
+}
+
+export interface ServiceAttestation {
+  id: string;
+  service_id: string;
+  type: 'attest' | 'deploy' | 'backup' | 'scale';
+  hash: string;
+  signer?: string;
+  tx_ref?: string;
+  created_at: string;
+}
+
+export interface EdgeDistribution {
+  id: string;
+  service_id: string;
+  target_regions: string[];
+  artifact_hash?: string;
+  created_at: string;
+}
+
 // Database Schema
 export interface Database {
   public: {

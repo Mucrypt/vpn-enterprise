@@ -21,3 +21,6 @@ export { SplitTunnelRepository } from './repositories/split-tunnel';
 export { ClientConfigRepository } from './repositories/client-config';
 export { AuditRepository } from './repositories/audit';
 export { HostingPlanRepository, HostedServiceRepository } from './repositories/hosting';
+export { HostingNodeRepository } from './repositories/hosting-nodes';
+export { ServiceAttestationRepository } from './repositories/service-attestations';
+export { EdgeDistributionRepository } from './repositories/edge-distributions';

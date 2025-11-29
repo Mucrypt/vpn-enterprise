@@ -3,6 +3,13 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+
+// Extend Window type for __DECENTRAL_HOSTING_ENABLED__
+declare global {
+  interface Window {
+    __DECENTRAL_HOSTING_ENABLED__?: boolean;
+  }
+}
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +27,8 @@ import {
   Cpu,
   HardDrive,
   Network,
-  Database
+  Database,
+  Shield
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -52,9 +60,15 @@ export default function ServiceDetailPage() {
   const [service, setService] = useState<HostedService | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [attestations, setAttestations] = useState<Array<{ id: string; type: string; hash: string; created_at?: string; signer?: string }>>([]);
+  const decentralEnabled = typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_DECENTRAL_HOSTING_ENABLED === 'true' ||
+       window?.__DECENTRAL_HOSTING_ENABLED__ === true)
+    : (process.env.NEXT_PUBLIC_DECENTRAL_HOSTING_ENABLED === 'true');
 
   useEffect(() => {
     loadService();
+    loadAttestations();
   }, [serviceId]);
 
   const loadService = async () => {
@@ -91,6 +105,20 @@ export default function ServiceDetailPage() {
           await api.createBackup(serviceId);
           toast.success('Backup created successfully');
           break;
+        case 'attest':
+          {
+            const res = await api.attestService(serviceId);
+            toast.success(`Attested: ${res.attestationId || 'ok'}`);
+            // Refresh attestations shortly after
+            setTimeout(loadAttestations, 1000);
+          }
+          break;
+        case 'distribute':
+          {
+            const res = await api.distributeServiceEdge(serviceId);
+            toast.success(`Distribution queued: ${res.distributionId || 'ok'}`);
+          }
+          break;
         case 'delete':
           if (confirm('Are you sure you want to delete this service? This action cannot be undone.')) {
             await api.deleteHostedService(serviceId);
@@ -106,6 +134,15 @@ export default function ServiceDetailPage() {
       toast.error(`Failed to ${action} service: ${error.message}`);
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const loadAttestations = async () => {
+    try {
+      const list = await api.getServiceAttestations(serviceId);
+      setAttestations(Array.isArray(list) ? list : []);
+    } catch (e) {
+      setAttestations([]);
     }
   };
 
@@ -215,6 +252,7 @@ export default function ServiceDetailPage() {
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="backups">Backups</TabsTrigger>
+          {decentralEnabled && <TabsTrigger value="attestations">Attestations</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -442,7 +480,29 @@ export default function ServiceDetailPage() {
               <CardDescription>Configure your service parameters</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">Service settings configuration will be implemented here.</p>
+              <div className="space-y-3">
+                <p className="text-gray-600">Service settings configuration will be implemented here.</p>
+                {decentralEnabled && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleServiceAction('attest')} 
+                      disabled={actionLoading !== null}
+                    >
+                      <Shield className="h-4 w-4 mr-2" />
+                      Attest Service
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleServiceAction('distribute')} 
+                      disabled={actionLoading !== null}
+                    >
+                      <Network className="h-4 w-4 mr-2" />
+                      Distribute to Edge
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -466,6 +526,40 @@ export default function ServiceDetailPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {decentralEnabled && (
+          <TabsContent value="attestations">
+            <Card>
+              <CardHeader>
+                <CardTitle>Attestations</CardTitle>
+                <CardDescription>Signed proofs and distribution records</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {attestations.length === 0 ? (
+                  <div className="text-center py-12 text-gray-600">
+                    No attestations yet. Use "Attest Service" under Settings.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {attestations.map((a) => (
+                      <div key={a.id} className="border rounded-md p-3 flex items-start justify-between">
+                        <div className="min-w-0">
+                          <div className="text-sm text-gray-500">{a.type}</div>
+                          <div className="font-mono text-sm break-all">{a.hash}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
+                            {a.signer ? ` • signer: ${a.signer}` : ''}
+                          </div>
+                        </div>
+                        <Badge variant="secondary">{a.id}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

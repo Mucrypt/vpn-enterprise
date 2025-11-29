@@ -718,6 +718,41 @@ class APIClient {
     });
   }
 
+  // ==================== DECENTRALIZED HOSTING (MVP) ====================
+  getHostingNodes() {
+    return this.fetchAPI('/hosting/network/nodes').then((res) => res?.nodes || []);
+  }
+
+  // Admin-only: upsert a hosting node
+  upsertHostingNode(payload: { id: string; name: string; region: string; capabilities?: string[]; public_key?: string; status?: string }) {
+    return this.fetchAPI('/hosting/network/nodes', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // Admin-only: delete a hosting node
+  deleteHostingNode(id: string) {
+    return this.fetchAPI(`/hosting/network/nodes/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  attestService(id: string) {
+    return this.fetchAPI(`/hosting/services/${encodeURIComponent(id)}/attest`, { method: 'POST' });
+  }
+
+  distributeServiceEdge(id: string, regions?: string[]) {
+    return this.fetchAPI(`/hosting/services/${encodeURIComponent(id)}/distribute`, {
+      method: 'POST',
+      body: JSON.stringify({ regions }),
+    });
+  }
+
+  getServiceAttestations(id: string) {
+    return this.fetchAPI(`/hosting/services/${encodeURIComponent(id)}/attestations`).then((res) => res?.attestations || []);
+  }
+
   // Auth: simple hosting stats (placeholder, returned by backend if implemented)
   getHostingStats() {
     // If backend returns a flat object, pass through; otherwise synthesize from services

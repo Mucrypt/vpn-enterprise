@@ -18,6 +18,15 @@ import {
 } from '@vpn-enterprise/database';
 import { AuditRepository, SecurityRepository } from '@vpn-enterprise/database';
 import { hostingRouter } from './routes/hosting';
+import { tenantsRouter } from './routes/tenants';
+import { UnifiedDataAPI } from './unified-data-api';
+import { ApolloServer, gql } from 'apollo-server-express';
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
+import Redis from 'ioredis';
+import promClient from 'prom-client';
+// Realtime subscriptions (scaffold)
+import { PostgresSubscriptionEngine } from '@vpn-enterprise/realtime/src/postgres-subscriptions';
 
 // Load environment variables from repo root
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
@@ -181,6 +190,195 @@ app.get('/health', (req, res) => {
 
 // Hosting routes
 app.use('/api/v1/hosting', hostingRouter);
+// Tenants routes (scaffold)
+app.use('/api/v1/tenants', tenantsRouter);
+
+// Unified Data API (scaffold initialization)
+try {
+  const unified = new UnifiedDataAPI(app);
+  unified.initialize();
+  console.log('[INIT] UnifiedDataAPI initialized');
+} catch (e) {
+  console.warn('[INIT] UnifiedDataAPI failed to initialize:', (e as any)?.message || e);
+}
+
+// GraphQL basic schema (placeholder) and server
+async function initGraphQL() {
+  // Dynamic schema (basic): introspect platform_meta.tenant_databases
+  const { data } = await (supabaseAdmin as any)
+    .from('tenant_databases')
+    .select('database_name, engine')
+    .limit(50);
+  const tables = (data || []).map((d: any) => d.database_name);
+  const typeDefs = gql`
+    scalar JSON
+    type Query {
+      _health: String
+      databases: [String]
+    }
+  `;
+  const resolvers = {
+    Query: {
+      _health: () => 'ok',
+      databases: () => tables
+    }
+  };
+  const server = new ApolloServer({ typeDefs, resolvers });
+  await server.start();
+  server.applyMiddleware({ app: app as any, path: '/api/v1/graphql' });
+  console.log('[INIT] GraphQL endpoint mounted at /api/v1/graphql');
+}
+initGraphQL().catch(err => console.warn('[INIT] GraphQL failed:', err));
+
+// WebSocket + Redis + logical replication scaffold
+const httpServer = createServer(app);
+const wss = new WebSocketServer({ server: httpServer, path: '/api/v1/realtime' });
+
+class InMemoryRedisFallback {
+  private store: Map<string, string> = new Map();
+  publish(channel: string, message: string) { if (process.env.NODE_ENV !== 'production') console.debug('[REDIS-FALLBACK publish]', channel, message); return Promise.resolve(1); }
+  hset(key: string, field: string, value: string) { this.store.set(`${key}:${field}`, value); return Promise.resolve(1); }
+  on() { /* noop */ }
+}
+
+let redis: any;
+if (process.env.REALTIME_DISABLE_REDIS === '1') {
+  redis = new InMemoryRedisFallback();
+  console.log('[INIT] Redis disabled via REALTIME_DISABLE_REDIS=1, using in-memory fallback');
+} else {
+  try {
+    redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+    redis.on('error', (err: any) => {
+      console.warn('[REDIS] error:', err?.message || err);
+    });
+  } catch (e) {
+    console.warn('[INIT] Redis init failed, falling back to in-memory stub:', (e as any)?.message || e);
+    redis = new InMemoryRedisFallback();
+  }
+}
+const subscriptionEngine = new PostgresSubscriptionEngine();
+// Initialize subscription engine later when pg pool available (placeholder)
+console.log('[INIT] WebSocket realtime scaffold ready');
+
+// Introspection endpoint (dev + admin) lists active subscriptions
+app.get('/api/v1/realtime/subscriptions', (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const list = subscriptionEngine.listSubscriptions();
+    res.json({ subscriptions: list });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+// Mock event broadcast (dev only) to simulate INSERT/UPDATE/DELETE
+app.post('/api/v1/realtime/mock', (req, res) => {
+  if (process.env.NODE_ENV === 'production' || process.env.REALTIME_DEV_ALLOW !== '1') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  // Simple admin token check
+  const adminHeader = req.headers['x-admin-token'];
+  if (!process.env.ADMIN_API_TOKEN || adminHeader !== process.env.ADMIN_API_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const { tenantId, table, op, row } = req.body || {};
+  if (!tenantId || !table || !op) {
+    return res.status(400).json({ error: 'tenantId, table, op required' });
+  }
+  const validOps = ['INSERT','UPDATE','DELETE'];
+  if (!validOps.includes(op)) return res.status(400).json({ error: 'Invalid op' });
+  subscriptionEngine.broadcastMockEvent(tenantId, table, op, row || {} )
+    .then(() => res.json({ ok: true }))
+    .catch((e: any) => res.status(500).json({ error: e.message || String(e) }));
+});
+
+// Dev mock interval broadcaster (optional)
+if (process.env.REALTIME_DEV_MOCK === '1' && process.env.NODE_ENV !== 'production') {
+  setInterval(() => {
+    const subs = subscriptionEngine.listSubscriptions();
+    for (const s of subs) {
+      const [tenantId, tbl] = s.key.split(':');
+      subscriptionEngine.broadcastMockEvent(tenantId, tbl, 'UPDATE', { id: Math.random(), demo: true, ts: new Date().toISOString() });
+    }
+  }, 30000);
+  console.log('[INIT] Dev mock broadcaster enabled');
+}
+
+wss.on('connection', async (socket, req) => {
+  // Basic auth: expect ?tenantId=&token=
+  const url = new URL(req.url || '', `http://${req.headers.host}`);
+  const tenantId = url.searchParams.get('tenantId');
+  const token = url.searchParams.get('token');
+  if (!tenantId || !token) {
+    socket.close(1008, 'Unauthorized');
+    return;
+  }
+  // Validate token via Supabase
+  try {
+    const devBypass = process.env.REALTIME_DEV_ALLOW === '1' && process.env.NODE_ENV !== 'production';
+    const userResp: any = await supabase.auth.getUser(token);
+    const userId = userResp?.data?.user?.id;
+    if (!userId && !devBypass) {
+      socket.close(1008, 'Unauthorized');
+      return;
+    }
+    // Verify tenant membership
+    try {
+      const { data: membership } = await (supabaseAdmin as any)
+        .from('users')
+        .select('id, organization_id')
+        .eq('id', userId)
+        .maybeSingle();
+      // If using a tenants mapping table, replace this check accordingly
+      if (!membership && !devBypass) {
+        socket.close(1008, 'Unauthorized');
+        return;
+      }
+    } catch {}
+    // Immediate welcome echo so frontend can verify connectivity
+    socket.send(JSON.stringify({ hello: 'realtime-connected', tenantId }));
+    // Handle simple subscription messages from client
+    socket.on('message', async (data: any) => {
+      try {
+        const msg = JSON.parse(String(data));
+        if (msg && msg.action === 'subscribe' && msg.table) {
+          const key = await subscriptionEngine.createSubscription(tenantId, msg.table, msg.filter || {}, (socket as any));
+          socket.send(JSON.stringify({ ok: true, subscribed: key }));
+        } else if (msg && msg.action === 'unsubscribe' && msg.table) {
+          const key = await subscriptionEngine.unsubscribe(tenantId, msg.table, (socket as any));
+          socket.send(JSON.stringify({ ok: true, unsubscribed: key }));
+        } else {
+          socket.send(JSON.stringify({ ok: false, error: 'Unsupported message' }));
+        }
+      } catch (e: any) {
+        try { socket.send(JSON.stringify({ ok: false, error: e.message || String(e) })); } catch {}
+      }
+    });
+    // Heartbeat interval (every 25s)
+    const interval = setInterval(() => {
+      try { socket.send(JSON.stringify({ type: 'heartbeat', ts: new Date().toISOString() })); } catch {}
+    }, 25000);
+    socket.on('close', () => clearInterval(interval));
+  } catch {
+    socket.close(1008, 'Unauthorized');
+  }
+});
+
+// Export httpServer for index bootstrap to listen (instead of app directly)
+(app as any)._httpServer = httpServer;
+
+// Prometheus metrics
+promClient.collectDefaultMetrics();
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', promClient.register.contentType);
+    res.end(await promClient.register.metrics());
+  } catch (e: any) {
+    res.status(500).send(e.message);
+  }
+});
 
 // Dev debug endpoint: inspect incoming auth headers and cookies
 // Only registered in non-production to help debug CORS/auth problems during local development.

@@ -1,13 +1,14 @@
 // packages/api/src/routes/hosting.ts
 import { Router } from 'express';
-import { AuthRequest, authMiddleware } from '@vpn-enterprise/auth';
-import { HostingPlanRepository, HostedServiceRepository } from '@vpn-enterprise/database';
+import { AuthRequest, authMiddleware, adminMiddleware } from '@vpn-enterprise/auth';
+import { HostingPlanRepository, HostedServiceRepository, HostingNodeRepository, ServiceAttestationRepository, EdgeDistributionRepository } from '@vpn-enterprise/database';
 import { TemplateManager } from '../services/hosting/template-manager';
 import { WordPressHosting } from '../services/hosting/wordpress-setup';
 import { GameServerHosting } from '../services/hosting/game-server-setup';
 import { DiscordBotHosting } from '../services/hosting/discord-bot-setup';
 import { ResourceManager } from '../services/hosting/resource-manager';
 import { DeploymentOrchestrator } from '../services/hosting/deployment-orchestrator';
+import crypto from 'crypto';
 
 const router = Router();
 const templateManager = new TemplateManager();
@@ -183,6 +184,103 @@ router.post('/services/:id/backup', authMiddleware, async (req: AuthRequest, res
     const orchestrator = new DeploymentOrchestrator();
     const backupId = await orchestrator.backup(service);
     res.json({ message: 'Backup initiated', backupId });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== Decentralized Hosting (MVP stubs) ====================
+// List registered edge nodes (stubbed)
+router.get('/network/nodes', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const nodes = await HostingNodeRepository.list();
+    res.json({ nodes });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: upsert a node
+router.post('/network/nodes', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { id, name, region, capabilities = [], public_key, status = 'healthy' } = req.body || {};
+    if (!id || !name || !region) {
+      return res.status(400).json({ error: 'id, name and region are required' });
+    }
+    await HostingNodeRepository.upsert({ id, name, region, capabilities, public_key, status });
+    res.json({ ok: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: delete a node
+router.delete('/network/nodes/:id', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    await HostingNodeRepository.delete(req.params.id);
+    res.json({ ok: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create a simple service attestation (hash + id)
+router.post('/services/:id/attest', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const service = await HostedServiceRepository.getById(req.params.id);
+    if (!service || service.user_id !== req.user!.id) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    const payload = JSON.stringify({ service_id: service.id, ts: Date.now(), action: 'attest' });
+    const hash = crypto.createHash('sha256').update(payload).digest('hex');
+    const attestationId = `attest_${service.id}_${Date.now()}`;
+
+    await ServiceAttestationRepository.create({
+      id: attestationId,
+      service_id: service.id,
+      type: 'attest',
+      hash,
+      signer: req.user!.id,
+    });
+
+    res.json({ attestationId, hash });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// List attestations for a service
+router.get('/services/:id/attestations', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const service = await HostedServiceRepository.getById(req.params.id);
+    if (!service || service.user_id !== req.user!.id) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    const attestations = await ServiceAttestationRepository.listByService(service.id);
+    res.json({ attestations });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Record intent to distribute workload to edge nodes
+router.post('/services/:id/distribute', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const service = await HostedServiceRepository.getById(req.params.id);
+    if (!service || service.user_id !== req.user!.id) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    const { regions = ['us-east', 'eu-west'], artifact_hash } = req.body || {};
+    const distributionId = `dist_${service.id}_${Date.now()}`;
+
+    await EdgeDistributionRepository.create({
+      id: distributionId,
+      service_id: service.id,
+      target_regions: regions,
+      artifact_hash,
+    });
+
+    res.json({ distributionId, regions });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

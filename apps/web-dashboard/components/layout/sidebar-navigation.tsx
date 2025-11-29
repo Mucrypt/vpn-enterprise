@@ -23,6 +23,8 @@ import {
   Activity,
   Lock,
   FileKey,
+  Network,
+  Database
 } from 'lucide-react';
 
 // Navigation items for regular users
@@ -32,7 +34,10 @@ const userNavItems = [
   { href: '/dashboard/vpn-config', label: 'VPN Config', icon: FileKey },
   { href: '/dashboard/servers', label: 'Servers', icon: Server },
   { href: '/dashboard/hosting', label: 'Hosting', icon: Server },
-  { href: '/dashboard/hosting', label: 'My Services', icon: Settings },
+  { href: '/dashboard/databases', label: 'Databases', icon: Database },
+  { href: '/dashboard/tenants', label: 'Tenants', icon: Building2 },
+  { href: '/dashboard/hosting/my-services', label: 'My Services', icon: Settings },
+  { href: '/dashboard/hosting/nodes', label: 'Hosting Nodes', icon: Network },
   { href: '/dashboard/hosting/create', label: 'Create Service', icon: Zap },
   { href: '/dashboard/split-tunnel', label: 'Split Tunnel', icon: Split },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
@@ -47,7 +52,10 @@ const adminNavItems = [
   { href: '/dashboard/vpn-config', label: 'VPN Config', icon: FileKey },
   { href: '/dashboard/servers', label: 'Servers', icon: Server },
   { href: '/dashboard/hosting', label: 'Hosting', icon: Server },
-  { href: '/dashboard/hosting', label: 'My Services', icon: Settings },
+  { href: '/dashboard/databases', label: 'Databases', icon: Database },
+  { href: '/dashboard/tenants', label: 'Tenants', icon: Building2 },
+  { href: '/dashboard/hosting/my-services', label: 'My Services', icon: Settings },
+  { href: '/dashboard/hosting/nodes', label: 'Hosting Nodes', icon: Network },
   { href: '/dashboard/hosting/create', label: 'Create Service', icon: Zap },
   { href: '/dashboard/clients', label: 'Clients', icon: Users },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
@@ -56,6 +64,7 @@ const adminNavItems = [
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/dashboard/security', label: 'Security', icon: Shield },
   { href: '/dashboard/admin/organizations', label: 'Organizations', icon: Building2 },
+  { href: '/dashboard/admin/realtime', label: 'Realtime', icon: Activity },
   { href: '/dashboard/admin', label: 'Admin Panel', icon: Settings },
   { href: '/dashboard/profile', label: 'Profile', icon: User },
 ];
@@ -68,16 +77,18 @@ export function SidebarNavigation() {
   // Determine which nav items to show based on user role
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   const navItems = isAdmin ? adminNavItems : userNavItems;
+  const navScrollbarClass = isAdmin ? 'scrollbar--admin' : 'scrollbar--neutral';
 
   return (
     <div
       className={cn(
-        'flex h-screen flex-col border-r bg-gray-50 transition-all duration-300',
+        // Use min-h-0 to allow inner flex children to scroll
+        'flex h-screen min-h-0 flex-col border-r bg-gray-50 transition-all duration-300',
         sidebarOpen ? 'w-64' : 'w-20'
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between border-b px-6">
+      <div className="flex h-16 flex-shrink-0 items-center justify-between border-b px-6">
         {sidebarOpen ? (
           <h1 className="text-xl font-bold text-gray-900">VPN Enterprise</h1>
         ) : (
@@ -86,7 +97,8 @@ export function SidebarNavigation() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-4">
+      {/* Make nav scroll when there are many links */}
+      <nav className={cn('flex-1 overflow-y-auto space-y-1 p-4 scrollbar', navScrollbarClass)}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -113,7 +125,7 @@ export function SidebarNavigation() {
       {/* Toggle Button */}
       <button
         onClick={toggleSidebar}
-        className="flex h-16 items-center justify-center border-t hover:bg-gray-200"
+        className="flex h-16 flex-shrink-0 items-center justify-center border-t hover:bg-gray-200"
       >
         {sidebarOpen ? (
           <ChevronLeft className="h-5 w-5 text-gray-700" />

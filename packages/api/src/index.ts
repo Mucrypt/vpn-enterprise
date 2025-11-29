@@ -1,4 +1,6 @@
 import app from './app';
+// If realtime httpServer was attached in app, prefer that for WebSocket support
+const httpServer: any = (app as any)._httpServer || null;
 
 // Export the app for serverless/bridge usage (CommonJS)
 module.exports = app;
@@ -8,7 +10,7 @@ if (process.env.VERCEL !== '1' && require.main === module) {
   const PORT = Number(process.env.PORT || 5000);
   const HOST = process.env.LISTEN_HOST || '0.0.0.0';
 
-  const server = app.listen(PORT, HOST, () => {
+  const server = (httpServer || app).listen(PORT, HOST, () => {
     const addr = server.address();
     let hostDisplay = HOST;
     if (addr && typeof addr === 'object') {
@@ -18,5 +20,6 @@ if (process.env.VERCEL !== '1' && require.main === module) {
     console.log(`🚀 VPN Enterprise API running on ${hostDisplay}:${PORT}`);
     console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔒 Health check: http://${hostDisplay}:${PORT}/health`);
+    if (httpServer) console.log('🔌 Realtime WebSocket endpoint: ws://' + hostDisplay + ':' + PORT + '/api/v1/realtime');
   });
 }
