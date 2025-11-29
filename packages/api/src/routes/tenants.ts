@@ -89,40 +89,84 @@ tenantsRouter.post('/:tenantId/databases', authMiddleware, adminMiddleware, asyn
   }
 });
 
-// Query runner (SELECT-only) for tenant database using Supabase
+// Enhanced SQL executor supporting DDL, DML, and DQL operations (like Supabase)
 tenantsRouter.post('/:tenantId/query', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
   try {
     const { tenantId } = req.params;
     const { sql } = req.body || {};
     if (!sql || typeof sql !== 'string') return res.status(400).json({ error: 'sql required' });
+    
     const trimmed = sql.trim();
     const lowered = trimmed.toLowerCase();
     
-    // Basic safety checks: single statement, SELECT-only.
-    if (!lowered.startsWith('select')) return res.status(400).json({ error: 'Only SELECT queries allowed' });
-    if (trimmed.split(';').filter(Boolean).length > 1) return res.status(400).json({ error: 'Multiple statements not allowed' });
+    // Enhanced security: Allow most SQL operations but block dangerous ones
+    const blockedOperations = ['drop database', 'drop schema', 'truncate', 'delete from pg_', 'alter system'];
+    const isDangerous = blockedOperations.some(op => lowered.includes(op));
+    if (isDangerous) {
+      return res.status(400).json({ error: 'Dangerous SQL operations are not allowed' });
+    }
     
-    // OPTIONAL simple row limit enforcement if query lacks LIMIT
-    let finalSql = trimmed;
-    if (!/\blimit\s+\d+/i.test(trimmed)) {
-      finalSql = trimmed.replace(/;$/,'') + ' LIMIT 100';
+    // Split multiple statements for execution
+    const statements = trimmed.split(';').filter(s => s.trim().length > 0);
+    if (statements.length > 10) {
+      return res.status(400).json({ error: 'Too many statements. Maximum 10 allowed per request' });
     }
     
     const start = Date.now();
-    // Use Supabase's RPC function to execute raw SQL
-    const { data, error } = await (supabaseAdmin as any).rpc('execute_sql', { 
-      sql_query: finalSql 
-    });
+    const results = [];
     
-    if (error) {
-      console.error('[tenant:query] supabase error', error);
-      return res.status(500).json({ error: 'Failed to execute query', message: error.message });
+    for (let i = 0; i < statements.length; i++) {
+      const statement = statements[i].trim();
+      if (!statement) continue;
+      
+      try {
+        // Determine query type for appropriate handling
+        const statementType = getQueryType(statement.toLowerCase());
+        let result;
+        
+        if (statementType === 'SELECT') {
+          // Use RPC for SELECT queries
+          const { data, error } = await (supabaseAdmin as any).rpc('execute_sql', { 
+            sql_query: statement 
+          });
+          if (error) throw error;
+          result = { 
+            rows: data || [], 
+            rowCount: data?.length || 0, 
+            command: 'SELECT',
+            statement: i + 1 
+          };
+        } else {
+          // Use direct SQL execution for DDL/DML operations
+          const { data, error } = await (supabaseAdmin as any).rpc('execute_ddl', { 
+            sql_query: statement 
+          });
+          if (error) throw error;
+          result = { 
+            message: `${statementType} executed successfully`, 
+            command: statementType,
+            statement: i + 1,
+            affectedRows: data?.affectedRows || 0
+          };
+        }
+        
+        results.push(result);
+      } catch (error: any) {
+        results.push({
+          error: error.message || 'Query execution failed',
+          command: getQueryType(statement.toLowerCase()),
+          statement: i + 1
+        });
+        // Continue with other statements unless it's a critical error
+        if (error.code === '42P01' || error.code === '42703') continue; // Table/column not found
+        break;
+      }
     }
     
     const durationMs = Date.now() - start;
     res.json({ 
-      rows: data || [], 
-      rowCount: data?.length || 0, 
+      results,
+      totalStatements: statements.length,
       durationMs, 
       tenantId 
     });
@@ -131,6 +175,22 @@ tenantsRouter.post('/:tenantId/query', authMiddleware, adminMiddleware, async (r
     res.status(500).json({ error: 'Failed to execute query', message: e.message });
   }
 });
+
+// Helper function to determine query type
+function getQueryType(sql: string): string {
+  if (sql.startsWith('select')) return 'SELECT';
+  if (sql.startsWith('insert')) return 'INSERT';
+  if (sql.startsWith('update')) return 'UPDATE';
+  if (sql.startsWith('delete')) return 'DELETE';
+  if (sql.startsWith('create table')) return 'CREATE TABLE';
+  if (sql.startsWith('create database')) return 'CREATE DATABASE';
+  if (sql.startsWith('create schema')) return 'CREATE SCHEMA';
+  if (sql.startsWith('create index')) return 'CREATE INDEX';
+  if (sql.startsWith('alter table')) return 'ALTER TABLE';
+  if (sql.startsWith('drop table')) return 'DROP TABLE';
+  if (sql.startsWith('drop index')) return 'DROP INDEX';
+  return 'UNKNOWN';
+}
 
 // Helper: fetch tenant associations for a given userId using Supabase
 async function fetchUserTenantAssociations(userId: string) {
@@ -195,5 +255,68 @@ tenantsRouter.get('/associations', authMiddleware, adminMiddleware, async (req: 
     const msg = String(e?.message || 'Unknown error');
     console.error('[tenants:associations] error', e);
     return res.status(500).json({ error: 'server_error', message: msg });
+  }
+});
+
+// Create a new schema/database for tenant
+tenantsRouter.post('/:tenantId/schemas', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { tenantId } = req.params;
+    const { schemaName } = req.body || {};
+    if (!schemaName) return res.status(400).json({ error: 'schemaName required' });
+    
+    const { data, error } = await (supabaseAdmin as any).rpc('create_tenant_schema', { 
+      schema_name: schemaName 
+    });
+    
+    if (error) {
+      console.error('[tenant:create-schema] supabase error', error);
+      return res.status(500).json({ error: 'Failed to create schema', message: error.message });
+    }
+    
+    res.json({ schema: data, tenantId });
+  } catch (e: any) {
+    console.error('[tenant:create-schema] exception', e);
+    res.status(500).json({ error: 'Failed to create schema', message: e.message });
+  }
+});
+
+// List all schemas for tenant
+tenantsRouter.get('/:tenantId/schemas', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { tenantId } = req.params;
+    
+    const { data, error } = await (supabaseAdmin as any).rpc('list_schemas');
+    
+    if (error) {
+      console.error('[tenant:list-schemas] supabase error', error);
+      return res.status(500).json({ error: 'Failed to list schemas', message: error.message });
+    }
+    
+    res.json({ schemas: data || [], tenantId });
+  } catch (e: any) {
+    console.error('[tenant:list-schemas] exception', e);
+    res.status(500).json({ error: 'Failed to list schemas', message: e.message });
+  }
+});
+
+// List tables in a schema
+tenantsRouter.get('/:tenantId/schemas/:schemaName/tables', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { tenantId, schemaName } = req.params;
+    
+    const { data, error } = await (supabaseAdmin as any).rpc('list_tables', { 
+      schema_name: schemaName 
+    });
+    
+    if (error) {
+      console.error('[tenant:list-tables] supabase error', error);
+      return res.status(500).json({ error: 'Failed to list tables', message: error.message });
+    }
+    
+    res.json({ tables: data || [], schema: schemaName, tenantId });
+  } catch (e: any) {
+    console.error('[tenant:list-tables] exception', e);
+    res.status(500).json({ error: 'Failed to list tables', message: e.message });
   }
 });

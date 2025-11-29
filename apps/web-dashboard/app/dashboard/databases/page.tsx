@@ -18,6 +18,8 @@ import {
   Hash,
   Key,
   Zap,
+  Plus,
+  X,
   AlertCircle,
   PanelLeftClose,
   PanelLeft,
@@ -181,10 +183,12 @@ export default function DatabaseDashboardPage() {
   const [executionTime, setExecutionTime] = useState<number | null>(null);
   
   // UI state
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tables', 'favorites']));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tables', 'schemas', 'favorites']));
   const [activeTab, setActiveTab] = useState<'results' | 'chart'>('results');
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [schemas, setSchemas] = useState<any[]>([]);
   
   // Resize state
   const [editorHeight, setEditorHeight] = useState(50); // percentage
@@ -198,6 +202,9 @@ export default function DatabaseDashboardPage() {
 
   useEffect(() => {
     loadTenants();
+    if (activeTenant) {
+      loadSchemas();
+    }
   }, []);
 
   useEffect(() => {
@@ -290,7 +297,37 @@ export default function DatabaseDashboardPage() {
       if (!resp.ok) {
         setQueryError(json.message || json.error || 'Query failed');
       } else {
-        setQueryResult(json.rows || []);
+        // Handle enhanced result format with multiple statements
+        if (json.results && Array.isArray(json.results)) {
+          // Multiple statement results
+          const hasErrors = json.results.some((r: any) => r.error);
+          if (hasErrors) {
+            const errors = json.results.filter((r: any) => r.error).map((r: any) => `Statement ${r.statement}: ${r.error}`);
+            setQueryError(errors.join('\n'));
+          } else {
+            // Show results from SELECT statements, or success messages for DDL/DML
+            const selectResults = json.results.filter((r: any) => r.rows);
+            if (selectResults.length > 0) {
+              setQueryResult(selectResults[0].rows);
+            } else {
+              // Show success message for DDL/DML operations
+              const messages = json.results.map((r: any) => `${r.command}: ${r.message || 'Success'}`);
+              setQueryResult([{ message: messages.join('; ') }]);
+            }
+            
+            // Refresh schema if database structure might have changed
+            const hasSchemaChanges = json.results.some((r: any) => 
+              ['CREATE TABLE', 'DROP TABLE', 'ALTER TABLE', 'CREATE DATABASE', 'CREATE SCHEMA'].includes(r.command)
+            );
+            if (hasSchemaChanges) {
+              loadSchemas();
+              loadSchema(activeTenant);
+            }
+          }
+        } else {
+          // Legacy single result format
+          setQueryResult(json.rows || []);
+        }
         setActiveTab('results');
       }
     } catch (e: any) {
@@ -298,6 +335,41 @@ export default function DatabaseDashboardPage() {
       setExecutionTime(null);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadSchemas() {
+    if (!activeTenant) return;
+    try {
+      const resp = await fetch(`/api/v1/tenants/${activeTenant}/schemas`);
+      if (resp.ok) {
+        const json = await resp.json();
+        setSchemas(json.schemas || []);
+      }
+    } catch (e) {
+      console.error('Failed to load schemas:', e);
+    }
+  }
+
+  async function createSchema(schemaName: string) {
+    if (!activeTenant || !schemaName.trim()) return;
+    
+    try {
+      const resp = await fetch(`/api/v1/tenants/${activeTenant}/schemas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schemaName: schemaName.trim() })
+      });
+      
+      if (resp.ok) {
+        await loadSchemas();
+        setShowCreateDialog(false);
+      } else {
+        const json = await resp.json();
+        setQueryError(json.message || json.error || 'Failed to create schema');
+      }
+    } catch (e: any) {
+      setQueryError(e.message || 'Network error');
     }
   }
 
@@ -425,6 +497,15 @@ export default function DatabaseDashboardPage() {
           </select>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => setShowCreateDialog(true)}
+            className="border-emerald-600 text-emerald-400 hover:bg-emerald-600 hover:text-white"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            New Schema
+          </Button>
           <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
             <Save className="h-4 w-4 mr-1" />
             Save query
@@ -496,6 +577,36 @@ export default function DatabaseDashboardPage() {
                               </div>
                             )}
                           </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Schemas */}
+              <div className="mb-4">
+                <button
+                  onClick={() => toggleSection('schemas')}
+                  className="flex items-center gap-1 text-sm font-medium text-gray-300 hover:text-white mb-2 transition-colors"
+                >
+                  {expandedSections.has('schemas') ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  <Database className="h-4 w-4" />
+                  Schemas
+                </button>
+                {expandedSections.has('schemas') && (
+                  <div className="ml-5 space-y-1">
+                    {schemas.length === 0 ? (
+                      <p className="text-xs text-gray-500 py-2">No schemas found</p>
+                    ) : (
+                      schemas.map((schema) => (
+                        <div key={schema.schema_name} className="text-sm text-gray-300 px-2 py-1 flex items-center gap-1">
+                          <Database className="h-3 w-3 text-blue-400" />
+                          {schema.schema_name}
                         </div>
                       ))
                     )}
@@ -800,6 +911,65 @@ export default function DatabaseDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Create Schema Dialog */}
+      {showCreateDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#2d2d30] rounded-lg p-6 w-96 border border-gray-600">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Database className="h-5 w-5 text-emerald-400" />
+                Create New Schema
+              </h3>
+              <button
+                onClick={() => setShowCreateDialog(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target as HTMLFormElement);
+              const schemaName = formData.get('schemaName') as string;
+              createSchema(schemaName);
+            }}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Schema Name
+                </label>
+                <input
+                  type="text"
+                  name="schemaName"
+                  placeholder="e.g., my_app_schema"
+                  className="w-full px-3 py-2 bg-[#3c3c3c] border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  required
+                  pattern="^[a-zA-Z_][a-zA-Z0-9_]*$"
+                  title="Schema name must start with a letter or underscore, followed by letters, numbers, or underscores"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Use letters, numbers, and underscores only. Must start with letter or underscore.
+                </p>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateDialog(false)}
+                  className="px-4 py-2 text-sm border border-gray-600 rounded-md text-gray-300 hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
+                >
+                  Create Schema
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
 
   );
