@@ -24,3 +24,6 @@ export { HostingPlanRepository, HostedServiceRepository } from './repositories/h
 export { HostingNodeRepository } from './repositories/hosting-nodes';
 export { ServiceAttestationRepository } from './repositories/service-attestations';
 export { EdgeDistributionRepository } from './repositories/edge-distributions';
+// Database managers for tenant operations
+export { PostgresDatabaseManager } from './postgres-manager';
+export { MySQLDatabaseManager } from './mysql-manager';
