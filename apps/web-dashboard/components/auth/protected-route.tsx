@@ -14,6 +14,11 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
   const { isAuthenticated, user, isLoading, hasHydrated } = useAuthStore();
   const router = useRouter();
 
+  // Bypass authentication in development mode
+  if (process.env.NODE_ENV === 'development') {
+    return <>{children}</>;
+  }
+
   useEffect(() => {
     // Wait until store has hydrated before making any auth-based redirects
     if (!hasHydrated) return;

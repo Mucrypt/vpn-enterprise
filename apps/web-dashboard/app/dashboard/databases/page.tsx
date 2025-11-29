@@ -189,6 +189,13 @@ export default function DatabaseDashboardPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [schemas, setSchemas] = useState<any[]>([]);
+  const [schemaTables, setSchemaTables] = useState<Record<string, any[]>>({});
+  const [allTables, setAllTables] = useState<any[]>([]);
+  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
+  const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
+  const [selectedSchemaForTable, setSelectedSchemaForTable] = useState('');
+  const [tablesLoading, setTablesLoading] = useState(false);
+  const [schemasLoading, setSchemasLoading] = useState(false);
   
   // Resize state
   const [editorHeight, setEditorHeight] = useState(50); // percentage
@@ -202,15 +209,14 @@ export default function DatabaseDashboardPage() {
 
   useEffect(() => {
     loadTenants();
-    if (activeTenant) {
-      loadSchemas();
-    }
   }, []);
 
   useEffect(() => {
     if (activeTenant) {
+      loadSchemas();
       loadSchema(activeTenant);
       loadSavedQueries(activeTenant);
+      loadAllTables();
     }
   }, [activeTenant]);
 
@@ -320,8 +326,8 @@ export default function DatabaseDashboardPage() {
               ['CREATE TABLE', 'DROP TABLE', 'ALTER TABLE', 'CREATE DATABASE', 'CREATE SCHEMA'].includes(r.command)
             );
             if (hasSchemaChanges) {
-              loadSchemas();
-              loadSchema(activeTenant);
+              await loadSchemas();
+              await loadSchema(activeTenant);
             }
           }
         } else {
@@ -340,6 +346,7 @@ export default function DatabaseDashboardPage() {
 
   async function loadSchemas() {
     if (!activeTenant) return;
+    setSchemasLoading(true);
     try {
       const resp = await fetch(`/api/v1/tenants/${activeTenant}/schemas`);
       if (resp.ok) {
@@ -348,27 +355,87 @@ export default function DatabaseDashboardPage() {
       }
     } catch (e) {
       console.error('Failed to load schemas:', e);
+    } finally {
+      setSchemasLoading(false);
+    }
+  }
+
+  async function loadAllTables() {
+    if (!activeTenant) return;
+    setTablesLoading(true);
+    try {
+      // Get all schemas first
+      const schemasResp = await fetch(`/api/v1/tenants/${activeTenant}/schemas`);
+      if (!schemasResp.ok) return;
+      
+      const schemasJson = await schemasResp.json();
+      const schemas = schemasJson.schemas || [];
+      
+      // Load tables from all schemas
+      const allTablesPromises = schemas.map(async (schema: any) => {
+        try {
+          const tablesResp = await fetch(`/api/v1/tenants/${activeTenant}/schemas/${schema.schema_name}/tables`);
+          if (tablesResp.ok) {
+            const tablesJson = await tablesResp.json();
+            return (tablesJson.tables || []).map((table: any) => ({
+              ...table,
+              schema_name: schema.schema_name,
+              full_name: `${schema.schema_name}.${table.table_name}`
+            }));
+          }
+        } catch (e) {
+          console.error(`Failed to load tables for schema ${schema.schema_name}:`, e);
+        }
+        return [];
+      });
+      
+      const allTablesArrays = await Promise.all(allTablesPromises);
+      const flatTables = allTablesArrays.flat().sort((a, b) => {
+        // Sort by schema first, then by table name
+        if (a.schema_name !== b.schema_name) {
+          return a.schema_name.localeCompare(b.schema_name);
+        }
+        return a.table_name.localeCompare(b.table_name);
+      });
+      
+      setAllTables(flatTables);
+    } catch (e) {
+      console.error('Failed to load all tables:', e);
+    } finally {
+      setTablesLoading(false);
     }
   }
 
   async function createSchema(schemaName: string) {
-    if (!activeTenant || !schemaName.trim()) return;
+    console.log('createSchema called with:', schemaName, 'activeTenant:', activeTenant);
+    if (!activeTenant || !schemaName.trim()) {
+      console.log('Early return: missing activeTenant or schemaName');
+      return;
+    }
     
     try {
+      console.log('Making API call to create schema...');
       const resp = await fetch(`/api/v1/tenants/${activeTenant}/schemas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ schemaName: schemaName.trim() })
       });
       
+      console.log('API response status:', resp.status);
+      const json = await resp.json();
+      console.log('API response:', json);
+      
       if (resp.ok) {
         await loadSchemas();
         setShowCreateDialog(false);
+        console.log('Schema created successfully');
       } else {
-        const json = await resp.json();
-        setQueryError(json.message || json.error || 'Failed to create schema');
+        const errorMessage = json.message || json.error || 'Failed to create schema';
+        console.error('Schema creation failed:', errorMessage);
+        setQueryError(errorMessage);
       }
     } catch (e: any) {
+      console.error('Network error:', e);
       setQueryError(e.message || 'Network error');
     }
   }
@@ -398,6 +465,81 @@ export default function DatabaseDashboardPage() {
     setSql(query.sql);
     if (editorRef.current) {
       editorRef.current.focus();
+    }
+  }
+
+  async function loadSchemaTables(schemaName: string) {
+    if (!activeTenant) return;
+    
+    console.log('Loading tables for schema:', schemaName, 'activeTenant:', activeTenant);
+    console.log('Current schemaTables:', schemaTables);
+    
+    try {
+      const resp = await fetch(`/api/v1/tenants/${activeTenant}/schemas/${schemaName}/tables`);
+      console.log('Tables API response status:', resp.status);
+      
+      if (resp.ok) {
+        const json = await resp.json();
+        console.log('Tables API response:', json);
+        const tables = json.tables || [];
+        console.log('Extracted tables:', tables);
+        
+        setSchemaTables(prev => {
+          const updated = {
+            ...prev,
+            [schemaName]: tables
+          };
+          console.log('Updated schemaTables:', updated);
+          return updated;
+        });
+      } else {
+        const errorText = await resp.text();
+        console.error('Tables API error:', errorText);
+      }
+    } catch (e) {
+      console.error(`Failed to load tables for schema ${schemaName}:`, e);
+    }
+  }
+
+  function toggleSchema(schemaName: string) {
+    console.log('toggleSchema called for:', schemaName);
+    const newExpanded = new Set(expandedSchemas);
+    if (newExpanded.has(schemaName)) {
+      newExpanded.delete(schemaName);
+      console.log('Collapsing schema:', schemaName);
+    } else {
+      newExpanded.add(schemaName);
+      console.log('Expanding schema:', schemaName);
+      // Always try to load tables when expanding, even if we think we have them
+      loadSchemaTables(schemaName);
+    }
+    setExpandedSchemas(newExpanded);
+  }
+
+  async function createTable(schemaName: string, tableName: string, columns: string) {
+    if (!activeTenant || !schemaName.trim() || !tableName.trim()) return;
+    
+    const createTableSQL = `CREATE TABLE ${schemaName}.${tableName} (${columns});`;
+    
+    try {
+      const resp = await fetch(`/api/v1/tenants/${activeTenant}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql: createTableSQL })
+      });
+      
+      if (resp.ok) {
+        await loadSchemaTables(schemaName);
+        await loadAllTables();
+        setShowCreateTableDialog(false);
+        // Update the SQL editor with a SELECT query for the new table
+        setSql(`SELECT * FROM ${schemaName}.${tableName} LIMIT 10;`);
+      } else {
+        const json = await resp.json();
+        setQueryError(json.message || json.error || 'Failed to create table');
+      }
+    } catch (e: any) {
+      setQueryError(e.message || 'Network error');
     }
   }
 
@@ -529,54 +671,66 @@ export default function DatabaseDashboardPage() {
           <div className="flex-1 overflow-y-auto scrollbar scrollbar--neutral">
             <div className="p-2">
               
-              {/* Tables Section */}
+              {/* Tables Section - All Tables from All Schemas */}
               <div className="mb-4">
-                <button
-                  onClick={() => toggleSection('tables')}
-                  className="flex items-center gap-1 text-sm font-medium text-gray-300 hover:text-white mb-2 transition-colors"
-                >
-                  {expandedSections.has('tables') ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    onClick={() => toggleSection('tables')}
+                    className="flex items-center gap-1 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                  >
+                    {expandedSections.has('tables') ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                    <Table className="h-4 w-4" />
+                    Tables
+                    {allTables.length > 0 && (
+                      <span className="ml-1 px-1 py-0.5 bg-emerald-600 text-white text-xs rounded-full min-w-[14px] h-3.5 flex items-center justify-center">
+                        {allTables.length}
+                      </span>
+                    )}
+                  </button>
+                  {tablesLoading && (
+                    <div className="w-3 h-3 border border-gray-400 border-t-emerald-400 rounded-full animate-spin"></div>
                   )}
-                  <Table className="h-4 w-4" />
-                  Tables
-                </button>
+                </div>
                 {expandedSections.has('tables') && (
-                  <div className="ml-5 space-y-1">
-                    {schema.tables.length === 0 ? (
+                  <div className="ml-5 space-y-1 max-h-64 overflow-y-auto scrollbar scrollbar--sm">
+                    {tablesLoading ? (
+                      <div className="flex items-center gap-2 py-2 text-xs text-gray-500">
+                        <div className="w-3 h-3 border border-gray-400 border-t-emerald-400 rounded-full animate-spin"></div>
+                        Loading tables...
+                      </div>
+                    ) : allTables.length === 0 ? (
                       <p className="text-xs text-gray-500 py-2">No tables found</p>
                     ) : (
-                      schema.tables.map((table) => (
-                        <div key={table.name} className="group">
+                      allTables.map((table) => (
+                        <div key={table.full_name} className="group">
                           <button
-                            onClick={() => insertTable(table.name)}
-                            className="text-sm text-gray-300 hover:text-emerald-400 hover:bg-[#2d2d30] px-2 py-1 rounded w-full text-left flex items-center gap-1 transition-colors"
+                            onClick={() => {
+                              const query = `SELECT * FROM ${table.full_name} LIMIT 10;`;
+                              setSql(query);
+                              if (editorRef.current) {
+                                editorRef.current.focus();
+                              }
+                            }}
+                            className="text-sm text-gray-300 hover:text-emerald-400 hover:bg-[#2d2d30] px-2 py-1 rounded w-full text-left flex items-center gap-2 transition-colors"
                           >
-                            <Table className="h-3 w-3" />
-                            {table.name}
+                            <Table className="h-3 w-3 text-emerald-400" />
+                            <div className="flex items-center gap-1 flex-1 min-w-0">
+                              <span className="truncate">{table.table_name}</span>
+                              <span className={`px-1 py-0 text-xs rounded text-white font-medium leading-tight ${
+                                table.schema_name === 'public' ? 'bg-blue-500' :
+                                table.schema_name === 'auth' ? 'bg-purple-500' :
+                                table.schema_name === 'storage' ? 'bg-orange-500' :
+                                table.schema_name === 'realtime' ? 'bg-green-500' :
+                                'bg-gray-500'
+                              }`}>
+                                {table.schema_name}
+                              </span>
+                            </div>
                           </button>
-                          <div className="ml-4 mt-1 space-y-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {table.columns.slice(0, 4).map((col) => (
-                              <div key={col.name} className="text-xs text-gray-500 flex items-center gap-1">
-                                {col.primary_key ? (
-                                  <Key className="h-3 w-3 text-emerald-400" />
-                                ) : col.type.includes('int') || col.type.includes('serial') ? (
-                                  <Hash className="h-3 w-3" />
-                                ) : (
-                                  <span className="w-3" />
-                                )}
-                                <span className="truncate">{col.name}</span>
-                                <span className="text-gray-600">({col.type})</span>
-                              </div>
-                            ))}
-                            {table.columns.length > 4 && (
-                              <div className="text-xs text-gray-600">
-                                +{table.columns.length - 4} more columns
-                              </div>
-                            )}
-                          </div>
                         </div>
                       ))
                     )}
@@ -584,31 +738,133 @@ export default function DatabaseDashboardPage() {
                 )}
               </div>
 
-              {/* Schemas */}
+              {/* Schemas - Database Structure */}
               <div className="mb-4">
-                <button
-                  onClick={() => toggleSection('schemas')}
-                  className="flex items-center gap-1 text-sm font-medium text-gray-300 hover:text-white mb-2 transition-colors"
-                >
-                  {expandedSections.has('schemas') ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    onClick={() => toggleSection('schemas')}
+                    className="flex items-center gap-1 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                  >
+                    {expandedSections.has('schemas') ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                    <Database className="h-4 w-4" />
+                    Database Structure
+                    {schemas.length > 0 && (
+                      <span className="ml-1 px-1 py-0.5 bg-blue-600 text-white text-xs rounded-full min-w-[14px] h-3.5 flex items-center justify-center">
+                        {schemas.length}
+                      </span>
+                    )}
+                  </button>
+                  {schemasLoading && (
+                    <div className="w-3 h-3 border border-gray-400 border-t-blue-400 rounded-full animate-spin"></div>
                   )}
-                  <Database className="h-4 w-4" />
-                  Schemas
-                </button>
+                </div>
                 {expandedSections.has('schemas') && (
-                  <div className="ml-5 space-y-1">
-                    {schemas.length === 0 ? (
+                  <div className="ml-5 space-y-2">
+                    {schemasLoading ? (
+                      <div className="flex items-center gap-2 py-2 text-xs text-gray-500">
+                        <div className="w-3 h-3 border border-gray-400 border-t-blue-400 rounded-full animate-spin"></div>
+                        Loading schemas...
+                      </div>
+                    ) : schemas.length === 0 ? (
                       <p className="text-xs text-gray-500 py-2">No schemas found</p>
                     ) : (
-                      schemas.map((schema) => (
-                        <div key={schema.schema_name} className="text-sm text-gray-300 px-2 py-1 flex items-center gap-1">
-                          <Database className="h-3 w-3 text-blue-400" />
-                          {schema.schema_name}
-                        </div>
-                      ))
+                      schemas.map((schema) => {
+                        const tableCount = schemaTables[schema.schema_name]?.length || 0;
+                        const isSystemSchema = ['information_schema', 'pg_catalog', 'pg_toast'].includes(schema.schema_name);
+                        
+                        return (
+                          <div key={schema.schema_name} className={`border rounded-md ${
+                            isSystemSchema ? 'border-gray-700 bg-gray-800/30' : 'border-gray-600 bg-gray-700/20'
+                          }`}>
+                            <div className="flex items-center justify-between group p-2">
+                              <button
+                                onClick={() => toggleSchema(schema.schema_name)}
+                                className="flex-1 text-left text-sm text-gray-300 hover:text-white flex items-center gap-2 transition-colors"
+                              >
+                                {expandedSchemas.has(schema.schema_name) ? (
+                                  <ChevronDown className="h-3 w-3" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
+                                <Database className={`h-3 w-3 ${
+                                  schema.schema_name === 'public' ? 'text-blue-400' :
+                                  schema.schema_name === 'auth' ? 'text-purple-400' :
+                                  schema.schema_name === 'storage' ? 'text-orange-400' :
+                                  schema.schema_name === 'realtime' ? 'text-green-400' :
+                                  isSystemSchema ? 'text-gray-500' : 'text-cyan-400'
+                                }`} />
+                                <span className="font-medium">{schema.schema_name}</span>
+                                {tableCount > 0 && (
+                                  <span className="text-xs text-gray-500 font-normal">({tableCount})</span>
+                                )}
+                                {schema.schema_name === 'public' && (
+                                  <span className="text-xs bg-blue-500 text-white px-1 py-0.5 rounded leading-none">default</span>
+                                )}
+                                {isSystemSchema && (
+                                  <span className="text-xs bg-gray-500 text-gray-300 px-1 py-0.5 rounded leading-none">system</span>
+                                )}
+                              </button>
+                              {!isSystemSchema && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedSchemaForTable(schema.schema_name);
+                                    setShowCreateTableDialog(true);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-emerald-400 hover:bg-gray-700 rounded transition-all"
+                                  title="Create new table"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                            {expandedSchemas.has(schema.schema_name) && (
+                              <div className="px-4 pb-2 space-y-1 border-t border-gray-600/50">
+                                {(schemaTables[schema.schema_name] || []).length === 0 ? (
+                                  <div className="flex items-center justify-between py-2">
+                                    <p className="text-xs text-gray-500">No tables in this schema</p>
+                                    {!isSystemSchema && (
+                                      <button
+                                        onClick={() => {
+                                          setSelectedSchemaForTable(schema.schema_name);
+                                          setShowCreateTableDialog(true);
+                                        }}
+                                        className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-700 transition-colors"
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                        Create table
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  (schemaTables[schema.schema_name] || []).map((table: any) => (
+                                    <button
+                                      key={table.table_name}
+                                      onClick={() => {
+                                        const query = `SELECT * FROM ${schema.schema_name}.${table.table_name} LIMIT 10;`;
+                                        setSql(query);
+                                        if (editorRef.current) {
+                                          editorRef.current.focus();
+                                        }
+                                      }}
+                                      className="w-full text-left text-xs text-gray-400 hover:text-white px-2 py-1.5 flex items-center gap-2 hover:bg-gray-600/50 rounded transition-colors group"
+                                    >
+                                      <Table className="h-3 w-3 text-emerald-400" />
+                                      <span className="flex-1">{table.table_name}</span>
+                                      <span className="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {table.table_type === 'VIEW' ? 'view' : 'table'}
+                                      </span>
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 )}
@@ -928,11 +1184,12 @@ export default function DatabaseDashboardPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const formData = new FormData(e.target as HTMLFormElement);
               const schemaName = formData.get('schemaName') as string;
-              createSchema(schemaName);
+              console.log('Creating schema:', schemaName);
+              await createSchema(schemaName);
             }}>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -964,6 +1221,87 @@ export default function DatabaseDashboardPage() {
                   className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
                 >
                   Create Schema
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Table Dialog */}
+      {showCreateTableDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#2d2d30] rounded-lg p-6 w-[600px] border border-gray-600">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Table className="h-5 w-5 text-emerald-400" />
+                Create New Table in {selectedSchemaForTable}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCreateTableDialog(false);
+                  setSelectedSchemaForTable('');
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target as HTMLFormElement);
+              const tableName = formData.get('tableName') as string;
+              const columns = formData.get('columns') as string;
+              await createTable(selectedSchemaForTable, tableName, columns);
+            }}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Table Name
+                </label>
+                <input
+                  type="text"
+                  name="tableName"
+                  placeholder="e.g., users"
+                  className="w-full px-3 py-2 bg-[#3c3c3c] border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  required
+                  pattern="^[a-zA-Z_][a-zA-Z0-9_]*$"
+                  title="Table name must start with a letter or underscore, followed by letters, numbers, or underscores"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Columns (SQL)
+                </label>
+                <textarea
+                  name="columns"
+                  placeholder={`id SERIAL PRIMARY KEY,
+name VARCHAR(100) NOT NULL,
+email VARCHAR(255) UNIQUE,
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`}
+                  rows={4}
+                  className="w-full px-3 py-2 bg-[#3c3c3c] border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-mono text-sm"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter column definitions separated by commas (e.g., id SERIAL PRIMARY KEY, name VARCHAR(100))
+                </p>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateTableDialog(false);
+                    setSelectedSchemaForTable('');
+                  }}
+                  className="px-4 py-2 text-sm border border-gray-600 rounded-md text-gray-300 hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
+                >
+                  Create Table
                 </button>
               </div>
             </form>
