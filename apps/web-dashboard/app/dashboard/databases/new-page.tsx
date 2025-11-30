@@ -30,7 +30,10 @@ type DatabaseSection =
   | 'security-advisor'
   | 'performance-advisor'
   | 'query-performance'
-  | 'sql-editor';
+  | 'sql-editor'
+  | 'query-history'
+  | 'sql-templates'
+  | 'saved-queries';
 
 export default function DatabasePage() {
   // Query storage hook
@@ -57,6 +60,7 @@ SELECT * FROM blog.posts LIMIT 5;
   const [queryError, setQueryError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [executionTime, setExecutionTime] = useState<number | null>(null);
+  const [activeQueryName, setActiveQueryName] = useState<string>('');
   
   // Dialog state
   const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
@@ -281,6 +285,8 @@ SELECT * FROM blog.posts LIMIT 5;
             queryError={queryError}
             isLoading={isLoading}
             executionTime={executionTime}
+            activeQueryName={activeQueryName}
+            setActiveQueryName={setActiveQueryName}
           />
         );
         
@@ -290,6 +296,36 @@ SELECT * FROM blog.posts LIMIT 5;
             <div className="text-center">
               <h3 className="text-lg font-medium mb-2">Schema Visualizer</h3>
               <p className="text-sm">Visual database schema explorer - Coming soon</p>
+            </div>
+          </div>
+        );
+        
+      case 'query-history':
+        return (
+          <div className="h-full flex items-center justify-center text-gray-400">
+            <div className="text-center">
+              <h3 className="text-lg font-medium mb-2">Query History</h3>
+              <p className="text-sm">View your recent SQL queries and results</p>
+            </div>
+          </div>
+        );
+        
+      case 'sql-templates':
+        return (
+          <div className="h-full flex items-center justify-center text-gray-400">
+            <div className="text-center">
+              <h3 className="text-lg font-medium mb-2">SQL Templates</h3>
+              <p className="text-sm">Pre-built SQL templates for common operations</p>
+            </div>
+          </div>
+        );
+        
+      case 'saved-queries':
+        return (
+          <div className="h-full flex items-center justify-center text-gray-400">
+            <div className="text-center">
+              <h3 className="text-lg font-medium mb-2">Saved Queries</h3>
+              <p className="text-sm">Manage your saved SQL queries</p>
             </div>
           </div>
         );
@@ -306,13 +342,17 @@ SELECT * FROM blog.posts LIMIT 5;
     }
   };
 
+  const handleSectionChange = (section: DatabaseSection) => {
+    setActiveSection(section);
+  };
+
   return (
     <DatabaseLayout
       activeTenant={activeTenant}
       tenants={tenants}
       onTenantChange={setActiveTenant}
       activeSection={activeSection}
-      onSectionChange={setActiveSection}
+      onSectionChange={handleSectionChange}
     >
       {renderContent()}
       
