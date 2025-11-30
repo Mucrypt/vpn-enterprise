@@ -11,6 +11,8 @@ import { CreateTableDialog } from '@/components/database/create-table-dialog';
 import { CreateSchemaDialog } from '@/components/database/create-schema-dialog';
 import { VisualQueryBuilder } from '@/components/database/visual-query-builder';
 import { useQueryStorage } from '@/hooks/use-query-storage';
+import { Database } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 type DatabaseSection = 
   | 'schema-visualizer'
