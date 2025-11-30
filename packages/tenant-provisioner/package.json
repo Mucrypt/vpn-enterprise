@@ -1,0 +1,35 @@
+{
+  "name": "@vpn-enterprise/tenant-provisioner",
+  "version": "1.0.0",
+  "description": "Tenant Database Provisioning Service",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "npx nodemon src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@vpn-enterprise/shared": "file:../shared",
+    "express": "^4.18.2",
+    "pg": "^8.12.0",
+    "ioredis": "^5.4.1",
+    "bull": "^4.12.2",
+    "winston": "^3.17.0",
+    "helmet": "^8.1.0",
+    "cors": "^2.8.5",
+    "joi": "^18.0.1",
+    "dockerode": "^4.0.2",
+    "uuid": "^9.0.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@types/express": "^5.0.0",
+    "@types/pg": "^8.10.9",
+    "@types/dockerode": "^3.3.23",
+    "@types/uuid": "^9.0.7",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  }
+}

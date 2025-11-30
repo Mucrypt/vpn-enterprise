@@ -1,0 +1,465 @@
+# ==============================================
+# VPN ENTERPRISE - DATABASE PLATFORM STACK
+# Complete independent database-as-a-service platform
+# ==============================================
+
+version: '3.9'
+
+services:
+  # ============================================
+  # NGINX REVERSE PROXY & LOAD BALANCER
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: dbplatform-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "5432:5432"  # PostgreSQL proxy port
+    volumes:
+      - ./nginx/nginx-database.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-cache:/var/cache/nginx
+      - nginx-logs:/var/log/nginx
+    networks:
+      - dbplatform-network
+      - tenant-network
+    depends_on:
+      - api
+      - web-dashboard
+      - postgres-primary
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # DATABASE PLATFORM API
+  # ============================================
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+    container_name: dbplatform-api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_PLATFORM_MODE=true
+      - POSTGRES_HOST=postgres-primary
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=platform_db
+      - POSTGRES_USER=platform_admin
+      - POSTGRES_PASSWORD=${POSTGRES_ADMIN_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TENANT_ISOLATION_MODE=schema  # schema, database, or container
+      - MAX_TENANT_CONNECTIONS=100
+      - DEFAULT_TENANT_STORAGE_MB=1024
+      - BACKUP_RETENTION_DAYS=30
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5000,http://localhost:3001,http://localhost:3000}
+    env_file:
+      - ../../.env
+    networks:
+      - dbplatform-network
+      - tenant-network
+    expose:
+      - "3000"
+    volumes:
+      - api-logs:/app/logs
+      - tenant-backups:/app/backups
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================
+  # WEB DASHBOARD - Database Platform UI
+  # ============================================
+  web-dashboard:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.web
+    container_name: dbplatform-web
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_API_URL=http://nginx/api
+      - NEXT_PUBLIC_PLATFORM_MODE=database
+      - NEXT_PUBLIC_ENABLE_SQL_EDITOR=true
+      - NEXT_PUBLIC_ENABLE_SCHEMA_BUILDER=true
+    networks:
+      - dbplatform-network
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # PRIMARY POSTGRESQL DATABASE
+  # ============================================
+  postgres-primary:
+    image: postgres:15-alpine
+    container_name: dbplatform-postgres-primary
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=platform_db
+      - POSTGRES_USER=platform_admin
+      - POSTGRES_PASSWORD=${POSTGRES_ADMIN_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+      - POSTGRES_HOST_AUTH_METHOD=md5
+    volumes:
+      - postgres-primary-data:/var/lib/postgresql/data
+      - ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - tenant-backups:/backups
+    networks:
+      - dbplatform-network
+      - tenant-network
+    ports:
+      - "5433:5432"  # External access for development
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform_admin -d platform_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # ============================================
+  # POSTGRESQL READ REPLICA
+  # ============================================
+  postgres-replica:
+    image: postgres:15-alpine
+    container_name: dbplatform-postgres-replica
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=platform_db
+      - POSTGRES_USER=platform_admin
+      - POSTGRES_PASSWORD=${POSTGRES_ADMIN_PASSWORD}
+      - PGUSER=platform_admin
+      - POSTGRES_MASTER_SERVICE=postgres-primary
+    volumes:
+      - postgres-replica-data:/var/lib/postgresql/data
+      - ./postgres/setup-replica.sh:/docker-entrypoint-initdb.d/setup-replica.sh:ro
+    networks:
+      - dbplatform-network
+    depends_on:
+      - postgres-primary
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform_admin -d platform_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # ============================================
+  # CONNECTION POOLER (PgBouncer)
+  # ============================================
+  pgbouncer:
+    image: pgbouncer/pgbouncer:latest
+    container_name: dbplatform-pgbouncer
+    restart: unless-stopped
+    environment:
+      - DATABASES_HOST=postgres-primary
+      - DATABASES_PORT=5432
+      - DATABASES_USER=platform_admin
+      - DATABASES_PASSWORD=${POSTGRES_ADMIN_PASSWORD}
+      - DATABASES_DBNAME=platform_db
+      - POOL_MODE=transaction
+      - SERVER_RESET_QUERY=DISCARD ALL
+      - MAX_CLIENT_CONN=1000
+      - DEFAULT_POOL_SIZE=100
+      - MIN_POOL_SIZE=10
+      - RESERVE_POOL_SIZE=10
+      - SERVER_IDLE_TIMEOUT=600
+    volumes:
+      - ./postgres/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+    networks:
+      - dbplatform-network
+      - tenant-network
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      - postgres-primary
+
+  # ============================================
+  # REDIS (Session, Cache, Queue)
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: dbplatform-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - dbplatform-network
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ============================================
+  # DATABASE MANAGEMENT SERVICE
+  # ============================================
+  db-manager:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.db-manager
+    container_name: dbplatform-manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - POSTGRES_HOST=postgres-primary
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=platform_db
+      - POSTGRES_USER=platform_admin
+      - POSTGRES_PASSWORD=${POSTGRES_ADMIN_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - BACKUP_SCHEDULE=0 2 * * *  # Daily at 2 AM
+      - CLEANUP_SCHEDULE=0 4 * * 0  # Weekly cleanup
+    volumes:
+      - tenant-backups:/backups
+      - db-manager-logs:/app/logs
+    networks:
+      - dbplatform-network
+      - tenant-network
+    depends_on:
+      - postgres-primary
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ============================================
+  # TENANT PROVISIONER
+  # ============================================
+  tenant-provisioner:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.provisioner
+    container_name: dbplatform-provisioner
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - POSTGRES_HOST=postgres-primary
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=platform_db
+      - POSTGRES_USER=platform_admin
+      - POSTGRES_PASSWORD=${POSTGRES_ADMIN_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PROVISIONING_MODE=schema  # schema, database, container
+      - MAX_TENANTS_PER_DB=1000
+      - DEFAULT_RESOURCE_LIMITS='{\"max_connections\": 20, \"storage_mb\": 1024}'
+    volumes:
+      - tenant-data:/tenant-data
+    networks:
+      - dbplatform-network
+      - tenant-network
+    depends_on:
+      - postgres-primary
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+
+  # ============================================
+  # MONITORING STACK
+  # ============================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dbplatform-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ../monitoring/prometheus/prometheus-db.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - dbplatform-network
+    expose:
+      - "9090"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dbplatform-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DATABASE_TYPE=postgres
+      - GF_DATABASE_HOST=postgres-primary:5432
+      - GF_DATABASE_NAME=platform_db
+      - GF_DATABASE_USER=grafana_user
+      - GF_DATABASE_PASSWORD=${GRAFANA_DB_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../monitoring/grafana/dashboards-db:/etc/grafana/provisioning/dashboards:ro
+      - ../monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - dbplatform-network
+    expose:
+      - "3000"
+    depends_on:
+      - postgres-primary
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # PGADMIN (Database Administration)
+  # ============================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dbplatform-pgadmin
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@platform.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+      - PGADMIN_CONFIG_SERVER_MODE=True
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./postgres/servers.json:/pgadmin4/servers.json:ro
+    networks:
+      - dbplatform-network
+    expose:
+      - "80"
+    depends_on:
+      - postgres-primary
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ============================================
+# NETWORKS
+# ============================================
+networks:
+  dbplatform-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: dbplatform0
+  
+  tenant-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: tenant0
+
+# ============================================
+# VOLUMES (Persistent Data)
+# ============================================
+volumes:
+  # PostgreSQL Data
+  postgres-primary-data:
+    driver: local
+  postgres-replica-data:
+    driver: local
+  
+  # Application Data
+  redis-data:
+    driver: local
+  tenant-data:
+    driver: local
+  tenant-backups:
+    driver: local
+  
+  # Monitoring Data
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  pgadmin-data:
+    driver: local
+  
+  # Logs
+  nginx-cache:
+    driver: local
+  nginx-logs:
+    driver: local
+  api-logs:
+    driver: local
+  db-manager-logs:
+    driver: local

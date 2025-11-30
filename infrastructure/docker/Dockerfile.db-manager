@@ -1,0 +1,40 @@
+# Database Manager Service Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies for database operations
+RUN apk add --no-cache postgresql-client curl
+
+# Copy package files
+COPY packages/api/package.json ./
+COPY package.json ./package.json
+
+# Install dependencies
+RUN npm install --only=production
+
+# Copy source code
+COPY packages/database-manager/src ./src
+COPY packages/database-manager/tsconfig.json ./
+COPY packages/shared ./packages/shared
+
+# Build TypeScript
+RUN npm run build
+
+# Create backup directory
+RUN mkdir -p /backups /logs
+
+# Add database management scripts
+COPY infrastructure/scripts/db-backup.sh /usr/local/bin/
+COPY infrastructure/scripts/db-restore.sh /usr/local/bin/
+COPY infrastructure/scripts/db-cleanup.sh /usr/local/bin/
+
+RUN chmod +x /usr/local/bin/*.sh
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD curl -f http://localhost:3002/health || exit 1
+
+EXPOSE 3002
+
+CMD ["node", "dist/index.js"]

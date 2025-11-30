@@ -1,6 +1,16 @@
 import { Router } from 'express';
 import { authMiddleware, adminMiddleware, AuthRequest } from '@vpn-enterprise/auth';
 import { supabaseAdmin } from '@vpn-enterprise/database';
+import { 
+  getTableData, 
+  updateTableData, 
+  insertTableData, 
+  deleteTableData 
+} from '../controllers/tableDataController';
+import { 
+  getTableStructure, 
+  updateTableStructure 
+} from '../controllers/tableStructureController';
 
 export const tenantsRouter = Router();
 
@@ -51,7 +61,8 @@ tenantsRouter.get('/', (req, res, next) => {
     if (process.env.NODE_ENV === 'development') {
       const mockTenants = [
         {
-          tenant_id: 'dev-tenant-1',
+          tenant_id: '123e4567-e89b-12d3-a456-426614174000',
+          id: '123e4567-e89b-12d3-a456-426614174000',
           name: 'Development Tenant',
           subdomain: 'dev',
           plan_type: 'free',
@@ -125,6 +136,8 @@ tenantsRouter.post('/:tenantId/databases', authMiddleware, adminMiddleware, asyn
 });
 
 // Enhanced SQL executor supporting DDL, DML, and DQL operations (like Supabase)
+// DISABLED: Legacy route - now handled by UnifiedDataAPI with DatabasePlatformClient
+/*
 tenantsRouter.post('/:tenantId/query', (req, res, next) => {
   // Skip auth in development for testing
   if (process.env.NODE_ENV === 'development') {
@@ -221,7 +234,8 @@ tenantsRouter.post('/:tenantId/query', (req, res, next) => {
     console.error('[tenant:query] exception', e);
     res.status(500).json({ error: 'Failed to execute query', message: e.message });
   }
-});
+}); // END of disabled legacy route
+*/
 
 // Helper function to determine query type
 function getQueryType(sql: string): string {
@@ -329,6 +343,8 @@ tenantsRouter.get('/associations', authMiddleware, adminMiddleware, async (req: 
   }
 });
 
+// DISABLED: Legacy create schema route - now handled by UnifiedDataAPI
+/*
 // Create a new schema/database for tenant
 tenantsRouter.post('/:tenantId/schemas', (req, res, next) => {
   // Skip auth in development for testing
@@ -363,7 +379,10 @@ tenantsRouter.post('/:tenantId/schemas', (req, res, next) => {
     res.status(500).json({ error: 'Failed to create schema', message: e.message });
   }
 });
+*/
 
+// DISABLED: Legacy schemas route - now handled by UnifiedDataAPI with DatabasePlatformClient
+/*
 // List all schemas for tenant
 tenantsRouter.get('/:tenantId/schemas', (req, res, next) => {
   // Skip auth in development for testing
@@ -394,7 +413,10 @@ tenantsRouter.get('/:tenantId/schemas', (req, res, next) => {
     res.status(500).json({ error: 'Failed to list schemas', message: e.message });
   }
 });
+*/
 
+// DISABLED: Legacy tables listing route - now handled by UnifiedDataAPI
+/*
 // List tables in a schema
 tenantsRouter.get('/:tenantId/schemas/:schemaName/tables', (req, res, next) => {
   // Skip auth in development for testing
@@ -427,3 +449,54 @@ tenantsRouter.get('/:tenantId/schemas/:schemaName/tables', (req, res, next) => {
     res.status(500).json({ error: 'Failed to list tables', message: e.message });
   }
 });
+*/
+
+// Table Data Management Routes
+tenantsRouter.get('/:tenantId/tables/:schema.:tableName/data', (req, res, next) => {
+  // Skip auth in development for testing
+  if (process.env.NODE_ENV === 'development') {
+    return next();
+  }
+  authMiddleware(req, res, next);
+}, getTableData);
+
+tenantsRouter.put('/:tenantId/tables/:schema.:tableName/data', (req, res, next) => {
+  // Skip auth in development for testing
+  if (process.env.NODE_ENV === 'development') {
+    return next();
+  }
+  authMiddleware(req, res, next);
+}, updateTableData);
+
+tenantsRouter.post('/:tenantId/tables/:schema.:tableName/data', (req, res, next) => {
+  // Skip auth in development for testing
+  if (process.env.NODE_ENV === 'development') {
+    return next();
+  }
+  authMiddleware(req, res, next);
+}, insertTableData);
+
+tenantsRouter.delete('/:tenantId/tables/:schema.:tableName/data', (req, res, next) => {
+  // Skip auth in development for testing
+  if (process.env.NODE_ENV === 'development') {
+    return next();
+  }
+  authMiddleware(req, res, next);
+}, deleteTableData);
+
+// Table Structure Management Routes
+tenantsRouter.get('/:tenantId/tables/:schema.:tableName/structure', (req, res, next) => {
+  // Skip auth in development for testing
+  if (process.env.NODE_ENV === 'development') {
+    return next();
+  }
+  authMiddleware(req, res, next);
+}, getTableStructure);
+
+tenantsRouter.put('/:tenantId/tables/:schema.:tableName/structure', (req, res, next) => {
+  // Skip auth in development for testing
+  if (process.env.NODE_ENV === 'development') {
+    return next();
+  }
+  authMiddleware(req, res, next);
+}, updateTableStructure);
