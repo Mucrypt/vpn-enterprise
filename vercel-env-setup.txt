@@ -1,0 +1,96 @@
+# =============================================
+# VERCEL ENVIRONMENT VARIABLES CONFIGURATION
+# Copy these values to your Vercel project environment variables
+# =============================================
+
+# 1. Go to your Vercel dashboard: https://vercel.com/dashboard
+# 2. Select your vpn-enterprise project
+# 3. Go to Settings > Environment Variables
+# 4. Add each variable below (one by one)
+
+# =============================================
+# SUPABASE CONFIGURATION (Required)
+# =============================================
+SUPABASE_URL=https://wgmgtxlodyxbhxfpnwwm.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndnbWd0eGxvZHl4Ymh4ZnBud3dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1MzM0NzUsImV4cCI6MjA3ODEwOTQ3NX0.1MLDtx4lEb8Uewq1p9O5GvtHTQsmdvB6JF1DjBKUWro
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndnbWd0eGxvZHl4Ymh4ZnBud3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjUzMzQ3NSwiZXhwIjoyMDc4MTA5NDc1fQ.vCAtkPCjwiSBdai83CGsd-U5VjGKTBON9NkWb3yzM_M
+
+# =============================================
+# APPLICATION CONFIGURATION (Required)
+# =============================================
+NODE_ENV=production
+PORT=5000
+APP_URL=https://vpn-enterprise-api.vercel.app
+
+# =============================================
+# CORS CONFIGURATION (Required)
+# =============================================
+ALLOWED_ORIGINS=https://vpn-enterprise-dashboard.vercel.app,https://vpn-enterprise-api.vercel.app
+
+# =============================================
+# DATABASE CONFIGURATION FOR SQL EDITOR
+# =============================================
+# For SQL Editor functionality - Use Supabase PostgreSQL connection
+DATABASE_URL=postgresql://postgres.wgmgtxlodyxbhxfpnwwm:[YOUR-SUPABASE-DB-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+POSTGRES_ADMIN_URL=postgresql://postgres.wgmgtxlodyxbhxfpnwwm:[YOUR-SUPABASE-DB-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+TENANTS_TABLE=platform_meta.tenants
+
+# =============================================
+# POSTGRESQL CONFIGURATION (For SQL Editor)
+# =============================================
+# These should point to your Supabase database for production
+POSTGRES_HOST=aws-0-us-east-1.pooler.supabase.com
+POSTGRES_PORT=6543
+POSTGRES_USER=postgres.wgmgtxlodyxbhxfpnwwm
+POSTGRES_PASSWORD=[YOUR-SUPABASE-DB-PASSWORD]
+POSTGRES_DB=postgres
+
+# Database Platform (Use Supabase for production)
+DB_HOST=aws-0-us-east-1.pooler.supabase.com
+DB_PORT=6543
+DB_USER=postgres.wgmgtxlodyxbhxfpnwwm
+DB_PASSWORD=[YOUR-SUPABASE-DB-PASSWORD]
+DB_NAME=postgres
+
+# Pool configuration
+DB_POOL_MAX=20
+DB_POOL_MIN=2
+DB_POOL_IDLE_TIMEOUT=10000
+DB_POOL_CONNECTION_TIMEOUT=2000
+
+# =============================================
+# REALTIME CONFIGURATION
+# =============================================
+REALTIME_DISABLE_REDIS=1
+
+# =============================================
+# WIREGUARD CONFIGURATION (Optional)
+# =============================================
+WIREGUARD_INTERFACE=wg0
+WIREGUARD_PORT=51820
+WIREGUARD_PRIVATE_KEY=YMddnGZAVhWonkq4y4v+PRDUfln2buxpLaLoj1DUoFg=
+WIREGUARD_PUBLIC_KEY=4nEWZs+9Mvt9x1PmvFiCDpMMBK/JLkOamgUA66JoTTw=
+WIREGUARD_SUBNET=10.0.0.0/24
+
+# =============================================
+# LOGGING
+# =============================================
+LOG_LEVEL=info
+
+# =============================================
+# IMPORTANT NOTES:
+# =============================================
+# 1. Replace [YOUR-SUPABASE-DB-PASSWORD] with your actual Supabase database password
+#    - Go to Supabase Dashboard > Settings > Database > Connection info
+#    - The password is shown there
+# 
+# 2. Make sure to set all environment variables in Vercel:
+#    - Go to https://vercel.com/dashboard
+#    - Select your project
+#    - Go to Settings > Environment Variables
+#    - Add each variable above
+#
+# 3. After adding environment variables, redeploy your application:
+#    - Go to Deployments tab
+#    - Click "..." on latest deployment
+#    - Select "Redeploy"

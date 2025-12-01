@@ -1,0 +1,65 @@
+/* Mobile-specific enhancements for VPN Enterprise homepage */
+
+/* Ensure touch targets are adequate on mobile */
+@media (max-width: 768px) {
+  .service-card {
+    min-height: 280px;
+  }
+  
+  .brand-logo {
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Improve button sizes for mobile */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better spacing for mobile cards */
+  .metric-card {
+    padding: 1rem;
+  }
+  
+  /* Ensure text is readable on mobile */
+  h1, h2, h3 {
+    line-height: 1.2;
+  }
+  
+  /* Mobile-first animations are less intensive */
+  .float {
+    animation-duration: 4s;
+  }
+  
+  /* Reduce motion for better mobile performance */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .service-card {
+    min-height: 320px;
+  }
+}
+
+/* Improve scrolling on mobile */
+@media (max-width: 768px) {
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Prevent horizontal scroll on mobile */
+  * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
