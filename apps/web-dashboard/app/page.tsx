@@ -197,30 +197,223 @@ export default function Home() {
       }
     );
 
-    // Title encryption animation
-    let titleSplit;
+    // 🏆 WORLD-CLASS TITLE MASTERPIECE ANIMATION
     if (titleRef.current) {
-      titleSplit = new SplitText(titleRef.current.querySelectorAll('span'), { 
-        type: "chars",
-        charsClass: "char"
+      // 1. PREMIUM BACKGROUND ORBS
+      const bgOrbs = titleRef.current.querySelectorAll('.title-bg-orb');
+      gsap.set(bgOrbs, { scale: 0, opacity: 0 });
+      
+      heroTL.to(bgOrbs, {
+        scale: 1,
+        opacity: 1,
+        duration: 2,
+        stagger: 0.3,
+        ease: "elastic.out(1, 0.5)"
+      }, "titleStart");
+
+      // 2. LETTER-BY-LETTER SPECTACULAR ENTRANCE
+      const letters = titleRef.current.querySelectorAll('.title-letter');
+      gsap.set(letters, {
+        opacity: 0,
+        y: 100,
+        rotationX: -90,
+        scale: 0.3,
+        filter: "blur(10px)"
       });
 
-      if (titleSplit && titleSplit.chars) {
-        gsap.set(titleSplit.chars, {
-          opacity: 0,
-          y: 50,
-          rotationY: 90
+      heroTL.to(letters, {
+        opacity: 1,
+        y: 0,
+        rotationX: 0,
+        scale: 1,
+        filter: "blur(0px)",
+        duration: 1.5,
+        stagger: {
+          amount: 1.2,
+          from: "start",
+          ease: "power2.out"
+        },
+        ease: "back.out(2)"
+      }, "titleStart+=0.5");
+
+      // 3. SECOND LINE MORPHING ENTRANCE
+      const titleLine2 = titleRef.current.querySelector('.title-line-2');
+      const titleWords = titleRef.current.querySelectorAll('.title-word');
+      const titleSeparator = titleRef.current.querySelector('.title-separator');
+      
+      gsap.set([titleWords, titleSeparator], {
+        opacity: 0,
+        y: 80,
+        scale: 0.8,
+        rotationY: 45
+      });
+
+      heroTL.to(titleWords, {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        rotationY: 0,
+        duration: 1.2,
+        stagger: 0.2,
+        ease: "power3.out"
+      }, "titleStart+=1.8");
+
+      heroTL.to(titleSeparator, {
+        opacity: 1,
+        y: 0,
+        scale: 1.5,
+        rotationY: 0,
+        duration: 0.8,
+        ease: "elastic.out(1, 0.8)"
+      }, "titleStart+=2.0");
+
+      // 4. ANIMATED UNDERLINE DRAW
+      const underline = titleRef.current.querySelector('.title-underline');
+      gsap.set(underline, { scaleX: 0 });
+      
+      heroTL.to(underline, {
+        scaleX: 1,
+        duration: 1.5,
+        ease: "power2.inOut"
+      }, "titleStart+=2.5");
+
+      // 5. FLOATING PARTICLES MAGIC
+      const particles = titleRef.current.querySelectorAll('.title-particle');
+      gsap.set(particles, { opacity: 0, scale: 0 });
+      
+      heroTL.to(particles, {
+        opacity: 0.8,
+        scale: 1,
+        duration: 0.8,
+        stagger: 0.1,
+        ease: "back.out(3)"
+      }, "titleStart+=3");
+
+      // Continuous particle floating
+      particles.forEach((particle, i) => {
+        gsap.to(particle, {
+          y: "random(-20, 20)",
+          x: "random(-15, 15)",
+          rotation: "random(-45, 45)",
+          duration: "random(2, 4)",
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: i * 0.2
         });
-  
-        heroTL.to(titleSplit.chars, {
-          duration: 1,
-          opacity: 1,
-          y: 0,
-          rotationY: 0,
-          stagger: 0.03,
-          ease: "power3.out"
-        }, "-=0.5");
-      }
+      });
+
+      // 6. HOLOGRAPHIC SWEEP
+      const holo = titleRef.current.querySelector('.title-holo');
+      gsap.set(holo, { x: "-100%", opacity: 0 });
+      
+      heroTL.to(holo, {
+        x: "100%",
+        opacity: 0.6,
+        duration: 1.5,
+        ease: "power2.inOut"
+      }, "titleStart+=2.8");
+
+      // 7. PREMIUM AWARD BADGE
+      const badge = titleRef.current.querySelector('.title-badge');
+      gsap.set(badge, { scale: 0, rotation: 45, opacity: 0 });
+      
+      heroTL.to(badge, {
+        scale: 1,
+        rotation: 12,
+        opacity: 1,
+        duration: 1,
+        ease: "elastic.out(1.2, 0.5)"
+      }, "titleStart+=4");
+
+      // Badge pulse animation
+      gsap.to(badge, {
+        scale: 1.05,
+        duration: 2,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut"
+      });
+
+      // 8. DECORATIVE CROWN & SPARKLE
+      const crown = titleRef.current.querySelector('.title-crown');
+      const sparkle = titleRef.current.querySelector('.title-sparkle');
+      
+      heroTL.to([crown, sparkle], {
+        opacity: 1,
+        scale: 1.2,
+        duration: 0.6,
+        stagger: 0.1,
+        ease: "back.out(3)"
+      }, "titleStart+=4.5");
+
+      // Continuous crown bobbing
+      gsap.to(crown, {
+        y: -5,
+        duration: 1.5,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut"
+      });
+
+      // Sparkle twinkle
+      gsap.to(sparkle, {
+        rotation: 180,
+        scale: 1.5,
+        duration: 2,
+        repeat: -1,
+        yoyo: true,
+        ease: "power2.inOut"
+      });
+
+      // 9. SUBTITLE ENHANCEMENT
+      const subtitle = titleRef.current.querySelector('.title-subtitle');
+      gsap.set(subtitle, { opacity: 0, y: 20, filter: "blur(5px)" });
+      
+      heroTL.to(subtitle, {
+        opacity: 1,
+        y: 0,
+        filter: "blur(0px)",
+        duration: 1,
+        ease: "power3.out"
+      }, "titleStart+=5");
+      
+      // 10. CONTINUOUS LETTER HOVER EFFECTS
+      letters.forEach((letter, i) => {
+        letter.addEventListener('mouseenter', () => {
+          gsap.to(letter, {
+            y: -10,
+            scale: 1.2,
+            color: "#10b981",
+            textShadow: "0 0 20px rgba(16, 185, 129, 0.8)",
+            duration: 0.3,
+            ease: "back.out(3)"
+          });
+        });
+
+        letter.addEventListener('mouseleave', () => {
+          gsap.to(letter, {
+            y: 0,
+            scale: 1,
+            color: "#1f2937",
+            textShadow: "none",
+            duration: 0.3,
+            ease: "power2.out"
+          });
+        });
+      });
+
+      // 11. BACKGROUND ORBS FLOATING
+      bgOrbs.forEach((orb, i) => {
+        gsap.to(orb, {
+          x: "random(-30, 30)",
+          y: "random(-20, 20)",
+          rotation: 360,
+          duration: "random(8, 12)",
+          repeat: -1,
+          ease: "none"
+        });
+      });
     }
 
     // Subtitle reveal
@@ -620,14 +813,74 @@ export default function Home() {
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center max-w-6xl mx-auto">
             
-            {/* Enterprise Title */}
-            <div ref={titleRef} className="mb-8">
-              <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-bold leading-tight">
-                <span className="block text-gray-800">VPN-Enterprise</span>
-                <span className="block bg-gradient-to-r from-emerald-600 via-green-600 to-yellow-600 bg-clip-text text-transparent">
-                  VPN Platform
+            {/* 🏆 WORLD-CLASS ENTERPRISE TITLE */}
+            <div ref={titleRef} className="mb-8 relative overflow-hidden">
+              {/* Dynamic background elements */}
+              <div className="absolute inset-0 -z-10">
+                <div className="title-bg-orb absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-emerald-300/20 to-green-300/20 rounded-full blur-3xl"></div>
+                <div className="title-bg-orb absolute top-4 right-0 w-24 h-24 bg-gradient-to-br from-yellow-300/20 to-amber-300/20 rounded-full blur-2xl"></div>
+                <div className="title-bg-orb absolute bottom-0 left-1/3 w-28 h-28 bg-gradient-to-br from-green-300/20 to-emerald-300/20 rounded-full blur-2xl"></div>
+              </div>
+
+              <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-bold leading-tight relative">
+                {/* First line - VPN-Enterprise with individual letter animations */}
+                <span className="block text-gray-800 relative overflow-hidden">
+                  <span className="title-line-1 inline-block relative">
+                    {/* Individual letters for advanced animations */}
+                    <span className="title-letter inline-block transform" data-letter="V">V</span>
+                    <span className="title-letter inline-block transform" data-letter="P">P</span>
+                    <span className="title-letter inline-block transform" data-letter="N">N</span>
+                    <span className="title-letter inline-block transform text-emerald-600" data-letter="-">-</span>
+                    <span className="title-letter inline-block transform" data-letter="E">E</span>
+                    <span className="title-letter inline-block transform" data-letter="n">n</span>
+                    <span className="title-letter inline-block transform" data-letter="t">t</span>
+                    <span className="title-letter inline-block transform" data-letter="e">e</span>
+                    <span className="title-letter inline-block transform" data-letter="r">r</span>
+                    <span className="title-letter inline-block transform" data-letter="p">p</span>
+                    <span className="title-letter inline-block transform" data-letter="r">r</span>
+                    <span className="title-letter inline-block transform" data-letter="i">i</span>
+                    <span className="title-letter inline-block transform" data-letter="s">s</span>
+                    <span className="title-letter inline-block transform" data-letter="e">e</span>
+                    
+                    {/* Decorative elements */}
+                    <div className="title-crown absolute -top-4 left-0 w-6 h-6 text-yellow-500 opacity-0">👑</div>
+                    <div className="title-sparkle absolute -top-2 right-4 w-4 h-4 text-emerald-500 opacity-0">✨</div>
+                  </span>
                 </span>
+                
+                {/* Second line - VPN Platform with morphing gradient */}
+                <span className="block relative overflow-hidden mt-2">
+                  <span className="title-line-2 inline-block transform bg-gradient-to-r from-emerald-600 via-green-600 to-yellow-600 bg-clip-text text-transparent relative">
+                    <span className="title-word inline-block transform" data-word="VPN">VPN</span>
+                    <span className="title-separator inline-block mx-3 text-green-500 transform scale-150">⚡</span>
+                    <span className="title-word inline-block transform" data-word="Platform">Platform</span>
+                    
+                    {/* Animated underline */}
+                    <div className="title-underline absolute -bottom-2 left-0 h-1 bg-gradient-to-r from-emerald-500 via-green-500 to-yellow-500 rounded-full transform origin-left scale-x-0"></div>
+                    
+                    {/* Floating particles */}
+                    <div className="title-particle absolute top-0 left-1/4 w-2 h-2 bg-emerald-400 rounded-full opacity-0"></div>
+                    <div className="title-particle absolute top-4 right-1/3 w-1 h-1 bg-yellow-400 rounded-full opacity-0"></div>
+                    <div className="title-particle absolute -top-2 right-1/4 w-1.5 h-1.5 bg-green-400 rounded-full opacity-0"></div>
+                  </span>
+                </span>
+                
+                {/* Holographic overlay */}
+                <div className="title-holo absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 translate-x-full opacity-0"></div>
+                
+                {/* Premium badge */}
+                <div className="title-badge absolute -top-6 -right-2 px-3 py-1 bg-gradient-to-r from-yellow-400 to-amber-500 text-gray-800 text-xs font-bold rounded-full transform rotate-12 scale-0 shadow-lg">
+                  AWARD WINNING
+                </div>
               </h1>
+              
+              {/* Subtitle enhancement */}
+              <div className="title-subtitle mt-4 opacity-0 transform translate-y-4">
+                <p className="text-lg md:text-xl text-gray-600 font-medium">
+                  <span className="inline-block bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent font-semibold">Enterprise-Grade</span>
+                  {" "}• Security • Performance • Innovation
+                </p>
+              </div>
             </div>
             
             {/* Platform Description */}
@@ -1296,7 +1549,7 @@ export default function Home() {
       {/* 🏢 ENTERPRISE FOOTER */}
       <footer className="border-t border-emerald-200 bg-green-50/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-12">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
+          <div className="grid md:grid-cols-5 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg">
@@ -1310,35 +1563,109 @@ export default function Home() {
               <p className="text-gray-600">
                 Secure VPN, managed databases, and scalable hosting for businesses.
               </p>
+                 {/* Newsletter */}
+
+
+
+
+                 
+              <div>
+                <p className="text-gray-800 font-bold text-sm mt-5 mb-3">Subscribe to our newsletter</p>
+                <div className="flex flex-col gap-2">
+                  <input 
+                    type="email" 
+                    placeholder="Your email address"
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                  <Button className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm">
+                    Subscribe
+                  </Button>
+                </div>
+              </div>
             </div>
             
-            {[
-              {
-                title: "Services",
-                items: ["Enterprise VPN", "Managed Databases", "Cloud Hosting", "Object Storage"]
-              },
-              {
-                title: "Resources",
-                items: ["Documentation", "API Reference", "Tutorials", "Support"]
-              },
-              {
-                title: "Company",
-                items: ["About", "Blog", "Careers", "Contact"]
-              }
-            ].map((section, idx) => (
-              <div key={idx}>
-                <h4 className="text-gray-800 font-semibold mb-4">{section.title}</h4>
-                <ul className="space-y-2 text-gray-600">
-                  {section.items.map((item, i) => (
-                    <li key={i}>
-                      <Link href="#" className="hover:text-emerald-600 transition-colors">
-                        {item}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+            {/* Services */}
+            <div>
+              <h4 className="text-gray-800 font-semibold mb-4">Services</h4>
+              <ul className="space-y-2 text-gray-600">
+                <li><Link href="#services" className="hover:text-emerald-600 transition-colors">Enterprise VPN</Link></li>
+                <li><Link href="#services" className="hover:text-emerald-600 transition-colors">Managed Databases</Link></li>
+                <li><Link href="#services" className="hover:text-emerald-600 transition-colors">Cloud Hosting</Link></li>
+                <li><Link href="#services" className="hover:text-emerald-600 transition-colors">Object Storage</Link></li>
+              </ul>
+            </div>
+            
+            {/* Resources */}
+            <div>
+              <h4 className="text-gray-800 font-semibold mb-4">Resources</h4>
+              <ul className="space-y-2 text-gray-600">
+                <li><Link href="/blog" className="hover:text-emerald-600 transition-colors">Blog</Link></li>
+                <li><Link href="/docs" className="hover:text-emerald-600 transition-colors">Documentation</Link></li>
+                <li><Link href="/docs/api/overview" className="hover:text-emerald-600 transition-colors">API Reference</Link></li>
+                <li><Link href="/contact" className="hover:text-emerald-600 transition-colors">Support</Link></li>
+              </ul>
+            </div>
+            
+            {/* Company */}
+            <div>
+              <h4 className="text-gray-800 font-semibold mb-4">Company</h4>
+              <ul className="space-y-2 text-gray-600">
+                <li><Link href="/about" className="hover:text-emerald-600 transition-colors">About</Link></li>
+                <li><Link href="/company" className="hover:text-emerald-600 transition-colors">Our Story</Link></li>
+                <li><Link href="/careers" className="hover:text-emerald-600 transition-colors">Careers</Link></li>
+                <li><Link href="/contact" className="hover:text-emerald-600 transition-colors">Contact</Link></li>
+              </ul>
+            </div>
+
+            {/* Contact Ifo */}
+            <div>
+              <h4 className="text-gray-800 font-semibold mb-4">Contact Info</h4>
+              
+              {/* Contact Info */}
+              <div className="space-y-3 text-gray-600 text-sm mb-6">
+                <div>
+                  <p className="font-medium">123 Fashion Street</p>
+                  <p>Milan, Italy 20100</p>
+                </div>
+                <div>
+                  <p className="font-medium">+39 (333) 219-000-6</p>
+                </div>
+                <div>
+                  <p className="font-medium">info@mukulah.com</p>
+                </div>
               </div>
-            ))}
+
+              {/* Social Icons */}
+              <div className="flex gap-3 mb-6">
+                <a href="#" className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all hover:bg-emerald-50 group">
+                  <svg className="w-5 h-5 text-gray-600 group-hover:text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                  </svg>
+                </a>
+                <a href="#" className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all hover:bg-emerald-50 group">
+                  <svg className="w-5 h-5 text-gray-600 group-hover:text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M22.46 6c-.77.35-1.6.58-2.46.69.88-.53 1.56-1.37 1.88-2.38-.83.5-1.75.85-2.72 1.05C18.37 4.5 17.26 4 16 4c-2.35 0-4.27 1.92-4.27 4.29 0 .34.04.67.11.98C8.28 9.09 5.11 7.38 3 4.79c-.37.63-.58 1.37-.58 2.15 0 1.49.75 2.81 1.91 3.56-.71 0-1.37-.2-1.95-.5v.03c0 2.08 1.48 3.82 3.44 4.21a4.22 4.22 0 0 1-1.93.07 4.28 4.28 0 0 0 4 2.98 8.521 8.521 0 0 1-5.33 1.84c-.34 0-.68-.02-1.02-.06C3.44 20.29 5.7 21 8.12 21 16 21 20.33 14.46 20.33 8.79c0-.19 0-.37-.01-.56.84-.6 1.56-1.36 2.14-2.23z"/>
+                  </svg>
+                </a>
+                <a href="#" className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all hover:bg-emerald-50 group">
+                  <svg className="w-5 h-5 text-gray-600 group-hover:text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                  </svg>
+                </a>
+                <a href="#" className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all hover:bg-emerald-50 group">
+                  <svg className="w-5 h-5 text-gray-600 group-hover:text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                </a>
+                <a href="#" className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all hover:bg-emerald-50 group">
+                  <svg className="w-5 h-5 text-gray-600 group-hover:text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.097.118.11.222.081.343-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.402.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24.009 12.017 24c6.624 0 11.99-5.367 11.99-11.987C24.007 5.367 18.641.001.001 12.017z"/>
+                  </svg>
+                </a>
+              </div>
+
+             
+            </div>
           </div>
           
           <div className="border-t border-emerald-200 pt-8 flex flex-col md:flex-row justify-between items-center">
