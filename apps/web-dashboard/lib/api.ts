@@ -141,8 +141,9 @@ class APIClient {
       document.cookie = 'refresh_token=; path=/; max-age=0';
       document.cookie = 'user_role=; path=/; max-age=0';
       
-      if (!window.location.pathname.startsWith('/auth/login')) {
-        window.location.href = '/auth/login';
+      // Redirect to home page instead of login
+      if (!window.location.pathname.startsWith('/')) {
+        window.location.href = '/';
       }
     }
   }
@@ -189,9 +190,13 @@ class APIClient {
         };
         response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, config);
       } else {
-        // Refresh failed, logout user
+        // Refresh failed, logout user silently and redirect
         await this.handleLogout();
-        throw new Error('Session expired. Please login again.');
+        // Return a response that will be handled gracefully
+        return new Response(JSON.stringify({ error: 'Session expired' }), { 
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
     }
 
@@ -203,6 +208,13 @@ class APIClient {
     
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}));
+      
+      // Handle 401 silently if session expired
+      if (response.status === 401 && errorBody?.error === 'Session expired') {
+        // Already handled in request(), just return empty data
+        return {} as T;
+      }
+      
       const errorMessage = errorBody?.message || errorBody?.error || response.statusText || 'API request failed';
       
       const error = new Error(`${response.status} ${response.statusText} - ${errorMessage}`);

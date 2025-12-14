@@ -25,6 +25,31 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Suppress MetaMask auto-connect if not needed
+              if (typeof window !== 'undefined') {
+                window.addEventListener('error', function(e) {
+                  if (e.message && e.message.includes('MetaMask')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                  }
+                });
+                window.addEventListener('unhandledrejection', function(e) {
+                  if (e.reason && e.reason.message && e.reason.message.includes('MetaMask')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                  }
+                });
+              }
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         data-env={process.env.NODE_ENV}

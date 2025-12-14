@@ -233,6 +233,7 @@ try {
   console.warn('[INIT] UnifiedDataAPI failed to initialize:', (e as any)?.message || e);
 }
 
+/*
 // GraphQL basic schema (placeholder) and server
 async function initGraphQL() {
   // Dynamic schema (basic): introspect tenants
@@ -263,6 +264,7 @@ async function initGraphQL() {
   console.log('[INIT] GraphQL endpoint mounted at /api/v1/graphql');
 }
 initGraphQL().catch(err => console.warn('[INIT] GraphQL failed:', err));
+*/
 
 // WebSocket + Redis + logical replication scaffold
 const httpServer = createServer(app);

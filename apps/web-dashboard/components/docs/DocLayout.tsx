@@ -19,7 +19,7 @@ export default function DocLayout({ children }: DocLayoutProps) {
   }, []);
 
   return (
-    <div className="h-screen bg-gradient-to-br from-white via-green-50/30 to-yellow-50/30">
+    <div className="h-screen bg-gray-100 from-white via-green-50/30 to-yellow-50/30">
       
       {/* Top Navigation - Fixed */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-emerald-200 h-16">

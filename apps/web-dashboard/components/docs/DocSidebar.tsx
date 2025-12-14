@@ -50,8 +50,8 @@ const navigationData: NavItem[] = [
     children: [
       { title: "Overview", href: "/docs/database/overview" },
       { title: "Getting Started", href: "/docs/database/getting-started" },
-      { title: "Connection Strings", href: "/docs/database/connections" },
-      { title: "Backup & Recovery", href: "/docs/database/backup" },
+      { title: "Connection Strings", href: "/docs/database/connection-strings" },
+      { title: "Backup & Recovery", href: "/docs/database/backup-recovery" },
       { title: "Scaling", href: "/docs/database/scaling" },
       { title: "Performance", href: "/docs/database/performance" }
     ]
@@ -60,12 +60,13 @@ const navigationData: NavItem[] = [
     title: "Cloud Hosting",
     icon: Cloud,
     children: [
-      { title: "Overview", href: "/docs/hosting/overview" },
-      { title: "Deployment", href: "/docs/hosting/deployment" },
-      { title: "Custom Domains", href: "/docs/hosting/domains" },
-      { title: "Environment Variables", href: "/docs/hosting/env-variables" },
-      { title: "Auto-scaling", href: "/docs/hosting/scaling" },
-      { title: "Monitoring", href: "/docs/hosting/monitoring" }
+      { title: "Overview", href: "/docs/cloud-hosting/overview" },
+      { title: "Shared Hosting", href: "/docs/cloud-hosting/shared-hosting" },
+      { title: "VPS Hosting", href: "/docs/cloud-hosting/vps-hosting" },
+      { title: "Dedicated Hosting", href: "/docs/cloud-hosting/dedicated-hosting" },
+      { title: "Storage Solutions", href: "/docs/cloud-hosting/storage" },
+      { title: "Networking", href: "/docs/cloud-hosting/networking" },
+      { title: "Migration Guide", href: "/docs/cloud-hosting/migration" }
     ]
   },
   {

@@ -357,7 +357,7 @@ export default function DocsPage() {
 
   return (
     <DocLayout>
-      <div className="px-6 py-8">
+      <div className="px-6 py-8 bg-green-50 min-h-screen ">
         
         {/* Hero Section */}
         <div ref={heroRef} className="mb-16">
