@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "VPN Enterprise PostgreSQL",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "platform_db",
+      "Username": "platform_admin",
+      "Password": "platform_admin_password",
+      "SSLMode": "prefer",
+      "Favorite": true
+    }
+  }
+}

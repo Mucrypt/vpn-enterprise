@@ -1,23 +1,37 @@
 # infrastructure — VPN Enterprise
 
-This document explains the contents of the `infrastructure/` folder, how to run the Docker-based stacks (dev and prod), the nginx configuration, and the included monitoring stack (Prometheus, Grafana, Promtail). It also contains operational guidance and troubleshooting steps so on-call engineers and future maintainers can pick this up quickly.
+This document explains the contents of the `infrastructure/` folder, how to run the Docker-based stacks (dev and prod), the nginx configuration, and operational guidance for maintainers.
 
-Contents overview
+> **Note**: Infrastructure has been cleaned up (Dec 2024). Unused components moved to `archive/` folder. See `archive/README.md` for details.
+
+## Contents Overview
+
+### Active Infrastructure
 
 - `docker/`
     - `docker-compose.dev.yml` — development compose file that wires up local API, web, database, and reverse proxy in a single environment.
     - `docker-compose.yml` — production-ish compose file (intended for self-hosting or staging).
+    - `docker-compose.database-platform.yml` — comprehensive database platform stack with full services
     - `Dockerfile.api` — container build for the API service (used by compose and CI if you build docker images).
     - `Dockerfile.web` — container build for the web dashboard.
+    - `Dockerfile.db-manager` — container build for database manager service.
+    - `Dockerfile.provisioner` — container build for tenant provisioner service.
     - `nginx/`
         - `nginx.conf` — main nginx config
         - `conf.d/` — site-specific vhost configs (`default.conf`, `dev.conf`)
         - `ssl/` — placeholder for TLS certs for on-prem deployments (gitignored or contains .gitkeep here)
+    - `postgres/` — PostgreSQL configuration and init scripts
 
-- `monitoring/`
-    - `prometheus/` — `prometheus.yml` with scrape configs for services
-    - `grafana/` — dashboards and datasource config
-    - `promtail/` — config for shipping logs to Loki or configured log endpoints
+### Archived Components
+- `archive/` — Contains monitoring stack (Prometheus, Grafana), self-hosted deployment guides, and redundant docker-compose files
+
+## Current Database Development Setup
+
+**Primary setup for database service development:**
+- **File**: `../../docker-compose.db-dev.yml` (in project root)
+- **Services**: PostgreSQL + pgAdmin + Adminer
+- **Start**: `./start-db-dev.sh` from project root
+- **Access**: pgAdmin at http://localhost:8080
 
 Quick start — development (docker-compose)
 

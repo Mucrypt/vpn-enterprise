@@ -51,7 +51,7 @@ services:
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - WIREGUARD_INTERFACE=${WIREGUARD_INTERFACE:-wg0}
       - WIREGUARD_PORT=${WIREGUARD_PORT:-51820}
-  - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5000,http://localhost:3001,http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5000,http://localhost:3001,http://localhost:3000}
     env_file:
       - ../../.env
     networks:

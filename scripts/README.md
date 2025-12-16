@@ -3,16 +3,22 @@
 This folder provides focused helper scripts to build, deploy and manage the project. The goal is to make it easy to push
 changes locally or from CI to Vercel (API and Web), while still supporting on-prem / Docker-based workflows.
 
-TL;DR (most-common commands)
+> **Note**: Scripts have been cleaned up (Dec 2024). Unused/redundant scripts moved to `archive/` folder. See `archive/README.md` for details.
 
-- One-command push+deploy (interactive prompt for commit message):
-  ./scripts/auto-deploy.sh
+## 🚀 TL;DR (Essential Commands)
 
-- Push+deploy with inline commit message (non-interactive):
-  ./scripts/auto-deploy.sh "My release: fix X"
+### Database Development
+```bash
+./scripts/start-db-dev.sh                    # Start PostgreSQL + pgAdmin (primary setup)
+./scripts/test-api.sh                        # Test API functionality
+```
 
-- Deploy only (no commit):
-  ./scripts/deploy-vercel.sh --skip-api-build
+### Deployment  
+```bash
+./scripts/auto-deploy.sh                     # Push + deploy (interactive)
+./scripts/auto-deploy.sh "My release: fix X"  # Push + deploy (with message)
+./scripts/deploy-vercel.sh --skip-api-build   # Deploy only (no commit)
+```
 
 
 Prerequisites
@@ -22,12 +28,35 @@ Prerequisites
 - Vercel CLI (optional locally): `npm i -g vercel` or use `npx vercel`
 - A Git remote named `origin` and permission to push to `main`
 
-Environment & Secrets
+## 📋 Active Scripts
 
-- `.env` — local environment variables used by many scripts (see repo root `quick-start.sh`).
-- `VERCEL_TOKEN` — CI-only secret: create a Vercel personal token and store it in GitHub Actions as `VERCEL_TOKEN`.
+### Database Development Scripts
+- **`start-db-dev.sh`** - Start PostgreSQL + pgAdmin + Adminer (primary database setup)
+- **`start-database-platform.sh`** - Start full database platform stack  
+- **`stop-database-platform.sh`** - Stop database platform stack
 
-Important scripts (what they do)
+### Development Environment Scripts  
+- **`start-dev.sh`** - Start development environment (API + Web + Redis)
+- **`stop-dev.sh`** - Stop development environment
+- **`quick-start.sh`** - Project initialization and setup guide
+
+### Deployment & CI Scripts
+- **`auto-deploy.sh`** - Complete deployment workflow (git push + Vercel deploy)
+- **`deploy-vercel.sh`** - Vercel deployment (used by auto-deploy)  
+- **`build-api-vercel.sh`** - Build API for Vercel deployment
+
+### Testing Scripts
+- **`test-api.sh`** - Test API functionality and database connections
+
+### Git Operations
+- **`git/push.sh`** - Git operations helper
+
+## 🔧 Environment & Secrets
+
+- `.env` — local environment variables (see `quick-start.sh` for setup)
+- `VERCEL_TOKEN` — CI secret for automated Vercel deployments
+
+## 📖 Script Details
 
 - `scripts/build-api-vercel.sh`
   - Builds workspace packages and prepares `packages/api/dist` for Vercel.

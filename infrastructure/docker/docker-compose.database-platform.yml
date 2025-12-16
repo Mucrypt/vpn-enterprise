@@ -306,7 +306,7 @@ services:
       - REDIS_PORT=6379
       - PROVISIONING_MODE=schema  # schema, database, container
       - MAX_TENANTS_PER_DB=1000
-      - DEFAULT_RESOURCE_LIMITS='{\"max_connections\": 20, \"storage_mb\": 1024}'
+      - 'DEFAULT_RESOURCE_LIMITS={"max_connections": 20, "storage_mb": 1024}'
     volumes:
       - tenant-data:/tenant-data
     networks:
