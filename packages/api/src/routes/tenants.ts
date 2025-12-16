@@ -11,6 +11,7 @@ import {
   getTableStructure, 
   updateTableStructure 
 } from '../controllers/tableStructureController';
+import { DatabasePlatformClient } from '../database-platform-client';
 
 export const tenantsRouter = Router();
 
@@ -134,6 +135,16 @@ tenantsRouter.post('/:tenantId/databases', authMiddleware, adminMiddleware, asyn
     res.status(500).json({ error: 'Failed to create database', message: e.message });
   }
 });
+
+// Table Data Endpoints
+tenantsRouter.get('/:tenantId/tables/:schema.:tableName/data', getTableData);
+tenantsRouter.put('/:tenantId/tables/:schema.:tableName/data', updateTableData);
+tenantsRouter.post('/:tenantId/tables/:schema.:tableName/data', insertTableData);
+tenantsRouter.delete('/:tenantId/tables/:schema.:tableName/data', deleteTableData);
+
+// Table Structure Endpoints
+tenantsRouter.get('/:tenantId/tables/:schema.:tableName/structure', getTableStructure);
+tenantsRouter.put('/:tenantId/tables/:schema.:tableName/structure', updateTableStructure);
 
 // Enhanced SQL executor supporting DDL, DML, and DQL operations (like Supabase)
 // DISABLED: Legacy route - now handled by UnifiedDataAPI with DatabasePlatformClient
@@ -500,3 +511,336 @@ tenantsRouter.put('/:tenantId/tables/:schema.:tableName/structure', (req, res, n
   }
   authMiddleware(req, res, next);
 }, updateTableStructure);
+
+// Schema Management Endpoints
+tenantsRouter.get('/:tenantId/schemas', async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    const databaseClient = new DatabasePlatformClient();
+    const pool = await databaseClient.getTenantConnection(tenantId);
+    
+    if (!pool) {
+      return res.status(400).json({ error: 'Unable to connect to database' });
+    }
+
+    const result = await pool.query(`
+      SELECT schema_name as name
+      FROM information_schema.schemata
+      WHERE schema_name NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+      ORDER BY schema_name
+    `);
+
+    res.json({ schemas: result.rows });
+  } catch (error) {
+    console.error('Error fetching schemas:', error);
+    res.status(500).json({ error: 'Failed to fetch schemas' });
+  }
+});
+
+// Tables listing for a schema
+tenantsRouter.get('/:tenantId/schemas/:schemaName/tables', async (req, res) => {
+  try {
+    const { tenantId, schemaName } = req.params;
+    const databaseClient = new DatabasePlatformClient();
+    const pool = await databaseClient.getTenantConnection(tenantId);
+    
+    if (!pool) {
+      return res.status(400).json({ error: 'Unable to connect to database' });
+    }
+
+    const result = await pool.query(`
+      SELECT 
+        t.table_name as name,
+        t.table_type as type,
+        obj_description(c.oid) as comment
+      FROM information_schema.tables t
+      LEFT JOIN pg_class c ON c.relname = t.table_name
+      LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE t.table_schema = $1
+      ORDER BY t.table_name
+    `, [schemaName]);
+
+    res.json({ tables: result.rows });
+  } catch (error) {
+    console.error('Error fetching tables:', error);
+    res.status(500).json({ error: 'Failed to fetch tables' });
+  }
+});
+
+// SQL Query Execution Endpoint
+tenantsRouter.post('/:tenantId/query', async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    const { sql } = req.body;
+    
+    if (!sql) {
+      return res.status(400).json({ error: 'SQL query is required' });
+    }
+
+    const databaseClient = new DatabasePlatformClient();
+    const pool = await databaseClient.getTenantConnection(tenantId);
+    
+    if (!pool) {
+      return res.status(400).json({ error: 'Unable to connect to database' });
+    }
+
+    // Security check - block dangerous operations
+    const loweredSql = sql.toLowerCase().trim();
+    const dangerousKeywords = ['drop database', 'drop schema', 'truncate', 'delete from pg_'];
+    const isDangerous = dangerousKeywords.some(keyword => loweredSql.includes(keyword));
+    
+    if (isDangerous) {
+      return res.status(400).json({ error: 'Dangerous SQL operations are not allowed' });
+    }
+
+    const start = Date.now();
+    
+    try {
+      const result = await pool.query(sql);
+      const executionTime = Date.now() - start;
+      
+      // Determine if this was a SELECT query or modification
+      const isSelect = loweredSql.startsWith('select') || loweredSql.startsWith('with');
+      
+      res.json({
+        success: true,
+        data: result.rows,
+        rowCount: result.rowCount,
+        executionTime,
+        command: result.command || (isSelect ? 'SELECT' : 'MODIFY'),
+        fields: result.fields?.map((f: any) => ({ name: f.name, type: f.dataTypeID })) || []
+      });
+    } catch (queryError: any) {
+      const executionTime = Date.now() - start;
+      res.status(400).json({
+        success: false,
+        error: queryError.message,
+        executionTime,
+        position: queryError.position,
+        hint: queryError.hint
+      });
+    }
+  } catch (error) {
+    console.error('Error executing query:', error);
+    res.status(500).json({ error: 'Failed to execute query' });
+  }
+});
+
+// Enhanced Table Data Endpoints for Supabase-like functionality
+
+// Bulk operations endpoint
+tenantsRouter.post('/:tenantId/tables/:schema.:tableName/bulk', async (req, res) => {
+  try {
+    const { tenantId, schema, tableName } = req.params;
+    const { operation, rows } = req.body;
+    
+    const databaseClient = new DatabasePlatformClient();
+    const pool = await databaseClient.getTenantConnection(tenantId);
+    
+    if (!pool) {
+      return res.status(400).json({ error: 'Unable to connect to database' });
+    }
+
+    let result;
+    switch (operation) {
+      case 'delete':
+        // Build WHERE conditions for multiple rows
+        const deleteConditions = rows.map((row: any, index: number) => {
+          const conditions = Object.entries(row).map(([key, value]) => `${key} = $${index * Object.keys(row).length + Object.keys(row).indexOf(key) + 1}`);
+          return `(${conditions.join(' AND ')})`;
+        }).join(' OR ');
+        
+        const deleteValues = rows.flatMap((row: any) => Object.values(row));
+        const deleteQuery = `DELETE FROM ${schema}.${tableName} WHERE ${deleteConditions}`;
+        
+        result = await pool.query(deleteQuery, deleteValues);
+        break;
+        
+      default:
+        return res.status(400).json({ error: 'Unsupported bulk operation' });
+    }
+    
+    res.json({ 
+      success: true, 
+      affected_rows: result.rowCount,
+      operation 
+    });
+  } catch (error) {
+    console.error('Error executing bulk operation:', error);
+    res.status(500).json({ error: 'Failed to execute bulk operation' });
+  }
+});
+
+// Export table data to CSV
+tenantsRouter.get('/:tenantId/tables/:schema.:tableName/export', async (req, res) => {
+  try {
+    const { tenantId, schema, tableName } = req.params;
+    const { format = 'csv' } = req.query;
+    
+    const databaseClient = new DatabasePlatformClient();
+    const pool = await databaseClient.getTenantConnection(tenantId);
+    
+    if (!pool) {
+      return res.status(400).json({ error: 'Unable to connect to database' });
+    }
+
+    // Get all data from table
+    const result = await pool.query(`SELECT * FROM ${schema}.${tableName} ORDER BY 1`);
+    
+    if (format === 'csv') {
+      // Convert to CSV
+      const headers = Object.keys(result.rows[0] || {});
+      const csvHeaders = headers.join(',');
+      const csvRows = result.rows.map(row => 
+        headers.map(header => {
+          const value = row[header];
+          // Escape CSV values
+          if (value === null) return '';
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return value;
+        }).join(',')
+      ).join('\n');
+      
+      const csvContent = `${csvHeaders}\n${csvRows}`;
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${schema}_${tableName}.csv"`);
+      res.send(csvContent);
+    } else {
+      res.status(400).json({ error: 'Unsupported export format' });
+    }
+  } catch (error) {
+    console.error('Error exporting table data:', error);
+    res.status(500).json({ error: 'Failed to export table data' });
+  }
+});
+
+// Enhanced table columns endpoint with more metadata
+tenantsRouter.get('/:tenantId/tables/:schema.:tableName/columns', async (req, res) => {
+  try {
+    const { tenantId, schema, tableName } = req.params;
+    
+    const databaseClient = new DatabasePlatformClient();
+    const pool = await databaseClient.getTenantConnection(tenantId);
+    
+    if (!pool) {
+      return res.status(400).json({ error: 'Unable to connect to database' });
+    }
+
+    const result = await pool.query(`
+      SELECT 
+        c.column_name as name,
+        c.data_type as type,
+        c.is_nullable = 'YES' as nullable,
+        c.column_default as default,
+        CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END as primary_key,
+        c.character_maximum_length,
+        c.numeric_precision,
+        c.numeric_scale,
+        c.ordinal_position,
+        fk.foreign_table_schema,
+        fk.foreign_table_name,
+        fk.foreign_column_name
+      FROM information_schema.columns c
+      LEFT JOIN (
+        SELECT ku.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage ku ON tc.constraint_name = ku.constraint_name
+        WHERE tc.table_schema = $1 AND tc.table_name = $2 AND tc.constraint_type = 'PRIMARY KEY'
+      ) pk ON c.column_name = pk.column_name
+      LEFT JOIN (
+        SELECT
+          kcu.column_name,
+          ccu.table_schema AS foreign_table_schema,
+          ccu.table_name AS foreign_table_name,
+          ccu.column_name AS foreign_column_name
+        FROM information_schema.table_constraints AS tc
+        JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name
+        JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name
+        WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = $1 AND tc.table_name = $2
+      ) fk ON c.column_name = fk.column_name
+      WHERE c.table_schema = $1 AND c.table_name = $2
+      ORDER BY c.ordinal_position
+    `, [schema, tableName]);
+
+    // Transform the result to include foreign key information
+    const columns = result.rows.map(row => ({
+      name: row.name,
+      type: row.type,
+      nullable: row.nullable,
+      default: row.default,
+      primary_key: row.primary_key,
+      character_maximum_length: row.character_maximum_length,
+      numeric_precision: row.numeric_precision,
+      numeric_scale: row.numeric_scale,
+      ordinal_position: row.ordinal_position,
+      foreign_key: row.foreign_table_name ? {
+        table: row.foreign_table_name,
+        column: row.foreign_column_name,
+        schema: row.foreign_table_schema
+      } : null
+    }));
+
+    res.json({ columns });
+  } catch (error) {
+    console.error('Error fetching table columns:', error);
+    res.status(500).json({ error: 'Failed to fetch table columns' });
+  }
+});
+
+// Get schema relationships
+tenantsRouter.get('/:tenantId/schemas/:schemaName/relationships', async (req, res) => {
+  try {
+    const { tenantId, schemaName } = req.params;
+    
+    const databaseClient = new DatabasePlatformClient();
+    const pool = await databaseClient.getTenantConnection(tenantId);
+    
+    if (!pool) {
+      return res.status(400).json({ error: 'Unable to connect to database' });
+    }
+
+    const result = await pool.query(`
+      SELECT
+        tc.table_schema as from_schema,
+        tc.table_name as from_table,
+        kcu.column_name as from_column,
+        ccu.table_schema as to_schema,
+        ccu.table_name as to_table,
+        ccu.column_name as to_column,
+        tc.constraint_name
+      FROM information_schema.table_constraints AS tc
+      JOIN information_schema.key_column_usage AS kcu 
+        ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage AS ccu 
+        ON ccu.constraint_name = tc.constraint_name
+      WHERE tc.constraint_type = 'FOREIGN KEY' 
+        AND tc.table_schema = $1
+      ORDER BY tc.table_name, kcu.column_name
+    `, [schemaName]);
+
+    // Transform to relationships format
+    const relationships = result.rows.map(row => ({
+      from: {
+        table: row.from_table,
+        schema: row.from_schema,
+        column: row.from_column
+      },
+      to: {
+        table: row.to_table,
+        schema: row.to_schema,
+        column: row.to_column
+      },
+      type: 'one-to-many' as const, // Default relationship type
+      constraint_name: row.constraint_name
+    }));
+
+    res.json({ relationships });
+  } catch (error) {
+    console.error('Error fetching relationships:', error);
+    res.status(500).json({ error: 'Failed to fetch relationships' });
+  }
+});

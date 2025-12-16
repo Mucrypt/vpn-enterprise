@@ -4,7 +4,13 @@ import { DatabasePlatformClient } from '../database-platform-client';
 export const getTableData = async (req: Request, res: Response) => {
   try {
     const { tenantId, schema, tableName } = req.params;
-    const { page = '1', limit = '20', search = '', sortBy = '', sortOrder = 'ASC' } = req.query;
+    const { 
+      page = '1', 
+      limit = '50', 
+      search = '', 
+      sort = '', 
+      order = 'asc' 
+    } = req.query;
 
     if (!tenantId || !schema || !tableName) {
       return res.status(400).json({ 
@@ -25,24 +31,138 @@ export const getTableData = async (req: Request, res: Response) => {
     const limitNum = parseInt(limit as string);
     const offset = (pageNum - 1) * limitNum;
 
-    // Simple query for now - we can enhance this later
+    // Build WHERE conditions
+    let whereConditions: string[] = [];
+    let queryParams: any[] = [];
+    let paramIndex = 1;
+
+    // Handle search query (search across all text columns)
+    if (search) {
+      // Get text columns for search
+      const columnsResult = await pool.query(`
+        SELECT column_name, data_type
+        FROM information_schema.columns 
+        WHERE table_schema = $1 AND table_name = $2
+        AND data_type IN ('text', 'varchar', 'character varying', 'char')
+        ORDER BY ordinal_position
+      `, [schema, tableName]);
+      
+      if (columnsResult.rows.length > 0) {
+        const searchConditions = columnsResult.rows.map((col: any) => 
+          `CAST("${col.column_name}" AS TEXT) ILIKE $${paramIndex}`
+        ).join(' OR ');
+        
+        whereConditions.push(`(${searchConditions})`);
+        queryParams.push(`%${search}%`);
+        paramIndex++;
+      }
+    }
+
+    // Handle column filters
+    const filterKeys = Object.keys(req.query).filter(key => key.startsWith('filter['));
+    const filters = new Map();
+    
+    filterKeys.forEach(key => {
+      const match = key.match(/filter\[(\d+)\]\[(column|operator|value)\]/);
+      if (match) {
+        const [, index, field] = match;
+        if (!filters.has(index)) {
+          filters.set(index, {});
+        }
+        filters.get(index)[field] = req.query[key];
+      }
+    });
+
+    // Build filter conditions
+    filters.forEach((filter) => {
+      if (filter.column && filter.operator && (filter.value !== undefined || ['is_null', 'is_not_null'].includes(filter.operator))) {
+        let condition = '';
+        
+        switch (filter.operator) {
+          case 'eq':
+            condition = `"${filter.column}" = $${paramIndex}`;
+            queryParams.push(filter.value);
+            paramIndex++;
+            break;
+          case 'neq':
+            condition = `"${filter.column}" != $${paramIndex}`;
+            queryParams.push(filter.value);
+            paramIndex++;
+            break;
+          case 'gt':
+            condition = `"${filter.column}" > $${paramIndex}`;
+            queryParams.push(filter.value);
+            paramIndex++;
+            break;
+          case 'gte':
+            condition = `"${filter.column}" >= $${paramIndex}`;
+            queryParams.push(filter.value);
+            paramIndex++;
+            break;
+          case 'lt':
+            condition = `"${filter.column}" < $${paramIndex}`;
+            queryParams.push(filter.value);
+            paramIndex++;
+            break;
+          case 'lte':
+            condition = `"${filter.column}" <= $${paramIndex}`;
+            queryParams.push(filter.value);
+            paramIndex++;
+            break;
+          case 'like':
+            condition = `CAST("${filter.column}" AS TEXT) LIKE $${paramIndex}`;
+            queryParams.push(`%${filter.value}%`);
+            paramIndex++;
+            break;
+          case 'ilike':
+            condition = `CAST("${filter.column}" AS TEXT) ILIKE $${paramIndex}`;
+            queryParams.push(`%${filter.value}%`);
+            paramIndex++;
+            break;
+          case 'in':
+            const values = filter.value.split(',').map((v: string) => v.trim());
+            const placeholders = values.map(() => `$${paramIndex++}`).join(',');
+            condition = `"${filter.column}" IN (${placeholders})`;
+            queryParams.push(...values);
+            break;
+          case 'is_null':
+            condition = `"${filter.column}" IS NULL`;
+            break;
+          case 'is_not_null':
+            condition = `"${filter.column}" IS NOT NULL`;
+            break;
+        }
+        
+        if (condition) {
+          whereConditions.push(condition);
+        }
+      }
+    });
+
+    // Build the main query
     let query = `SELECT * FROM "${schema}"."${tableName}"`;
     let countQuery = `SELECT COUNT(*) as total FROM "${schema}"."${tableName}"`;
-    let params: any[] = [];
+    
+    if (whereConditions.length > 0) {
+      const whereClause = ` WHERE ${whereConditions.join(' AND ')}`;
+      query += whereClause;
+      countQuery += whereClause;
+    }
 
     // Add sorting if provided
-    if (sortBy) {
-      query += ` ORDER BY "${sortBy}" ${sortOrder}`;
+    if (sort) {
+      const orderDirection = typeof order === 'string' ? order.toUpperCase() : 'ASC';
+      query += ` ORDER BY "${sort}" ${orderDirection}`;
     }
 
     // Add pagination
-    query += ` LIMIT $1 OFFSET $2`;
-    params = [limitNum, offset];
+    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(limitNum, offset);
 
     // Execute queries
     const [dataResult, countResult] = await Promise.all([
-      pool.query(query, params),
-      pool.query(countQuery)
+      pool.query(query, queryParams),
+      pool.query(countQuery, queryParams.slice(0, -2)) // Remove pagination params for count
     ]);
 
     const totalRows = parseInt(countResult.rows[0]?.total || '0');
@@ -76,6 +196,7 @@ export const getTableData = async (req: Request, res: Response) => {
 
     res.json({
       data: dataResult.rows,
+      total: totalRows,
       columns: columnsResult.rows,
       primaryKeys,
       pagination: {

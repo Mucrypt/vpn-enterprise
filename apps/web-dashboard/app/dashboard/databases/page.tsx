@@ -1,18 +1,30 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { DatabaseLayout } from '@/components/database/database-layout';
-import { TablesPage } from '@/components/database/tables-page';
-import { SqlEditorPage } from '@/components/database/sql-editor-page';
-import { QueryHistoryPage } from '@/components/database/query-history-page';
-import { SqlTemplatesPage } from '@/components/database/sql-templates-page';
-import { SavedQueriesPage } from '@/components/database/saved-queries-page';
-import { CreateTableDialog } from '@/components/database/create-table-dialog';
-import { CreateSchemaDialog } from '@/components/database/create-schema-dialog';
-import { VisualQueryBuilder } from '@/components/database/visual-query-builder';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useQueryStorage } from '@/hooks/use-query-storage';
-import { Database } from 'lucide-react';
+import { Database, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+// Loading component for Suspense fallback
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center h-96">
+    <div className="text-center">
+      <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mx-auto mb-2" />
+      <p className="text-sm text-gray-600">Loading database components...</p>
+    </div>
+  </div>
+);
+
+// Dynamic imports for heavy components
+const DatabaseLayout = lazy(() => import('@/components/database/database-layout').then(module => ({ default: module.DatabaseLayout })));
+const TablesPage = lazy(() => import('@/components/database/tables-page').then(module => ({ default: module.TablesPage })));
+const SqlEditorPage = lazy(() => import('@/components/database/sql-editor-page').then(module => ({ default: module.SqlEditorPage })));
+const QueryHistoryPage = lazy(() => import('@/components/database/query-history-page').then(module => ({ default: module.QueryHistoryPage })));
+const SqlTemplatesPage = lazy(() => import('@/components/database/sql-templates-page').then(module => ({ default: module.SqlTemplatesPage })));
+const SavedQueriesPage = lazy(() => import('@/components/database/saved-queries-page').then(module => ({ default: module.SavedQueriesPage })));
+const CreateTableDialog = lazy(() => import('@/components/database/create-table-dialog').then(module => ({ default: module.CreateTableDialog })));
+const CreateSchemaDialog = lazy(() => import('@/components/database/create-schema-dialog').then(module => ({ default: module.CreateSchemaDialog })));
+const VisualQueryBuilder = lazy(() => import('@/components/database/visual-query-builder').then(module => ({ default: module.VisualQueryBuilder })));
 
 type DatabaseSection = 
   | 'schema-visualizer'
@@ -176,10 +188,34 @@ SELECT * FROM blog.posts LIMIT 5;
     }
   };
 
-  const runQuery = async () => {
-    if (!sql.trim() || !activeTenant || isLoading) return;
+  // Query execution with cancel capability
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [queryStatus, setQueryStatus] = useState<'idle' | 'running' | 'cancelled'>('idle');
+
+  const cancelQuery = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setQueryStatus('cancelled');
+      setIsLoading(false);
+      setQueryError('Query cancelled by user');
+    }
+  };
+
+  const runQuery = async (selectedSql?: string) => {
+    const queryToRun = selectedSql || sql.trim();
+    if (!queryToRun || !activeTenant || isLoading) return;
+    
+    // Cancel any existing query
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
     
     setIsLoading(true);
+    setQueryStatus('running');
     setQueryError(null);
     setQueryResult(null);
     
@@ -192,42 +228,82 @@ SELECT * FROM blog.posts LIMIT 5;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sql: sql.trim()
+          sql: queryToRun,
+          timeout: 30000 // 30 second timeout
         }),
+        signal: abortControllerRef.current.signal
       });
 
       const endTime = performance.now();
-      setExecutionTime(Math.round(endTime - startTime));
+      const duration = Math.round(endTime - startTime);
+      setExecutionTime(duration);
+
+      if (!response.ok) {
+        const json = await response.json();
+        throw new Error(json.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
 
       const json = await response.json();
 
-      if (response.ok && json.data !== undefined) {
-        setQueryResult(json.data);
-        addToHistory(sql.trim(), 'success', {
-          rowCount: json.data.length,
-          duration: Math.round(endTime - startTime)
+      if (json.success !== false) {
+        // Handle successful query
+        const resultData = json.data || [];
+        setQueryResult(resultData);
+        setQueryStatus('idle');
+        
+        addToHistory(queryToRun, 'success', {
+          rowCount: resultData.length,
+          duration,
+          command: json.command || 'QUERY'
         });
+
+        // Show success message for non-SELECT queries
+        if (!queryToRun.toLowerCase().trim().startsWith('select') && json.rowCount !== undefined) {
+          console.log(`Query executed successfully. ${json.rowCount} rows affected.`);
+        }
       } else {
-        const errorMessage = json.error || json.details || 'Query failed';
+        // Handle query execution error
+        const errorMessage = json.error || json.details || 'Query execution failed';
         setQueryError(errorMessage);
-        addToHistory(sql.trim(), 'error', {
+        setQueryStatus('idle');
+        addToHistory(queryToRun, 'error', {
           error: errorMessage,
-          duration: Math.round(endTime - startTime)
+          duration,
+          hint: json.hint,
+          position: json.position
         });
       }
     } catch (error: any) {
       const endTime = performance.now();
-      setExecutionTime(Math.round(endTime - startTime));
-      const errorMessage = error.message || 'Network error occurred';
-      setQueryError(errorMessage);
-      addToHistory(sql.trim(), 'error', {
-        error: errorMessage,
-        duration: Math.round(endTime - startTime)
-      });
+      const duration = Math.round(endTime - startTime);
+      setExecutionTime(duration);
+      
+      if (error.name === 'AbortError') {
+        setQueryError('Query was cancelled');
+        setQueryStatus('cancelled');
+      } else {
+        const errorMessage = error.message || 'Network error occurred';
+        setQueryError(errorMessage);
+        setQueryStatus('idle');
+        addToHistory(queryToRun, 'error', {
+          error: errorMessage,
+          duration
+        });
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const createSchema = async (schemaName: string, description: string = '') => {
     console.log('createSchema called with:', schemaName, 'activeTenant:', activeTenant);
@@ -457,52 +533,77 @@ SELECT * FROM blog.posts LIMIT 5;
     switch (activeSection) {
       case 'tables':
         return (
-          <TablesPage
-            activeTenant={activeTenant}
-            onCreateTable={() => {
-              setSelectedSchemaForTable('public');
-              setShowCreateTableDialog(true);
+          <Suspense fallback={<LoadingSpinner />}>
+            <TablesPage
+              activeTenant={activeTenant}
+              onCreateTable={() => {
+                setSelectedSchemaForTable('public');
+                setShowCreateTableDialog(true);
             }}
-          />
+            />
+          </Suspense>
         );
         
       case 'sql-editor':
         return (
-          <SqlEditorPage
+          <Suspense fallback={<LoadingSpinner />}>
+            <SqlEditorPage
             activeTenant={activeTenant}
             sql={sql}
             setSql={setSql}
             runQuery={runQuery}
+            cancelQuery={cancelQuery}
             queryResult={queryResult}
             queryError={queryError}
             isLoading={isLoading}
+            queryStatus={queryStatus}
             executionTime={executionTime}
             activeQueryName={activeQueryName}
             setActiveQueryName={setActiveQueryName}
           />
+          </Suspense>
         );
 
       case 'query-history':
         return (
-          <QueryHistoryPage
-            activeTenant={activeTenant}
-            onLoadQuery={loadQueryIntoEditor}
-          />
+          <Suspense fallback={<LoadingSpinner />}>
+            <QueryHistoryPage
+              activeTenant={activeTenant}
+              onLoadQuery={loadQueryIntoEditor}
+            />
+          </Suspense>
         );
 
       case 'sql-templates':
         return (
-          <SqlTemplatesPage
-            onLoadTemplate={loadQueryIntoEditor}
-          />
+          <Suspense fallback={<LoadingSpinner />}>
+            <SqlTemplatesPage
+              onLoadTemplate={loadQueryIntoEditor}
+            />
+          </Suspense>
         );
 
       case 'saved-queries':
         return (
-          <SavedQueriesPage
-            activeTenant={activeTenant}
-            onLoadQuery={loadQueryIntoEditor}
-          />
+          <Suspense fallback={<LoadingSpinner />}>
+            <SavedQueriesPage
+              activeTenant={activeTenant}
+              onLoadQuery={loadQueryIntoEditor}
+            />
+          </Suspense>
+        );
+
+      case 'visual-query-builder':
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <VisualQueryBuilder
+              activeTenant={activeTenant}
+              onQueryGenerated={(sql: string) => {
+                setSql(sql);
+                setActiveSection('sql-editor');
+              }}
+            />
+          </Suspense>
         );
         
       case 'schema-visualizer':
@@ -528,18 +629,19 @@ SELECT * FROM blog.posts LIMIT 5;
   };
 
   return (
-    <DatabaseLayout
-      activeTenant={activeTenant}
-      tenants={tenants}
-      onTenantChange={setActiveTenant}
-      activeSection={activeSection}
-      onSectionChange={setActiveSection}
-      onLoadQuery={(sql: string, name: string) => {
-        setSql(sql);
-        setActiveQueryName(name);
-        setActiveSection('sql-editor');
-      }}
-    >
+    <Suspense fallback={<LoadingSpinner />}>
+      <DatabaseLayout
+        activeTenant={activeTenant}
+        tenants={tenants}
+        onTenantChange={setActiveTenant}
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        onLoadQuery={(sql: string, name: string) => {
+          setSql(sql);
+          setActiveQueryName(name);
+          setActiveSection('sql-editor');
+        }}
+      >
       {/* Sample Data Banner */}
       {showSampleDataBanner && (
         <div className="bg-gradient-to-r from-emerald-600/10 to-blue-600/10 border border-emerald-500/20 p-4 m-4 rounded-lg">
@@ -596,5 +698,6 @@ SELECT * FROM blog.posts LIMIT 5;
         schemaName={selectedSchemaForTable}
       />
     </DatabaseLayout>
+    </Suspense>
   );
 }

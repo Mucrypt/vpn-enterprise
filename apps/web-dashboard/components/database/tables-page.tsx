@@ -18,8 +18,9 @@ import {
   Hash,
   Key
 } from 'lucide-react';
-import { TableDataViewer } from './table-data-viewer';
+import EnhancedTableDataViewer from './enhanced-table-data-viewer';
 import { TableStructureEditor } from './table-structure-editor';
+import DatabaseSchemaVisualizer from './schema-visualizer';
 
 interface TablesPageProps {
   activeTenant: string;
@@ -48,7 +49,7 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartWidth, setDragStartWidth] = useState(50);
-  const [panelMode, setPanelMode] = useState<'view' | 'edit' | null>(null);
+  const [panelMode, setPanelMode] = useState<'view' | 'edit' | 'schema' | null>(null);
   const [isCompactMode, setIsCompactMode] = useState(false);
   const [showTableDetails, setShowTableDetails] = useState(true);
 
@@ -229,6 +230,22 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
                   )}
                 </Button>
               )}
+              <Button
+                onClick={() => {
+                  setPanelMode('schema');
+                  setRightPanelWidth(70);
+                  setIsCompactMode(true);
+                  setShowTableDetails(false);
+                }}
+                variant="outline"
+                size="sm"
+                className={`transition-all duration-300 ${
+                  panelMode === 'schema' ? 'bg-emerald-600 text-white border-emerald-600' : ''
+                } ${isCompactMode && panelMode ? 'px-2' : 'px-3'}`}
+              >
+                <Database className="h-4 w-4 mr-1" />
+                {(!isCompactMode || !panelMode) ? 'Schema' : 'ERD'}
+              </Button>
               <Button 
                 onClick={onCreateTable}
                 className={`bg-emerald-600 hover:bg-emerald-700 text-white transition-all duration-300 ${
@@ -594,12 +611,15 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
                 <div className="flex items-center gap-2">
                   {panelMode === 'view' ? (
                     <Eye className="h-4 w-4 text-emerald-400" />
-                  ) : (
+                  ) : panelMode === 'edit' ? (
                     <Edit className="h-4 w-4 text-emerald-400" />
-                  )}
+                  ) : panelMode === 'schema' ? (
+                    <Database className="h-4 w-4 text-emerald-400" />
+                  ) : null}
                   <h3 className="font-medium text-white">
                     {panelMode === 'view' && viewingTable && `Viewing: ${viewingTable.schema}.${viewingTable.name}`}
                     {panelMode === 'edit' && editingTable && `Editing: ${editingTable.schema}.${editingTable.name}`}
+                    {panelMode === 'schema' && 'Database Schema Visualizer'}
                   </h3>
                 </div>
                 <div className="flex items-center gap-1">
@@ -641,10 +661,10 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
             {/* Panel Content */}
             <div className="flex-1 overflow-hidden">
               {panelMode === 'view' && viewingTable && (
-                <TableDataViewer
+                <EnhancedTableDataViewer
+                  activeTenant={activeTenant}
                   tableName={viewingTable.name}
                   schemaName={viewingTable.schema}
-                  activeTenant={activeTenant}
                   onClose={() => {
                     setViewingTable(null);
                     setPanelMode(null);
@@ -665,6 +685,15 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
                     setEditingTable(null);
                     setPanelMode(null);
                     loadTables(); // Reload tables after structure update
+                  }}
+                />
+              )}
+              
+              {panelMode === 'schema' && (
+                <DatabaseSchemaVisualizer
+                  activeTenant={activeTenant}
+                  onClose={() => {
+                    setPanelMode(null);
                   }}
                 />
               )}

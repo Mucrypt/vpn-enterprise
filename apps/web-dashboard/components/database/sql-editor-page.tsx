@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, Suspense, lazy } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -16,17 +16,29 @@ import {
   Trash2,
   Download,
   Copy,
-  Plus
+  Plus,
+  X
 } from 'lucide-react';
+import { SimpleSqlEditor } from '@/components/database/simple-sql-editor';
+
+
+// Lazy load the heavy Monaco editor
+const AdvancedSQLEditor = lazy(() => 
+  import('@vpn-enterprise/editor/src/sql-editor').then(module => ({
+    default: module.AdvancedSQLEditor
+  }))
+);
 
 interface SqlEditorPageProps {
   activeTenant: string;
   sql: string;
   setSql: (sql: string) => void;
-  runQuery: () => void;
+  runQuery: (selectedSql?: string) => void;
+  cancelQuery?: () => void;
   queryResult: any[] | null;
   queryError: string | null;
   isLoading: boolean;
+  queryStatus?: 'idle' | 'running' | 'cancelled';
   executionTime: number | null;
   activeQueryName: string;
   setActiveQueryName: (name: string) => void;
@@ -172,9 +184,11 @@ export function SqlEditorPage({
   sql,
   setSql,
   runQuery,
+  cancelQuery,
   queryResult,
   queryError,
   isLoading,
+  queryStatus = 'idle',
   executionTime,
   activeQueryName,
   setActiveQueryName
@@ -368,49 +382,32 @@ export function SqlEditorPage({
         </div>
       </div>
 
-      {/* Resizable Editor Section */}
+      {/* Enhanced Monaco Editor Section  */}
       <div className="flex-shrink-0 relative bg-[#1e1e1e]" style={{ height: editorHeight }}>
-        {/* SQL Editor with Syntax Highlighting */}
-        <div className="h-full relative">
-          {/* Syntax Highlighting Overlay */}
-          <div
-            ref={highlightRef}
-            className="sql-highlight-overlay"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              padding: '16px 24px',
-              fontSize: '14px',
-              lineHeight: '1.5',
-              fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
-              whiteSpace: 'pre-wrap',
-              overflow: 'hidden',
-              pointerEvents: 'none',
-              zIndex: 1,
-            }}
-          >
-            {highlightSQLText(sql)}
-          </div>
-          
-          {/* Transparent Textarea */}
-          <textarea
-            ref={editorRef}
-            value={sql}
-            onChange={(e) => setSql(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onScroll={handleScroll}
-            placeholder="Hit CTRL+K to generate query or just start typing"
-            className="sql-editor w-full h-full px-6 py-4 bg-transparent text-transparent font-mono text-sm resize-none border-none outline-none relative z-2"
-            style={{ 
-              lineHeight: '1.5',
-              fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
-              caretColor: '#d4d4d4'
-            }}
+        <Suspense 
+          fallback={
+            <SimpleSqlEditor
+              sql={sql}
+              setSql={setSql}
+              runQuery={() => runQuery(sql)}
+              cancelQuery={cancelQuery || (() => {})}
+              isLoading={isLoading}
+              queryStatus={queryStatus}
+            />
+          }
+        >
+          <AdvancedSQLEditor
+            initialValue={sql}
+            onChange={(value) => setSql(value || '')}
+            onExecute={(sqlToRun) => runQuery(sqlToRun)}
+            onSelectionExecute={(selectedSql) => runQuery(selectedSql)}
+            height={`${editorHeight}px`}
+            theme="vs-dark"
+            showMinimap={editorHeight > 400}
+            enableSuggestions={true}
+            schemas={[]} // TODO: Pass actual schema data
           />
-        </div>
+        </Suspense>
 
         {/* Resize Handle */}
         <div
@@ -425,6 +422,7 @@ export function SqlEditorPage({
           </div>
         </div>
       </div>
+     
 
       {/* Results Section - Takes remaining space */}
       <div className="flex-1 flex flex-col border-t border-[#2d2d30] min-h-0">
@@ -442,12 +440,27 @@ export function SqlEditorPage({
               </TabsList>
               
               <div className="flex items-center gap-3">
-                {executionTime && (
-                  <div className="flex items-center text-xs text-gray-400">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {executionTime}ms
-                  </div>
-                )}
+                {/* Status and Execution Time */}
+                <div className="flex items-center gap-3">
+                  {queryStatus === 'running' && (
+                    <div className="flex items-center text-xs text-blue-400">
+                      <div className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Executing query...
+                    </div>
+                  )}
+                  {queryStatus === 'cancelled' && (
+                    <div className="flex items-center text-xs text-yellow-400">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Query cancelled
+                    </div>
+                  )}
+                  {executionTime && queryStatus === 'idle' && (
+                    <div className="flex items-center text-xs text-gray-400">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {executionTime}ms
+                    </div>
+                  )}
+                </div>
                 
                 {/* Action Buttons - Supabase Style */}
                 <div className="flex items-center gap-2">
@@ -456,6 +469,7 @@ export function SqlEditorPage({
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 bg-[#2d2d30] hover:bg-[#3e3e42] text-gray-300 border border-[#3e3e42]"
+                    disabled={isLoading}
                   >
                     <Trash2 className="h-3 w-3 mr-1" />
                     Clear
@@ -466,20 +480,33 @@ export function SqlEditorPage({
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 bg-[#2d2d30] hover:bg-[#3e3e42] text-gray-300 border border-[#3e3e42]"
+                    disabled={isLoading}
                   >
                     <Copy className="h-3 w-3 mr-1" />
                     Copy
                   </Button>
                   
-                  <Button
-                    onClick={handleQueryWithAutoSave}
-                    disabled={!activeTenant || isLoading || !sql.trim()}
-                    className="h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
-                  >
-                    <Play className="h-3 w-3 mr-1" />
-                    Run
-                    <span className="ml-1 text-xs opacity-75">⌃⏎</span>
-                  </Button>
+                  {isLoading && cancelQuery ? (
+                    <Button
+                      onClick={cancelQuery}
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-3 bg-red-600 hover:bg-red-700 text-white border-red-600"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Cancel
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleQueryWithAutoSave}
+                      disabled={!activeTenant || isLoading || !sql.trim()}
+                      className="h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
+                    >
+                      <Play className="h-3 w-3 mr-1" />
+                      Run
+                      <span className="ml-1 text-xs opacity-75">⌃⏎</span>
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

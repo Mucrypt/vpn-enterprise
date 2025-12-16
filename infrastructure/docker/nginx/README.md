@@ -1,23 +1,81 @@
 # Nginx (reverse proxy) — VPN Enterprise
 
-This directory contains the nginx configuration used by the `infrastructure/docker` compose stacks. It provides host-based routing and TLS termination for the API, web dashboard, and other services in the stack.
+This directory contains nginx configurations for different deployment scenarios. Configurations are optimized for performance, security, and the specific needs of the VPN Enterprise platform.
 
-Key files
+> **Note**: Nginx configurations updated and cleaned up (Dec 2024). Service names synchronized with docker-compose files.
 
-- `nginx.conf` — main global configuration (includes `conf.d/*.conf`).
-- `conf.d/default.conf` — default site config used for production. It routes `/api` requests to the API upstream and other paths to the web dashboard.
-- `conf.d/dev.conf` — development convenience config (localhost-based routing, no TLS).
-- `ssl/` — place TLS certificates here for on-prem deployments (certificate files are intentionally not committed).
+## 📁 File Structure
 
-Common operations
+### Main Configurations
+- **`nginx.conf`** — Standard production configuration with security headers, rate limiting, and caching
+- **`nginx-database.conf`** — Specialized configuration for database-as-a-service platform with PostgreSQL TCP proxy
 
-- Reload nginx after changing certs or configs (running in compose):
+### Virtual Host Configurations (`conf.d/`)
+- **`default.conf`** — Standard production server configuration  
+- **`database-platform.conf`** — Database platform server with specialized endpoints and rate limiting
+- **`dev.conf`** — Development configuration (HTTP only, relaxed CORS)
 
+### SSL/TLS (`ssl/`)
+- **`cert.pem`** — SSL certificate (self-signed for development)
+- **`key.pem`** — Private key for SSL certificate
+- **`.gitkeep`** — Ensures directory exists in repository
+
+## 🔧 Configuration Details
+
+### Service Mapping
+- **Development** (`dev.conf`): `api-dev:5000`, `web-dev:3000`
+- **Database Platform** (`database-platform.conf`): `dbplatform-*:300X`
+- **Standard Production** (`default.conf`): `dbplatform-api:3000`, `dbplatform-web:3001`
+
+### Rate Limiting Zones
+- **API General**: 30 req/sec with burst 50
+- **Database Queries**: 50 req/sec with burst 100  
+- **Authentication**: 5 req/min with burst 5
+- **Provisioning**: 10 req/sec with burst 10
+
+### SSL/TLS Security
+- **Protocols**: TLS 1.2, TLS 1.3 only
+- **Ciphers**: Modern ECDHE ciphers with forward secrecy
+- **HSTS**: Enabled with 1-year max-age
+- **Certificate**: Self-signed for development (replace for production)
+
+## 🚀 Common Operations
+
+### Development
 ```bash
-docker compose -f infrastructure/docker/docker-compose.yml exec nginx nginx -s reload
+# Start development stack with nginx
+./scripts/start-dev.sh
+
+# Access via nginx proxy
+curl http://localhost/api/health
 ```
 
-- To add a new upstream/service: edit a vhost in `conf.d/` and add a matching `upstream` and `proxy_pass`.
+### Database Platform
+```bash  
+# Start database platform stack
+./scripts/start-database-platform.sh
+
+# Access database platform
+curl http://localhost/api/v1/tenants/
+```
+
+### Production Operations
+```bash
+# Reload nginx after config changes
+docker compose exec dbplatform-nginx nginx -s reload
+
+# Test nginx configuration
+docker compose exec dbplatform-nginx nginx -t
+
+# View nginx logs
+docker compose logs dbplatform-nginx
+```
+
+### Adding New Services
+1. Add upstream definition in appropriate `nginx*.conf`
+2. Add location block in appropriate `conf.d/*.conf`
+3. Configure rate limiting if needed
+4. Test with `nginx -t`
 
 Security & TLS
 
