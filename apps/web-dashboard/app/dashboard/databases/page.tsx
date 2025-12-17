@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useQueryStorage } from '@/hooks/use-query-storage';
 import { Database, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { DatabaseSection } from '@/components/database/database-layout';
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
@@ -25,31 +26,6 @@ const SavedQueriesPage = lazy(() => import('@/components/database/saved-queries-
 const CreateTableDialog = lazy(() => import('@/components/database/create-table-dialog').then(module => ({ default: module.CreateTableDialog })));
 const CreateSchemaDialog = lazy(() => import('@/components/database/create-schema-dialog').then(module => ({ default: module.CreateSchemaDialog })));
 const VisualQueryBuilder = lazy(() => import('@/components/database/visual-query-builder').then(module => ({ default: module.VisualQueryBuilder })));
-
-type DatabaseSection = 
-  | 'schema-visualizer'
-  | 'tables' 
-  | 'functions'
-  | 'triggers'
-  | 'enumerated-types'
-  | 'extensions'
-  | 'indexes'
-  | 'publications'
-  | 'roles'
-  | 'policies'
-  | 'settings'
-  | 'replication'
-  | 'backups'
-  | 'migrations'
-  | 'wrappers'
-  | 'webhooks'
-  | 'security-advisor'
-  | 'performance-advisor'
-  | 'query-performance'
-  | 'sql-editor'
-  | 'query-history'
-  | 'sql-templates'
-  | 'saved-queries';
 
 export default function DatabasePage() {
   // Query storage hook
@@ -253,8 +229,7 @@ SELECT * FROM blog.posts LIMIT 5;
         
         addToHistory(queryToRun, 'success', {
           rowCount: resultData.length,
-          duration,
-          command: json.command || 'QUERY'
+          duration
         });
 
         // Show success message for non-SELECT queries
@@ -268,9 +243,7 @@ SELECT * FROM blog.posts LIMIT 5;
         setQueryStatus('idle');
         addToHistory(queryToRun, 'error', {
           error: errorMessage,
-          duration,
-          hint: json.hint,
-          position: json.position
+          duration
         });
       }
     } catch (error: any) {
@@ -597,11 +570,12 @@ SELECT * FROM blog.posts LIMIT 5;
         return (
           <Suspense fallback={<LoadingSpinner />}>
             <VisualQueryBuilder
-              activeTenant={activeTenant}
+              availableTables={[]}
               onQueryGenerated={(sql: string) => {
                 setSql(sql);
                 setActiveSection('sql-editor');
               }}
+              onExecuteQuery={runQuery}
             />
           </Suspense>
         );
