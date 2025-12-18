@@ -160,6 +160,47 @@ export function DatabaseLayout({ children, activeTenant, tenants, onTenantChange
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [queryHistory, setQueryHistory] = useState<any[]>([]);
+  const [tableCount, setTableCount] = useState<number>(0);
+
+  // Load table count
+  useEffect(() => {
+    const loadTableCount = async () => {
+      if (!activeTenant) return;
+      
+      try {
+        // Get all schemas first
+        const schemasResponse = await fetch(`/api/v1/tenants/${activeTenant}/schemas`);
+        if (!schemasResponse.ok) return;
+        
+        const schemasData = await schemasResponse.json();
+        const schemas = schemasData.data || schemasData.schemas || [];
+        
+        let totalCount = 0;
+        
+        // Count tables from all schemas
+        for (const schema of schemas) {
+          const schemaName = schema.schema_name || schema.name;
+          const tablesResponse = await fetch(`/api/v1/tenants/${activeTenant}/schemas/${schemaName}/tables`);
+          
+          if (tablesResponse.ok) {
+            const tablesData = await tablesResponse.json();
+            const tables = tablesData.data || tablesData.tables || [];
+            // Only count BASE TABLEs, not VIEWs
+            const baseTables = tables.filter((t: any) => (t.table_type || t.type) === 'BASE TABLE');
+            totalCount += baseTables.length;
+          }
+        }
+        
+        setTableCount(totalCount);
+      } catch (error) {
+        console.warn('Failed to load table count:', error);
+      }
+    };
+    
+    if (activeTenant) {
+      loadTableCount();
+    }
+  }, [activeTenant]);
 
   // Load query history when tenant changes
   useEffect(() => {
@@ -297,7 +338,7 @@ export function DatabaseLayout({ children, activeTenant, tenants, onTenantChange
                               )}
                               {item.id === 'tables' && (
                                 <span className="ml-auto text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full">
-                                  12
+                                  {tableCount}
                                 </span>
                               )}
                               {item.id === 'functions' && (
