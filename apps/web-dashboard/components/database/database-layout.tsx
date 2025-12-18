@@ -45,7 +45,7 @@ interface DatabaseLayoutProps {
   onLoadQuery?: (sql: string, name: string) => void;
 }
 
-type DatabaseSection = 
+export type DatabaseSection = 
   | 'schema-visualizer'
   | 'tables' 
   | 'functions'
@@ -68,7 +68,8 @@ type DatabaseSection =
   | 'sql-editor'
   | 'query-history'
   | 'sql-templates'
-  | 'saved-queries';
+  | 'saved-queries'
+  | 'visual-query-builder';
 
 const SQL_TEMPLATES = [
   {

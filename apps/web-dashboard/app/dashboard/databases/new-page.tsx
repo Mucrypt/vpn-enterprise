@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DatabaseLayout } from '@/components/database/database-layout';
 import { TablesPage } from '@/components/database/tables-page';
-import { SqlEditorPage } from '@/components/database/sql-editor-page';
+import { SqlEditorPage } from '@/components/test-components/sql-editor-page';
 import { CreateTableDialog } from '@/components/database/create-table-dialog';
 import { CreateSchemaDialog } from '@/components/database/create-schema-dialog';
 import { VisualQueryBuilder } from '@/components/database/visual-query-builder';

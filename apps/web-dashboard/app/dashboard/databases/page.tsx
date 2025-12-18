@@ -1,31 +1,34 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy, useCallback } from 'react';
 import { useQueryStorage } from '@/hooks/use-query-storage';
 import { Database, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { DatabaseSection } from '@/components/database/database-layout';
+// Import lightweight editor directly - no lazy loading needed for fast component
+import { SqlEditorPageLight } from '@/components/database/sql-editor-page-light';
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center h-96">
     <div className="text-center">
       <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mx-auto mb-2" />
-      <p className="text-sm text-gray-600">Loading database components...</p>
+      <p className="text-sm text-gray-600">Loading...</p>
     </div>
   </div>
 );
 
-// Dynamic imports for heavy components
+// Lazy load only heavy/rarely used components
 const DatabaseLayout = lazy(() => import('@/components/database/database-layout').then(module => ({ default: module.DatabaseLayout })));
 const TablesPage = lazy(() => import('@/components/database/tables-page').then(module => ({ default: module.TablesPage })));
-const SqlEditorPage = lazy(() => import('@/components/database/sql-editor-page').then(module => ({ default: module.SqlEditorPage })));
 const QueryHistoryPage = lazy(() => import('@/components/database/query-history-page').then(module => ({ default: module.QueryHistoryPage })));
 const SqlTemplatesPage = lazy(() => import('@/components/database/sql-templates-page').then(module => ({ default: module.SqlTemplatesPage })));
 const SavedQueriesPage = lazy(() => import('@/components/database/saved-queries-page').then(module => ({ default: module.SavedQueriesPage })));
+const VisualQueryBuilder = lazy(() => import('@/components/database/visual-query-builder').then(module => ({ default: module.VisualQueryBuilder })));
+
+// Lazy load dialogs only when needed
 const CreateTableDialog = lazy(() => import('@/components/database/create-table-dialog').then(module => ({ default: module.CreateTableDialog })));
 const CreateSchemaDialog = lazy(() => import('@/components/database/create-schema-dialog').then(module => ({ default: module.CreateSchemaDialog })));
-const VisualQueryBuilder = lazy(() => import('@/components/database/visual-query-builder').then(module => ({ default: module.VisualQueryBuilder })));
 
 export default function DatabasePage() {
   // Query storage hook
@@ -34,7 +37,7 @@ export default function DatabasePage() {
   // Database connection state
   const [tenants, setTenants] = useState<any[]>([]);
   const [activeTenant, setActiveTenant] = useState<string>('');
-  const [activeSection, setActiveSection] = useState<DatabaseSection>('tables');
+  const [activeSection, setActiveSection] = useState<DatabaseSection>('sql-editor');
   const [showSampleDataBanner, setShowSampleDataBanner] = useState(false);
   
   // SQL Editor state
@@ -60,110 +63,74 @@ SELECT * FROM blog.posts LIMIT 5;
   const [showCreateSchemaDialog, setShowCreateSchemaDialog] = useState(false);
   const [selectedSchemaForTable, setSelectedSchemaForTable] = useState('');
 
-  // Load tenants on mount
-  useEffect(() => {
-    const loadTenants = async () => {
-      try {
-        const response = await fetch('/api/v1/tenants');
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Tenants API response:', data);
-          const tenantList = data.tenants || data.data || [];
-          setTenants(tenantList);
-          
-          // Auto-select first tenant or use a development tenant ID
-          if (tenantList.length > 0) {
-            const firstTenant = tenantList[0];
-            const tenantId = firstTenant.tenant_id || firstTenant.id;
-            console.log('Selected tenant:', firstTenant, 'ID:', tenantId);
-            setActiveTenant(tenantId);
-          } else {
-            // Fallback for development - use a proper UUID format that matches the mock data
-            console.log('No tenants found, using development fallback');
-            setActiveTenant('123e4567-e89b-12d3-a456-426614174000');
-          }
+  // Memoize tenant loading to prevent repeated calls
+  const loadTenants = useCallback(async () => {
+    try {
+      const response = await fetch('/api/v1/tenants');
+      if (response.ok) {
+        const data = await response.json();
+        const tenantList = data.tenants || data.data || [];
+        setTenants(tenantList);
+        
+        // Auto-select first tenant
+        if (tenantList.length > 0) {
+          const firstTenant = tenantList[0];
+          const tenantId = firstTenant.tenant_id || firstTenant.id;
+          setActiveTenant(tenantId);
         } else {
-          // Fallback for development when API is not available
-          console.warn('Could not load tenants, using development fallback');
+          // Development fallback
           setActiveTenant('123e4567-e89b-12d3-a456-426614174000');
         }
-      } catch (error) {
-        console.error('Error loading tenants:', error);
+      } else {
+        // Development fallback
+        setActiveTenant('123e4567-e89b-12d3-a456-426614174000');
       }
-    };
-
-    loadTenants();
-  }, []);
-  
-  // Test connection and check for existing data when tenant changes
-  useEffect(() => {
-    if (activeTenant) {
-      testConnection();
-      checkForExistingData();
+    } catch (error) {
+      console.error('Error loading tenants:', error);
+      setActiveTenant('123e4567-e89b-12d3-a456-426614174000');
     }
-  }, [activeTenant]);
-  
-  const testConnection = async () => {
+  }, []);
+
+  // Check for existing data when tenant changes - define before use
+  const checkForExistingData = useCallback(async () => {
     if (!activeTenant) return;
     
     try {
-      console.log(`Testing connection for tenant: ${activeTenant}`);
-      
-      // First, try to verify the tenant exists
-      const tenantCheckResponse = await fetch(`/api/v1/tenants`);
-      if (tenantCheckResponse.ok) {
-        const tenantsData = await tenantCheckResponse.json();
-        const tenantExists = (tenantsData.tenants || tenantsData.data || []).some(
-          (t: any) => (t.tenant_id || t.id) === activeTenant
-        );
-        
-        if (!tenantExists) {
-          console.warn(`Tenant ${activeTenant} not found in tenant list`);
-          setQueryError(`Tenant not found. Please select a valid tenant.`);
-          return;
-        }
-      }
-      
+      // Optimized: single query instead of fetching all schemas
       const response = await fetch(`/api/v1/tenants/${activeTenant}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          sql: 'SELECT current_database(), current_user, version() as pg_version;' 
+          sql: "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast');" 
         })
       });
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Connection test successful:', data.data?.[0]);
-        // Clear any previous errors
-        setQueryError(null);
-      } else {
-        const errorText = await response.text();
-        console.error(`Connection test failed (${response.status}):`, errorText);
-        
-        // Parse error for better user message
-        let userMessage = 'Database connection failed';
-        try {
-          const errorObj = JSON.parse(errorText);
-          if (errorObj.error?.includes('uuid')) {
-            userMessage = 'Invalid tenant ID format. Please check tenant configuration.';
-          } else if (errorObj.error?.includes('not found')) {
-            userMessage = 'Tenant database not found. Please verify tenant exists.';
-          } else {
-            userMessage = errorObj.error || errorObj.message || userMessage;
-          }
-        } catch {
-          userMessage = response.statusText;
-        }
-        
-        setQueryError(userMessage);
+        const tableCount = parseInt(data.data?.[0]?.count || '0');
+        setShowSampleDataBanner(tableCount === 0);
       }
     } catch (error) {
-      console.error('Connection test error:', error);
-      setQueryError(`Network error: ${(error as Error).message}`);
+      console.warn('Could not check for existing data:', error);
+      setShowSampleDataBanner(false);
     }
-  };
+  }, [activeTenant]);
 
+  // Load tenants only once on mount
+  useEffect(() => {
+    loadTenants();
+  }, [loadTenants]);
+  
+  // Check for existing data when tenant changes - optimized with callback
+  useEffect(() => {
+    if (activeTenant) {
+      const timer = setTimeout(() => {
+        checkForExistingData();
+      }, 500); // Debounce
+      return () => clearTimeout(timer);
+    }
+  }, [activeTenant, checkForExistingData]);
+  
   // Query execution with cancel capability
   const abortControllerRef = useRef<AbortController | null>(null);
   const [queryStatus, setQueryStatus] = useState<'idle' | 'running' | 'cancelled'>('idle');
@@ -399,25 +366,6 @@ SELECT * FROM blog.posts LIMIT 5;
     }
   };
   
-  const checkForExistingData = async () => {
-    if (!activeTenant) return;
-    
-    try {
-      const response = await fetch(`/api/v1/tenants/${activeTenant}/schemas`);
-      if (response.ok) {
-        const data = await response.json();
-        const schemas = data.data || [];
-        const hasCustomSchemas = schemas.some((schema: any) => 
-          !['public', 'information_schema', 'pg_catalog', 'pg_toast'].includes(schema.schema_name || schema.name)
-        );
-        
-        setShowSampleDataBanner(!hasCustomSchemas);
-      }
-    } catch (error) {
-      console.warn('Could not check for existing data:', error);
-    }
-  };
-
   const createTable = async (tableName: string, description: string, columns: any[], enableRLS: boolean, enableRealtime: boolean) => {
     if (!activeTenant || !tableName.trim() || !selectedSchemaForTable) return;
     
@@ -519,8 +467,7 @@ SELECT * FROM blog.posts LIMIT 5;
         
       case 'sql-editor':
         return (
-          <Suspense fallback={<LoadingSpinner />}>
-            <SqlEditorPage
+          <SqlEditorPageLight
             activeTenant={activeTenant}
             sql={sql}
             setSql={setSql}
@@ -534,7 +481,6 @@ SELECT * FROM blog.posts LIMIT 5;
             activeQueryName={activeQueryName}
             setActiveQueryName={setActiveQueryName}
           />
-          </Suspense>
         );
 
       case 'query-history':
@@ -655,22 +601,30 @@ SELECT * FROM blog.posts LIMIT 5;
       {renderContent()}
       
       {/* Create Schema Dialog */}
-      <CreateSchemaDialog
-        isOpen={showCreateSchemaDialog}
-        onClose={() => setShowCreateSchemaDialog(false)}
-        onCreateSchema={createSchema}
-      />
+      {showCreateSchemaDialog && (
+        <Suspense fallback={null}>
+          <CreateSchemaDialog
+            isOpen={showCreateSchemaDialog}
+            onClose={() => setShowCreateSchemaDialog(false)}
+            onCreateSchema={createSchema}
+          />
+        </Suspense>
+      )}
 
       {/* Create Table Dialog */}
-      <CreateTableDialog
-        isOpen={showCreateTableDialog}
-        onClose={() => {
-          setShowCreateTableDialog(false);
-          setSelectedSchemaForTable('');
-        }}
-        onCreateTable={createTable}
-        schemaName={selectedSchemaForTable}
-      />
+      {showCreateTableDialog && (
+        <Suspense fallback={null}>
+          <CreateTableDialog
+            isOpen={showCreateTableDialog}
+            onClose={() => {
+              setShowCreateTableDialog(false);
+              setSelectedSchemaForTable('');
+            }}
+            onCreateTable={createTable}
+            schemaName={selectedSchemaForTable}
+          />
+        </Suspense>
+      )}
     </DatabaseLayout>
     </Suspense>
   );

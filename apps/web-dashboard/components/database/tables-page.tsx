@@ -116,7 +116,7 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
     
     setLoading(true);
     try {
-      console.log(`Loading tables for tenant: ${activeTenant}, schema: ${selectedSchema}`);
+      console.log(`[TablesPage] Loading tables for tenant: ${activeTenant}, schema: ${selectedSchema}`);
       
       // Load tables from the selected schema
       const response = await fetch(`/api/v1/tenants/${activeTenant}/schemas/${selectedSchema}/tables`);
@@ -129,16 +129,26 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
         } catch {
           // If we can't parse JSON, use statusText
         }
-        console.error(`API Error: ${response.status} - ${errorDetails}`);
+        console.error(`[TablesPage] API Error: ${response.status} - ${errorDetails}`);
         throw new Error(`Failed to load tables: ${errorDetails}`);
       }
       
       const data = await response.json();
-      console.log('Tables response:', data);
-      const tablesData = data.data || [];
+      console.log('[TablesPage] Tables API response:', data);
+      
+      // Handle both response formats: { data: [...] } from UnifiedDataAPI or { tables: [...] } from tenants route
+      const tablesData = data.data || data.tables || [];
+      console.log('[TablesPage] Raw tables data:', tablesData);
+      console.log('[TablesPage] Tables count:', tablesData.length);
+      
+      // Filter to only include BASE TABLEs (exclude VIEWs)
+      const actualTables = tablesData.filter((table: any) => 
+        (table.table_type || table.type) === 'BASE TABLE'
+      );
+      console.log('[TablesPage] Filtered BASE TABLEs:', actualTables.length);
       
       // Transform API data to match our interface (simplified - no nested API calls for now)
-      const transformedTables: DatabaseTable[] = tablesData.map((table: any) => ({
+      const transformedTables: DatabaseTable[] = actualTables.map((table: any) => ({
         name: table.table_name || table.name,
         schema: selectedSchema,
         description: table.comment || table.table_comment || 'No description',
@@ -148,9 +158,11 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
         columns: table.column_count || 0
       }));
       
+      console.log('[TablesPage] Transformed tables:', transformedTables);
+      console.log('[TablesPage] Setting tables state with', transformedTables.length, 'tables');
       setTables(transformedTables);
     } catch (error) {
-      console.error('Error loading tables:', error);
+      console.error('[TablesPage] Error loading tables:', error);
       // Set empty tables array instead of crashing
       setTables([]);
     } finally {

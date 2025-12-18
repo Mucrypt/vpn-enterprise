@@ -186,10 +186,15 @@ export class UnifiedDataAPI {
   async handleGetTables(req: Request, res: Response) {
     try {
       const { tenantId, schemaName } = req.params;
+      console.log(`[UnifiedDataAPI] handleGetTables - tenant: ${tenantId}, schema: ${schemaName}`);
+      
       const tables = await this.dbPlatform.getTables(tenantId, schemaName);
+      
+      console.log(`[UnifiedDataAPI] Returning ${tables?.length || 0} tables for schema '${schemaName}'`);
+      
       res.json({ data: tables });
     } catch (error: any) {
-      console.error('Get tables error:', error);
+      console.error('[UnifiedDataAPI] Get tables error:', error);
       res.status(500).json({ error: error.message });
     }
   }

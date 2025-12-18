@@ -17,9 +17,15 @@ import {
   Download,
   Copy,
   Plus,
-  X
+  X,
+  Heart,
+  Settings,
+  ChevronDown,
+  Type,
+  Maximize2,
+  Code
 } from 'lucide-react';
-import { SimpleSqlEditor } from '@/components/database/simple-sql-editor';
+import { SimpleSqlEditor } from '@/components/test-components/simple-sql-editor';
 
 
 // Lazy load the heavy Monaco editor
@@ -344,41 +350,117 @@ export function SqlEditorPage({
 
   return (
     <div ref={containerRef} className="h-full flex flex-col bg-[#1e1e1e] overflow-hidden">
-      {/* Simplified Header with just +New button */}
-      <div className="flex-shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e] px-6 py-3">
+      {/* Supabase-style Top Action Bar */}
+      <div className="flex-shrink-0 border-b border-[#2d2d30] bg-[#181818] px-6 py-2.5">
         <div className="flex items-center justify-between">
+          {/* Left Side - Tabs and Actions */}
           <div className="flex items-center gap-3">
-            <Button
-              onClick={() => {
-                setSql('');
-                setActiveQueryId(null);
-                setActiveQueryName('Untitled query');
-              }}
-              variant="ghost"
-              size="sm"
-              className="h-8 px-3 text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-600"
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              New Query
-            </Button>
-            <div className="text-sm text-gray-400">
-              {activeQueryName}
-            </div>
-          </div>
-          
-          {sql.trim() && (
-            <div className="flex items-center gap-2">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'results' | 'chart')}>
+              <TabsList className="bg-[#2d2d30] border-[#3e3e42] h-8">
+                <TabsTrigger value="results" className="text-xs h-7 px-3">
+                  Results
+                </TabsTrigger>
+                <TabsTrigger value="chart" className="text-xs h-7 px-3">
+                  Chart
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
+            {/* Action Icons */}
+            <div className="flex items-center gap-1 border-l border-[#2d2d30] pl-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-gray-400 hover:text-white hover:bg-[#2d2d30]"
+                title="Format SQL"
+              >
+                <Code className="h-3.5 w-3.5" />
+              </Button>
               <Button
                 onClick={saveCurrentQuery}
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-gray-400 hover:text-white hover:bg-[#2d2d30]"
+                className="h-7 w-7 p-0 text-gray-400 hover:text-white hover:bg-[#2d2d30]"
+                title="Save query"
                 disabled={!sql.trim()}
               >
-                <Save className="h-3 w-3" />
+                <Heart className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-gray-400 hover:text-white hover:bg-[#2d2d30]"
+                title="Full screen"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-gray-400 hover:text-white hover:bg-[#2d2d30]"
+                title="Settings"
+              >
+                <Settings className="h-3.5 w-3.5" />
               </Button>
             </div>
-          )}
+          </div>
+          
+          {/* Right Side - Database Selector, Role, and Run Button */}
+          <div className="flex items-center gap-3">
+            {/* Source Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Source</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 bg-[#2d2d30] hover:bg-[#3e3e42] text-gray-300 text-xs border border-[#3e3e42]"
+              >
+                API
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+            
+            {/* Primary Database Selector */}
+            <div className="relative">
+              <select 
+                value={activeTenant} 
+                onChange={(e) => {}}
+                className="h-7 bg-[#2d2d30] border border-[#3e3e42] rounded px-2 pr-6 text-xs text-gray-300 appearance-none cursor-pointer hover:bg-[#3e3e42] transition-colors"
+              >
+                <option value="">Primary Database</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+            </div>
+            
+            {/* Role Indicator */}
+            <div className="flex items-center gap-2 px-2 py-1 bg-[#2d2d30] border border-[#3e3e42] rounded text-xs">
+              <span className="text-gray-500">Role:</span>
+              <span className="text-gray-300">postgres</span>
+            </div>
+            
+            {/* Run Button - Supabase Green */}
+            {isLoading && cancelQuery ? (
+              <Button
+                onClick={cancelQuery}
+                variant="ghost"
+                size="sm"
+                className="h-7 px-3 bg-red-600 hover:bg-red-700 text-white border-red-600 text-xs font-medium"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                onClick={handleQueryWithAutoSave}
+                disabled={!activeTenant || isLoading || !sql.trim()}
+                className="h-7 px-3 bg-[#3ecf8e] hover:bg-[#34b378] text-[#0e1c16] text-xs font-medium border-[#3ecf8e]"
+              >
+                <Play className="h-3 w-3 mr-1 fill-current" />
+                Run
+                <span className="ml-1.5 opacity-75">CTRL ⏎</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -425,96 +507,35 @@ export function SqlEditorPage({
      
 
       {/* Results Section - Takes remaining space */}
-      <div className="flex-1 flex flex-col border-t border-[#2d2d30] min-h-0">
-        {/* Results Header with Action Buttons */}
-        <div className="flex-shrink-0 px-6 py-3 bg-[#181818] border-b border-[#2d2d30]">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'results' | 'chart')}>
-            <div className="flex items-center justify-between">
-              <TabsList className="bg-[#2d2d30] border-[#3e3e42]">
-                <TabsTrigger value="results" className="text-sm">
-                  Results
-                </TabsTrigger>
-                <TabsTrigger value="chart" className="text-sm">
-                  Chart
-                </TabsTrigger>
-              </TabsList>
-              
-              <div className="flex items-center gap-3">
-                {/* Status and Execution Time */}
-                <div className="flex items-center gap-3">
-                  {queryStatus === 'running' && (
-                    <div className="flex items-center text-xs text-blue-400">
-                      <div className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Executing query...
-                    </div>
-                  )}
-                  {queryStatus === 'cancelled' && (
-                    <div className="flex items-center text-xs text-yellow-400">
-                      <AlertCircle className="h-3 w-3 mr-1" />
-                      Query cancelled
-                    </div>
-                  )}
-                  {executionTime && queryStatus === 'idle' && (
-                    <div className="flex items-center text-xs text-gray-400">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {executionTime}ms
-                    </div>
-                  )}
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Status Bar - Minimal */}
+        {(queryStatus === 'running' || queryStatus === 'cancelled' || executionTime) && (
+          <div className="flex-shrink-0 px-6 py-2 bg-[#181818] border-b border-[#2d2d30]">
+            <div className="flex items-center gap-3 text-xs">
+              {queryStatus === 'running' && (
+                <div className="flex items-center text-blue-400">
+                  <div className="w-2.5 h-2.5 border border-blue-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Executing query...
                 </div>
-                
-                {/* Action Buttons - Supabase Style */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => setSql('')}
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 bg-[#2d2d30] hover:bg-[#3e3e42] text-gray-300 border border-[#3e3e42]"
-                    disabled={isLoading}
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Clear
-                  </Button>
-                  
-                  <Button
-                    onClick={() => navigator.clipboard.writeText(sql)}
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 bg-[#2d2d30] hover:bg-[#3e3e42] text-gray-300 border border-[#3e3e42]"
-                    disabled={isLoading}
-                  >
-                    <Copy className="h-3 w-3 mr-1" />
-                    Copy
-                  </Button>
-                  
-                  {isLoading && cancelQuery ? (
-                    <Button
-                      onClick={cancelQuery}
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-3 bg-red-600 hover:bg-red-700 text-white border-red-600"
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Cancel
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleQueryWithAutoSave}
-                      disabled={!activeTenant || isLoading || !sql.trim()}
-                      className="h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
-                    >
-                      <Play className="h-3 w-3 mr-1" />
-                      Run
-                      <span className="ml-1 text-xs opacity-75">⌃⏎</span>
-                    </Button>
-                  )}
+              )}
+              {queryStatus === 'cancelled' && (
+                <div className="flex items-center text-yellow-400">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Query cancelled
                 </div>
-              </div>
+              )}
+              {executionTime && queryStatus === 'idle' && (
+                <div className="flex items-center text-gray-400">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Executed in {executionTime}ms
+                </div>
+              )}
             </div>
-          </Tabs>
-        </div>
+          </div>
+        )}
 
         {/* Results Content */}
-        <div className="flex-1 overflow-auto min-h-0">
+        <div className="flex-1 overflow-auto min-h-0 bg-[#1e1e1e]">
           <Tabs value={activeTab}>
             <TabsContent value="results" className="h-full m-0">
               {!queryResult && !queryError && !isLoading && (

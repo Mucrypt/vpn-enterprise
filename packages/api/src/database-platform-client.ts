@@ -174,24 +174,38 @@ export class DatabasePlatformClient {
   }
 
   async getTables(tenantId: string, schemaName: string = 'public'): Promise<any[]> {
-    const result = await this.executeQuery(tenantId, `
-      SELECT 
-        t.table_name,
-        t.table_type,
-        obj_description(c.oid) as comment,
-        (
-          SELECT COUNT(*) 
-          FROM information_schema.columns 
-          WHERE table_schema = t.table_schema 
-          AND table_name = t.table_name
-        ) as column_count
-      FROM information_schema.tables t
-      LEFT JOIN pg_class c ON c.relname = t.table_name
-      LEFT JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = t.table_schema
-      WHERE t.table_schema = $1
-      ORDER BY t.table_name
-    `, [schemaName]);
-    return result.data;
+    console.log(`[DatabasePlatformClient] getTables called for tenant: ${tenantId}, schema: ${schemaName}`);
+    
+    try {
+      const result = await this.executeQuery(tenantId, `
+        SELECT 
+          t.table_name,
+          t.table_type,
+          obj_description(c.oid) as comment,
+          (
+            SELECT COUNT(*) 
+            FROM information_schema.columns 
+            WHERE table_schema = t.table_schema 
+            AND table_name = t.table_name
+          ) as column_count
+        FROM information_schema.tables t
+        LEFT JOIN pg_class c ON c.relname = t.table_name
+        LEFT JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = t.table_schema
+        WHERE t.table_schema = $1
+        AND t.table_type = 'BASE TABLE'
+        ORDER BY t.table_name
+      `, [schemaName]);
+      
+      console.log(`[DatabasePlatformClient] getTables result for schema '${schemaName}':`, {
+        count: result.data?.length || 0,
+        tables: result.data?.map((t: any) => t.table_name)
+      });
+      
+      return result.data || [];
+    } catch (error) {
+      console.error(`[DatabasePlatformClient] Error getting tables for schema '${schemaName}':`, error);
+      throw error;
+    }
   }
 
   async getTableColumns(tenantId: string, schemaName: string, tableName: string): Promise<any[]> {
