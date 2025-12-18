@@ -33,7 +33,8 @@ type DatabaseSection =
   | 'sql-editor'
   | 'query-history'
   | 'sql-templates'
-  | 'saved-queries';
+  | 'saved-queries'
+  | 'visual-query-builder';
 
 export default function DatabasePage() {
   // Query storage hook
