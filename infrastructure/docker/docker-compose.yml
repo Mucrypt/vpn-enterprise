@@ -221,6 +221,98 @@ services:
     depends_on:
       - loki
 
+  # ============================================
+  # N8N WORKFLOW AUTOMATION (Production)
+  # ============================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: vpn-n8n
+    restart: unless-stopped
+    environment:
+      - N8N_HOST=${N8N_HOST:-n8n.yourdomain.com}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://${N8N_HOST:-n8n.yourdomain.com}/
+      - GENERIC_TIMEZONE=${TIMEZONE:-UTC}
+      # Authentication
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+      # Database connection (PostgreSQL)
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=${POSTGRES_HOST}
+      - DB_POSTGRESDB_PORT=${POSTGRES_PORT:-5432}
+      - DB_POSTGRESDB_DATABASE=${N8N_DB_NAME:-n8n}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      # Execution settings
+      - EXECUTIONS_PROCESS=main
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=all
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
+      - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=true
+      - EXECUTIONS_DATA_MAX_AGE=336
+      - EXECUTIONS_DATA_PRUNE=true
+      # Security
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_USER_MANAGEMENT_JWT_SECRET=${N8N_JWT_SECRET}
+      # Performance
+      - N8N_PAYLOAD_SIZE_MAX=16
+      - N8N_METRICS=true
+    env_file:
+      - ../../.env
+    networks:
+      - vpn-network
+    expose:
+      - "5678"
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ../../n8n-workflows:/home/node/workflows
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    depends_on:
+      - redis
+
+  # ============================================
+  # NEXUSAI (Production)
+  # ============================================
+  nexusai:
+    build:
+      context: ../../apps/nexusAi/chat-to-code-38
+      dockerfile: Dockerfile
+    container_name: vpn-nexusai
+    restart: unless-stopped
+    networks:
+      - vpn-network
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
 # ============================================
 # NETWORKS
 # ============================================
@@ -248,4 +340,6 @@ volumes:
   nginx-logs:
     driver: local
   api-logs:
+    driver: local
+  n8n-data:
     driver: local

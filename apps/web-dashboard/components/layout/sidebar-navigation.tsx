@@ -31,6 +31,7 @@ import {
 const userNavItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/connect', label: 'Connect', icon: Zap },
+  {href: '/dashboard/nexusAi', label: 'Nexus AI', icon: Zap },
   { href: '/dashboard/vpn-config', label: 'VPN Config', icon: FileKey },
   { href: '/dashboard/servers', label: 'Servers', icon: Server },
   { href: '/dashboard/hosting', label: 'Hosting', icon: Server },
@@ -49,6 +50,8 @@ const userNavItems = [
 const adminNavItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/connect', label: 'Connect', icon: Zap },
+
+  {href: '/dashboard/nexusAi', label: 'Nexus AI', icon: Zap },
   { href: '/dashboard/vpn-config', label: 'VPN Config', icon: FileKey },
   { href: '/dashboard/servers', label: 'Servers', icon: Server },
   { href: '/dashboard/hosting', label: 'Hosting', icon: Server },

@@ -75,6 +75,67 @@ services:
     networks:
       - vpn-dev-network
 
+  # ============================================
+  # N8N WORKFLOW AUTOMATION (Development)
+  # ============================================
+  n8n-dev:
+    image: n8nio/n8n:latest
+    container_name: vpn-n8n-dev
+    restart: unless-stopped
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=development
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=UTC
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-n8n_password}
+      # Use SQLite for development (simpler setup)
+      - DB_TYPE=sqlite
+      # Execution data settings
+      - EXECUTIONS_PROCESS=main
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=all
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
+      - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=true
+      # Disable file permissions check for dev
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+    env_file:
+      - ../../.env
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n-dev-data:/home/node/.n8n
+      - ../../n8n-workflows:/home/node/workflows
+    networks:
+      - vpn-dev-network
+    depends_on:
+      - redis-dev
+
+  # ============================================
+  # NEXUSAI (Development)
+  # ============================================
+  nexusai-dev:
+    build:
+      context: ../../apps/nexusAi/chat-to-code-38
+      dockerfile: Dockerfile.dev
+    container_name: vpn-nexusai-dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../apps/nexusAi/chat-to-code-38:/app
+      - /app/node_modules
+    networks:
+      - vpn-dev-network
+
 networks:
   vpn-dev-network:
     driver: bridge
+
+volumes:
+  n8n-dev-data:
+    driver: local
