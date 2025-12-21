@@ -45,6 +45,8 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.api
     container_name: dbplatform-api
     restart: unless-stopped
+    ports:
+      - "3002:3000"  # External access to Database Platform API
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -388,6 +390,8 @@ services:
     image: dpage/pgadmin4:latest
     container_name: dbplatform-pgadmin
     restart: unless-stopped
+    ports:
+      - "8081:80"  # pgAdmin web interface (avoiding 8080 conflict with NexusAI)
     environment:
       - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@platform.com}
       - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
@@ -398,8 +402,6 @@ services:
       - ./postgres/servers.json:/pgadmin4/servers.json:ro
     networks:
       - dbplatform-network
-    expose:
-      - "80"
     depends_on:
       - postgres-primary
     healthcheck:

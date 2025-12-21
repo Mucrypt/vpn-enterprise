@@ -31,42 +31,60 @@ echo "   - PostgreSQL Primary (port 5433)"
 echo "   - PostgreSQL Replica"
 echo "   - PgBouncer (connection pooler)"
 echo "   - Redis (caching)"
-echo "   - API Server (port 3000)"
+echo "   - API Server (port 3002)"
 echo "   - Web Dashboard with SQL Editor (port 3001)"
+echo "   - pgAdmin (port 8081)"
 echo "   - Nginx (proxy)"
 
+# Navigate to correct directory
+cd "$SCRIPT_DIR/.."
+
 # Start the database platform stack
-docker-compose -f infrastructure/docker/docker-compose.database-platform.yml up -d
+docker compose -f infrastructure/docker/docker-compose.database-platform.yml up -d
 
 echo "⏳ Waiting for services to be healthy..."
 sleep 10
 
 # Check if PostgreSQL is ready
 echo "🔍 Checking PostgreSQL connection..."
-docker-compose -f infrastructure/docker/docker-compose.database-platform.yml exec -T postgres-primary pg_isready -U platform_admin -d platform_db
+docker compose -f infrastructure/docker/docker-compose.database-platform.yml exec -T postgres-primary pg_isready -U postgres -d postgres
 
 # Check if API is healthy
 echo "🔍 Checking API health..."
-curl -f http://localhost:3000/health || echo "⚠️ API health check failed"
+curl -f http://localhost:3002/health || echo "⚠️ API health check failed"
 
 # Check if Web Dashboard is healthy
 echo "🔍 Checking Web Dashboard..."
 curl -f http://localhost:3001/health || echo "⚠️ Dashboard health check failed"
 
 echo ""
-echo "✅ Database Platform Started Successfully!"
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║     Database Platform - Successfully Started! ✅                ║"
+echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
-echo "📊 Access Points:"
-echo "   • Web Dashboard (SQL Editor): http://localhost:3001/databases"
-echo "   • API Server: http://localhost:3000"
-echo "   • PostgreSQL Direct: localhost:5433"
-echo "   • Database: platform_db"
-echo "   • Username: platform_admin"
-echo "   • Password: $POSTGRES_ADMIN_PASSWORD"
+echo "📊 Service URLs:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  🖥️  Web Dashboard (SQL Editor): http://localhost:3001/databases"
+echo "  🔌 Database Platform API:      http://localhost:3002"
+echo "  🛠️  pgAdmin (Admin Tool):       http://localhost:8081"
+echo "  🐘 PostgreSQL Primary:         localhost:5433"
+echo "  🔴 Redis Cache:                localhost:6379"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "🔧 Useful Commands:"
-echo "   • View logs: docker-compose -f infrastructure/docker/docker-compose.database-platform.yml logs -f"
-echo "   • Stop services: docker-compose -f infrastructure/docker/docker-compose.database-platform.yml down"
-echo "   • Connect to PostgreSQL: psql -h localhost -p 5433 -U platform_admin -d platform_db"
+echo "🔐 pgAdmin Credentials:"
+echo "  Email:    admin@platform.com"
+echo "  Password: admin (or PGADMIN_PASSWORD from .env)"
 echo ""
-echo "📝 SQL Editor is available at: http://localhost:3001/databases"
+echo "💾 PostgreSQL Credentials:"
+echo "  Host:     localhost"
+echo "  Port:     5433"
+echo "  Database: platform_db"
+echo "  Username: platform_admin"
+echo "  Password: (POSTGRES_ADMIN_PASSWORD from .env)"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📚 Documentation: docs/DATABASE_PLATFORM_GUIDE.md"
+echo "🛑 Stop services: ./scripts/stop-database-platform.sh"
+echo "📋 View logs:     docker compose -f infrastructure/docker/docker-compose.database-platform.yml logs -f"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""

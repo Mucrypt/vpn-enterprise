@@ -12,33 +12,89 @@ server_public.key
 
 # scripts
 scripts/*.log
+
 # ============================================
 # VPN ENTERPRISE - ROOT .gitignore
 # ============================================
 
-# Environment Variables (CRITICAL - Contains Supabase keys, WireGuard keys, Stripe keys)
-.env
-.env.local
-.env.development
-.env.production
-.env.*.local
-*.env
+# ============================================
+# PYTHON
+# ============================================
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+*.egg
+*.egg-info/
+dist-python/
+build-python/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.manifest
+*.spec
 
-# Node.js
+# ============================================
+# NODE.JS & JAVASCRIPT
+# ============================================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
+.npm/
+.eslintcache
+.node_repl_history
+*.tgz
+.yarn-integrity
 
 # Build outputs
 dist/
 build/
 *.tsbuildinfo
 .turbo/
+.next/
+out/
+.nuxt/
+.cache/
+.parcel-cache/
+.webpack/
 
-# Logs
+# ============================================
+# ENVIRONMENT VARIABLES (CRITICAL)
+# ============================================
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+*.env
+!.env.example
+!.env.template
+
+# ============================================
+# LOGS
+# ============================================
 logs/
 *.log
 *.log.*
@@ -47,84 +103,182 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 pnpm-debug.log*
+flask/*.log
+packages/*/logs/
 
-# Runtime data
+# ============================================
+# RUNTIME DATA
+# ============================================
 pids/
 *.pid
 *.seed
 *.pid.lock
 
-# Testing
+# ============================================
+# TESTING
+# ============================================
 coverage/
 *.lcov
 .nyc_output
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
 
-# IDEs and editors
+# ============================================
+# IDEs & EDITORS
+# ============================================
 .idea/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
 *.swp
 *.swo
 *~
-.DS_Store
-.env.test
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+.sublime-workspace
+*.sublime-project
 
-# OS
+# ============================================
+# OS FILES
+# ============================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 Desktop.ini
+$RECYCLE.BIN/
+.AppleDouble
+.LSOverride
 
-# Temporary files
+# ============================================
+# TEMPORARY FILES
+# ============================================
 tmp/
 temp/
 *.tmp
+*.temp
+*.bak
+*.swp
+*~.nib
 
-# WireGuard Keys (CRITICAL - Private keys must never be committed)
+# ============================================
+# WIREGUARD KEYS (CRITICAL)
+# ============================================
 *.key
 *.privatekey
 wg*.conf
 wireguard/
 !*.example.key
+!infrastructure/ssl/.gitkeep
 
-# Database dumps and backups
+# ============================================
+# DATABASE FILES
+# ============================================
 *.sql.gz
 *.dump
 *.backup
 backup/
 dumps/
+*.db
+*.sqlite
+*.sqlite3
+!packages/database/**/*.sql
 
-# Certificates and secrets
+# ============================================
+# CERTIFICATES & SECRETS (CRITICAL)
+# ============================================
 *.pem
 *.crt
-*.key
+!infrastructure/docker/nginx/ssl/.gitkeep
 *.p12
 *.pfx
 secrets/
 certs/
+*.jks
+*.keystore
 
-# Package manager lock files (optional - uncomment if using npm only)
+# ============================================
+# DOCKER
+# ============================================
+docker-compose.override.yml
+.dockerignore.local
+*.dockerignore.local
+# Keep docker volumes data out of git
+**/data/
+**/volumes/
+
+# ============================================
+# CLOUD & DEPLOYMENT
+# ============================================
+.vercel
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# ============================================
+# SUPABASE
+# ============================================
+.supabase/
+
+# ============================================
+# PRODUCTION CONFIG
+# ============================================
+config/production.json
+config/secrets.json
+
+# ============================================
+# PACKAGE MANAGERS (Keep lock files)
+# ============================================
+# Uncomment below if you want to ignore lock files
 # yarn.lock
 # pnpm-lock.yaml
 # package-lock.json
 
-# Documentation build
+# ============================================
+# DOCUMENTATION BUILD
+# ============================================
 docs/_build/
 docs/.doctrees/
+site/
 
-# Supabase
-.supabase/
+# ============================================
+# MONITORING & LOGS
+# ============================================
+*.log
+logs/
+monitoring/grafana/data/
+monitoring/prometheus/data/
+loki-data/
 
-# Terraform (if used for infrastructure)
-*.tfstate
-*.tfstate.*
-.terraform/
-.terraform.lock.hcl
+# ============================================
+# N8N WORKFLOWS (Keep templates, ignore instances)
+# ============================================
+n8n-workflows/.n8n/
 
-# Docker
-docker-compose.override.yml
+# ============================================
+# OLLAMA MODELS (Large files)
+# ============================================
+.ollama/
+models/
 
-# Production config
-config/production.json
-config/secrets.json
+# ============================================
+# MISC
+# ============================================
 .vercel
+.turbo
+.expo/
+.expo-shared/
+__generated__/

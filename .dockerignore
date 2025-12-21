@@ -1,54 +1,246 @@
-# Ignore files for Docker builds
+# ============================================
+# VPN ENTERPRISE - ROOT .dockerignore
+# ============================================
+# Reduces Docker build context size for faster builds
+# Order: Most frequently excluded first
 
-# Git
+# ============================================
+# VERSION CONTROL
+# ============================================
 .git
 .gitignore
 .gitattributes
+.github/
+.editorconfig
 
-# Documentation
-*.md
+# ============================================
+# DOCUMENTATION
+# ============================================
+README.md
 README*
 docs/
+extra-docs/
+*.md
+!DOCKER.md
+!API_DOCUMENTATION.md
+ARCHITECTURE*.md
+*_GUIDE.md
+*_COMPLETE.md
 LICENSE
 
-# Development
-.vscode/
-.idea/
-*.log
+# ============================================
+# NODE.JS & JAVASCRIPT
+# ============================================
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+.npm/
+.yarn/
+.eslintcache
+.node_repl_history
+*.tgz
 
-# Testing
-coverage/
-.nyc_output/
+# Build artifacts
+.next/
+out/
+dist/
+build/
+.turbo/
+.turbopack/
+.cache/
+.parcel-cache/
+*.tsbuildinfo
+
+# ============================================
+# PYTHON
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+pip-log.txt
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+*.egg
+*.egg-info/
+dist-python/
+build-python/
+.eggs/
+
+# ============================================
+# ENVIRONMENT & SECRETS
+# ============================================
+.env
+.env.local
+.env.development
+.env.production
+.env.*
+!.env.example
+!.env.template
+server_private.key
+server_public.key
+*.key
+*.pem
+*.crt
+!infrastructure/ssl/.gitkeep
+secrets/
+certs/
+
+# ============================================
+# LOGS & TEMPORARY
+# ============================================
+logs/
+*.log
+*.log.*
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# ============================================
+# TESTING
+# ============================================
+tests/
+test/
+__tests__/
 *.test.ts
 *.test.js
 *.spec.ts
 *.spec.js
-__tests__/
+*.test.tsx
+*.test.jsx
+*.spec.tsx
+*.spec.jsx
+coverage/
+.nyc_output/
+jest.config.*
+cypress/
+e2e/
+playwright/
+.pytest_cache/
+htmlcov/
 
-# Build artifacts (keep dist)
-node_modules/
-.next/
-.expo/
-.turbopack/
+# ============================================
+# IDEs & EDITORS
+# ============================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+.sublime-workspace
+*.sublime-project
 
-# Environment (will be passed at runtime)
-.env
-.env.*
-!.env.example
-
-# Temp files
-*.tmp
-*.temp
+# ============================================
+# OS FILES
+# ============================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# Mobile app (not needed for backend)
+# ============================================
+# MOBILE APP (Not needed in API/web containers)
+# ============================================
 apps/mobile-app/
+*.apk
+*.ipa
+*.aab
+.expo/
+.expo-shared/
 
-# Deployment scripts (not needed in image)
+# ============================================
+# DEPLOYMENT & CLOUD
+# ============================================
+.vercel/
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+.supabase/
+
+# ============================================
+# SCRIPTS (Keep only infrastructure scripts)
+# ============================================
 scripts/
-infrastructure/
-.github/
+!infrastructure/scripts/
+
+# ============================================
+# DATABASE
+# ============================================
+*.sql.gz
+*.dump
+*.backup
+backup/
+dumps/
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# DOCKER
+# ============================================
+docker-compose.override.yml
+.dockerignore.local
+Dockerfile.*
+!Dockerfile
+!Dockerfile.dev
+!Dockerfile.prod
+
+# ============================================
+# MONITORING DATA (Large files)
+# ============================================
+monitoring/grafana/data/
+monitoring/prometheus/data/
+loki-data/
+
+# ============================================
+# AI MODELS (Large files)
+# ============================================
+.ollama/
+models/
+*.gguf
+*.bin
+
+# ============================================
+# N8N WORKFLOWS (Instance data)
+# ============================================
+n8n-workflows/.n8n/
+
+# ============================================
+# WIREGUARD KEYS
+# ============================================
+*.privatekey
+wg*.conf
+wireguard/
+!*.example.key
+
+# ============================================
+# MISC
+# ============================================
+__generated__/
+*.orig

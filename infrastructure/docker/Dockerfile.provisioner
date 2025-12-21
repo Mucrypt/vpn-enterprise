@@ -11,20 +11,34 @@ RUN apk add --no-cache \
     curl \
     docker-cli
 
-# Copy package files
-COPY packages/tenant-provisioner/package*.json ./
-COPY packages/tenant-provisioner/tsconfig.json ./
+# Copy root package files
+COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Copy all package.json files
+COPY packages/tenant-provisioner/package.json ./packages/tenant-provisioner/
+COPY packages/shared/package.json ./packages/shared/
 
-# Copy source code
-COPY packages/tenant-provisioner/src/ ./src/
+# Install all workspace dependencies
+RUN npm install
 
-# Build TypeScript
+# Copy tsconfig and shared package source
+COPY tsconfig.json ./
+COPY packages/shared ./packages/shared
+
+# Build shared package first
+WORKDIR /app/packages/shared
+RUN npm run build
+
+# Copy tenant-provisioner source
+WORKDIR /app
+COPY packages/tenant-provisioner ./packages/tenant-provisioner
+
+# Build tenant-provisioner
+WORKDIR /app/packages/tenant-provisioner
 RUN npm run build
 
 # Create logs directory
+WORKDIR /app
 RUN mkdir -p /app/logs
 
 # Create non-root user
@@ -42,4 +56,5 @@ USER provisioner
 
 EXPOSE 3003
 
-CMD ["npm", "start"]
+WORKDIR /app/packages/tenant-provisioner
+CMD ["node", "dist/index.js"]

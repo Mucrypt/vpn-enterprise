@@ -313,6 +313,43 @@ services:
           cpus: '0.1'
           memory: 128M
 
+  # ============================================
+  # OLLAMA - Local AI Model Hosting
+  # ============================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vpn-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_ORIGINS=${OLLAMA_ALLOWED_ORIGINS:-*}
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=2
+    networks:
+      - vpn-network
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
 # ============================================
 # NETWORKS
 # ============================================
@@ -342,4 +379,6 @@ volumes:
   api-logs:
     driver: local
   n8n-data:
+    driver: local
+  ollama-data:
     driver: local

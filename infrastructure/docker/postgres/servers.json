@@ -1,0 +1,34 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "VPN Enterprise Database Platform - Primary",
+      "Group": "Production",
+      "Host": "postgres-primary",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "postgres",
+      "SSLMode": "prefer",
+      "Comment": "Primary PostgreSQL database for the VPN Enterprise Database Platform"
+    },
+    "2": {
+      "Name": "VPN Enterprise Database Platform - Replica",
+      "Group": "Production",
+      "Host": "postgres-replica",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "postgres",
+      "SSLMode": "prefer",
+      "Comment": "Read-only replica for load distribution"
+    },
+    "3": {
+      "Name": "VPN Enterprise Database Platform - via PgBouncer",
+      "Group": "Connection Pooling",
+      "Host": "pgbouncer",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "postgres",
+      "SSLMode": "prefer",
+      "Comment": "Connection pooler for efficient database access"
+    }
+  }
+}

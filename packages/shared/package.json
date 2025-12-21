@@ -1,0 +1,21 @@
+{
+  "name": "@vpn-enterprise/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities, types, and constants for VPN Enterprise",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "winston": "^3.17.0",
+    "joi": "^17.13.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  }
+}

@@ -24,3 +24,5 @@ mv nginx/archive/default.conf nginx/conf.d/
 
 ---
 *Archived during nginx cleanup: $(date)*
+
+cd /home/mukulah/vpn-enterprise && docker compose -f infrastructure/docker/docker-compose.dev.yml down && docker compose -f infrastructure/docker/docker-compose.dev.yml up -d
