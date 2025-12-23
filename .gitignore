@@ -207,6 +207,12 @@ certs/
 *.jks
 *.keystore
 
+# Docker Secrets (CRITICAL - Never commit actual secrets)
+infrastructure/docker/secrets/*
+!infrastructure/docker/secrets/.gitkeep
+!infrastructure/docker/secrets/*.example
+!infrastructure/docker/secrets/README.md
+
 # ============================================
 # DOCKER
 # ============================================

@@ -15,15 +15,17 @@ services:
     container_name: vpn-api-dev
     # Use the image-installed node_modules (preserved by anonymous volume) for faster starts
     command: npm run dev --workspace=@vpn-enterprise/api
+    env_file:
+      - ../../.env                          # Root environment variables
+      - ./config/app.dev.env                # Development config
     environment:
       - NODE_ENV=development
       - PORT=5000
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - ALLOWED_ORIGINS=http://localhost:5000,http://localhost:3001,http://localhost:3000
-    env_file:
-      - ../../.env
+    secrets:
+      - api_key
     ports:
       - "5000:5000"
     volumes:
@@ -46,15 +48,18 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.web
       target: deps
     container_name: vpn-web-dev
-    command: npm run dev
+    command: npm run dev -- -p 3000
     working_dir: /app
+    env_file:
+      - ../../.env                          # Root environment variables
+      - ../../apps/web-dashboard/.env.local # Web-specific env
+      - ./config/app.dev.env                # Development config
     environment:
       - NODE_ENV=development
+      - PORT=3000
       - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - NEXT_PUBLIC_API_URL=http://localhost:5000
-    env_file:
-      - ../../apps/web-dashboard/.env.local
     ports:
       - "3001:3000"
     volumes:
@@ -70,6 +75,9 @@ services:
   redis-dev:
     image: redis:7-alpine
     container_name: vpn-redis-dev
+    command: redis-server --requirepass $(cat /run/secrets/redis_password)
+    secrets:
+      - redis_password
     ports:
       - "6379:6379"
     networks:
@@ -85,27 +93,20 @@ services:
     image: n8nio/n8n:latest
     container_name: vpn-n8n-dev
     restart: unless-stopped
+    env_file:
+      - ../../.env                          # Root environment variables
+      - ./config/app.dev.env                # Development config
     environment:
-      - N8N_HOST=localhost
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - NODE_ENV=development
-      - WEBHOOK_URL=http://localhost:5678/
-      - GENERIC_TIMEZONE=UTC
-      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_ENCRYPTION_KEY_FILE=/run/secrets/n8n_encryption_key
       - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-n8n_password}
-      # Use SQLite for development (simpler setup)
-      - DB_TYPE=sqlite
-      # Execution data settings
       - EXECUTIONS_PROCESS=main
       - EXECUTIONS_DATA_SAVE_ON_ERROR=all
       - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
       - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=true
-      # Disable file permissions check for dev
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
-    env_file:
-      - ../../.env
+    secrets:
+      - n8n_encryption_key
     ports:
       - "5678:5678"
     volumes:
@@ -172,23 +173,22 @@ services:
       dockerfile: Dockerfile.dev
     container_name: vpn-python-api-dev
     restart: unless-stopped
+    env_file:
+      - ../../.env                          # Root environment variables
+      - ./config/app.dev.env                # Development config
+    environment:
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+      - API_KEY_FILE=/run/secrets/api_key
+    secrets:
+      - db_password
+      - redis_password
+      - api_key
     ports:
       - "5001:5001"
     volumes:
       - ../../flask:/app
       - python-api-data:/app/data
-    environment:
-      - ENVIRONMENT=development
-      - DEBUG=true
-      - LOG_LEVEL=debug
-      # Service Discovery - DNS names for other services
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@vpn-postgres-dev:5432/postgres
-      - REDIS_URL=redis://vpn-redis-dev:6379/0
-      - API_BASE_URL=http://vpn-api-dev:5000
-      - N8N_URL=http://vpn-n8n-dev:5678
-      - OLLAMA_URL=http://vpn-ollama-dev:11434
-      # CORS
-      - CORS_ORIGINS=http://localhost:3001,http://localhost:3000,http://localhost:5001
     networks:
       - vpn-dev-network
     depends_on:
@@ -211,3 +211,18 @@ volumes:
     driver: local
   python-api-data:
     driver: local
+
+# ==============================================
+# DOCKER SECRETS
+# ==============================================
+# Secrets are mounted as files inside containers at /run/secrets/
+# Only specified services get access to specific secrets
+secrets:
+  db_password:
+    file: ./secrets/db_password
+  redis_password:
+    file: ./secrets/redis_password
+  n8n_encryption_key:
+    file: ./secrets/n8n_encryption_key
+  api_key:
+    file: ./secrets/api_key

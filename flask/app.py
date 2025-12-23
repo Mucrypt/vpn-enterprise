@@ -1,3 +1,43 @@
+
+"""
+VPN Enterprise - Python FastAPI Microservice
+This module provides a FastAPI-based microservice for the VPN Enterprise platform,
+offering AI integration, VPN configuration management, analytics, and workflow automation.
+The service integrates with multiple backend services including:
+- Ollama AI for natural language processing
+- Main VPN API for configuration management
+- N8N for workflow automation
+- Redis for caching
+- PostgreSQL for data persistence
+Key Features:
+- Health checks and service discovery via Docker DNS
+- AI text generation using Ollama models
+- VPN configuration generation and server management
+- Analytics querying and dashboard statistics
+- N8N workflow triggering
+- CORS-enabled REST API with OpenAPI documentation
+Environment Variables:
+- API_URL: Main VPN API service URL (default: http://vpn-api-dev:5000)
+- WEB_URL: Web frontend URL (default: http://vpn-web-dev:3000)
+- REDIS_URL: Redis connection URL (default: redis://vpn-redis-dev:6379)
+- N8N_URL: N8N automation service URL (default: http://vpn-n8n-dev:5678)
+- OLLAMA_URL: Ollama AI service URL (default: http://vpn-ollama-dev:11434)
+- POSTGRES_URL: PostgreSQL connection URL (default: postgresql://postgres:postgres@vpn-postgres-dev:5432/postgres)
+- ENVIRONMENT: Deployment environment (default: development)
+Endpoints:
+- GET /: Root endpoint with service information
+- GET /health: Health check endpoint
+- GET /services/status: Check status of all integrated services
+- POST /ai/generate: Generate AI responses using Ollama
+- GET /ai/models: List available AI models
+- POST /vpn/config/generate: Generate VPN configuration
+- GET /vpn/servers: List available VPN servers
+- POST /analytics/query: Query analytics data
+- GET /analytics/dashboard: Get dashboard statistics
+- POST /workflows/trigger/{workflow_id}: Trigger N8N workflow
+Author: VPN Enterprise Team
+Version: 1.0.0
+"""
 from fastapi import FastAPI, HTTPException, Depends, status # pyright: ignore[reportMissingImports]
 from fastapi.middleware.cors import CORSMiddleware # type: ignore
 from pydantic import BaseModel, Field # type: ignore

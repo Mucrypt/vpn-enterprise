@@ -103,9 +103,29 @@ vpn-enterprise/
 ### Database schema highlights
 - `servers`, `user_subscriptions`, `user_devices`, `connection_logs`, `server_statistics`
 
+## 🔐 Security & Configuration
+
+VPN Enterprise uses **Docker Secrets** for sensitive data and environment-specific configuration files:
+
+- ✅ **Docker Secrets** - Database passwords, API keys, encryption keys mounted as `/run/secrets/`
+- ✅ **Environment Configs** - Separate dev/prod configurations for non-sensitive settings
+- ✅ **Git-Ignored Secrets** - Actual secrets never committed (only `.example` files)
+- ✅ **Access Control** - Services only access their required secrets
+- ✅ **Easy Rotation** - Update secrets without rebuilding images
+
+**Quick Setup:**
+```bash
+./scripts/setup-secrets.sh  # Interactive guided setup
+```
+
+**Documentation:**
+- 📖 [Docker Secrets & Config Guide](docs/DOCKER_SECRETS_CONFIG.md)
+- 🛡️ [Security Overhaul Summary](docs/SECURITY_OVERHAUL.md)
+- 🔑 [Secrets Directory](infrastructure/docker/secrets/README.md)
+
 ## 🚀 Quick start (developer)
 
-1) Clone and install
+### 1. Clone and Install
 
 ```bash
 git clone <your-repo>
@@ -113,25 +133,48 @@ cd vpn-enterprise
 npm install
 ```
 
-2) Copy env template and edit required values
+### 2. Setup Secrets (Docker Secrets - Recommended)
+
+```bash
+# Interactive setup script
+./scripts/setup-secrets.sh
+
+# Or manually copy and edit:
+cd infrastructure/docker/secrets
+cp db_password.example db_password
+cp redis_password.example redis_password
+cp n8n_encryption_key.example n8n_encryption_key
+cp api_key.example api_key
+# Edit each file with strong passwords
+```
+
+📖 **See [docs/DOCKER_SECRETS_CONFIG.md](docs/DOCKER_SECRETS_CONFIG.md) for complete security guide**
+
+### 3. Configure Environment
 
 ```bash
 cp .env.example .env
 # Edit .env: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, etc.
 ```
 
-3) Use the start helper for the development stack (recommended)
+### 4. Start Development Stack
 
 ```bash
 chmod +x ./scripts/start-dev.sh ./scripts/stop-dev.sh
 ./scripts/start-dev.sh
 ```
 
-Dev endpoints
-- API: http://localhost:3000
-- Web (Next dev): http://localhost:3001
+**Dev endpoints:**
+- 🌐 Web Dashboard: http://localhost:3001
+- 🔌 Node API: http://localhost:5000
+- 🐍 Python API: http://localhost:5001
+- 🔄 N8N Workflows: http://localhost:5678
+- 🤖 Ollama AI: http://localhost:11434
+- 🦾 NexusAI: http://localhost:8080
+- 🗄️ pgAdmin: http://localhost:8082
+- 📊 Adminer: http://localhost:8081
 
-For a production-like deployment (nginx reverse-proxy + internal network), see `infrastructure/docker/docker-compose.yml` and `docs/DEPLOYMENT_GUIDE.md`.
+For production deployment, see [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)
 
 ## 💰 Monetization & Business model
 

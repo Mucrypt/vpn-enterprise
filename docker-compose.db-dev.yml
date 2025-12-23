@@ -1,4 +1,4 @@
-version: '3.8'
+
 
 services:
   # PostgreSQL Database
@@ -7,10 +7,12 @@ services:
     container_name: vpn-postgres-dev
     restart: unless-stopped
     environment:
-      POSTGRES_DB: platform_db
-      POSTGRES_USER: platform_admin
-      POSTGRES_PASSWORD: platform_admin_password
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+      - POSTGRES_DB=platform_db
+      - POSTGRES_USER=platform_admin
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    secrets:
+      - db_password
     ports:
       - "5433:5432"
     volumes:
@@ -30,12 +32,12 @@ services:
     container_name: vpn-pgadmin-dev
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@vpnenterprise.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+      - PGADMIN_DEFAULT_EMAIL=admin@vpnenterprise.com
+      - PGADMIN_DEFAULT_PASSWORD=admin123
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
     ports:
-      - "8080:80"
+      - "8082:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
@@ -68,3 +70,12 @@ volumes:
 networks:
   db-network:
     driver: bridge
+
+# ==============================================
+# DOCKER SECRETS
+# ==============================================
+# Secrets are mounted as files inside containers at /run/secrets/
+# Only specified services get access to specific secrets
+secrets:
+  db_password:
+    file: infrastructure/docker/secrets/db_password
