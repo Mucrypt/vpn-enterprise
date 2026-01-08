@@ -198,7 +198,7 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
   return (
     <div className="h-full flex flex-col bg-[#1e1e1e]">
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e]">
+      <div className="shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e]">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className={`transition-all duration-300 ${isCompactMode && panelMode ? 'opacity-80' : ''}`}>
@@ -406,7 +406,7 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
                     /* Compact Mode Layout */
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-6 h-6 bg-[#2d2d30] rounded flex items-center justify-center flex-shrink-0">
+                        <div className="w-6 h-6 bg-[#2d2d30] rounded flex items-center justify-center shrink-0">
                           <Table className="h-3 w-3 text-emerald-400" />
                         </div>
                         <div className="min-w-0">
@@ -416,7 +416,7 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -618,7 +618,7 @@ export function TablesPage({ activeTenant, onCreateTable }: TablesPageProps) {
             }}
           >
             {/* Panel Header */}
-            <div className="flex-shrink-0 border-b border-[#2d2d30] bg-[#252526] px-4 py-3">
+            <div className="shrink-0 border-b border-[#2d2d30] bg-[#252526] px-4 py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {panelMode === 'view' ? (

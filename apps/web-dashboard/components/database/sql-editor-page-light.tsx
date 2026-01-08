@@ -282,7 +282,7 @@ export function SqlEditorPageLight({
   return (
     <div className="h-full flex flex-col bg-[#1e1e1e] overflow-hidden">
       {/* Top Header Bar - Supabase Style */}
-      <div className="flex-shrink-0 border-b border-[#2d2d30] bg-[#181818] px-4 py-2">
+      <div className="shrink-0 border-b border-[#2d2d30] bg-[#181818] px-4 py-2">
         <div className="flex items-center justify-between">
           {/* Left Side - Plus Icon */}
           <div className="flex items-center gap-2">
@@ -345,7 +345,7 @@ export function SqlEditorPageLight({
       </div>
 
       {/* Professional SQL Editor with Advanced Syntax Highlighting */}
-      <div className="flex-shrink-0 bg-[#1e1e1e] border-b border-[#2d2d30] relative overflow-hidden" style={{ height: '400px' }}>
+      <div className="shrink-0 bg-[#1e1e1e] border-b border-[#2d2d30] relative overflow-hidden" style={{ height: '400px' }}>
         {/* Line numbers */}
         <div 
           ref={lineNumbersRef}
@@ -406,7 +406,7 @@ export function SqlEditorPageLight({
       </div>
 
       {/* Control Bar - Between Editor and Results */}
-      <div className="flex-shrink-0 border-b border-[#2d2d30] bg-[#181818] px-6 py-2.5">
+      <div className="shrink-0 border-b border-[#2d2d30] bg-[#181818] px-6 py-2.5">
         <div className="flex items-center justify-between">
           {/* Left Side - Tabs */}
           <div className="flex items-center gap-3">
