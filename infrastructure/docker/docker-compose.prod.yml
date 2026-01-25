@@ -87,8 +87,10 @@ services:
     healthcheck:
       test:
         [
-          'CMD-SHELL',
-          'node -e "require(''http'').get(''http://127.0.0.1:3000/'', (res) => process.exit((res.statusCode||0) < 500 ? 0 : 1)).on(''error'', () => process.exit(1));"',
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://127.0.0.1:3000/', (res) => process.exit((res.statusCode||0) < 500 ? 0 : 1)).on('error', () => process.exit(1));",
         ]
       interval: 30s
       timeout: 10s
@@ -187,6 +189,10 @@ services:
   n8n:
     image: n8nio/n8n:latest
     container_name: vpn-n8n
+    # n8n runs as a non-root user by default. On some hosts the bind-mounted secret files
+    # are root-only, which causes EACCES. Running as root avoids the restart loop.
+    # If you prefer non-root, fix the host secret file permissions/ACLs instead.
+    user: '0:0'
     restart: always
     env_file:
       - ../../.env.production
@@ -225,8 +231,10 @@ services:
     healthcheck:
       test:
         [
-          'CMD-SHELL',
-          'node -e "require(''http'').get(''http://127.0.0.1:5678/healthz'', (res) => process.exit((res.statusCode||0) === 200 ? 0 : 1)).on(''error'', () => process.exit(1));"',
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://127.0.0.1:5678/healthz', (res) => process.exit((res.statusCode||0) === 200 ? 0 : 1)).on('error', () => process.exit(1));",
         ]
       interval: 30s
       timeout: 10s
@@ -286,7 +294,6 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
-
   # ============================================
   # OLLAMA - AI Model Hosting (Production)
   # ============================================
