@@ -1,0 +1,138 @@
+name: Deploy to Hetzner (Docker Compose)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy (branch, tag, or SHA)
+        type: string
+        required: true
+        default: main
+      rebuild:
+        description: Rebuild images on the server (recommended)
+        type: boolean
+        required: true
+        default: true
+
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: hetzner-production
+  cancel-in-progress: false
+
+env:
+  HETZNER_SSH_PRIVATE_KEY_SECRET: HETZNER_SSH_PRIVATE_KEY
+  HETZNER_HOST_SECRET: HETZNER_HOST
+  HETZNER_USER_SECRET: HETZNER_USER
+  HETZNER_SSH_PORT_SECRET: HETZNER_SSH_PORT
+  HETZNER_APP_DIR_SECRET: HETZNER_APP_DIR
+  ENV_PRODUCTION_SECRET: ENV_PRODUCTION
+  SECRET_DB_PASSWORD_SECRET: SECRET_DB_PASSWORD
+  SECRET_REDIS_PASSWORD_SECRET: SECRET_REDIS_PASSWORD
+  SECRET_N8N_ENCRYPTION_KEY_SECRET: SECRET_N8N_ENCRYPTION_KEY
+  SECRET_API_KEY_SECRET: SECRET_API_KEY
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.ref }}
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets[env.HETZNER_SSH_PRIVATE_KEY_SECRET] }}
+
+      - name: Add Hetzner host key
+        env:
+          HETZNER_HOST: ${{ secrets[env.HETZNER_HOST_SECRET] }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "$HETZNER_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy over SSH
+        env:
+          HETZNER_HOST: ${{ secrets[env.HETZNER_HOST_SECRET] }}
+          HETZNER_USER: ${{ secrets[env.HETZNER_USER_SECRET] }}
+          HETZNER_SSH_PORT: ${{ secrets[env.HETZNER_SSH_PORT_SECRET] }}
+          HETZNER_APP_DIR: ${{ secrets[env.HETZNER_APP_DIR_SECRET] }}
+          ENV_PRODUCTION: ${{ secrets[env.ENV_PRODUCTION_SECRET] }}
+          SECRET_DB_PASSWORD: ${{ secrets[env.SECRET_DB_PASSWORD_SECRET] }}
+          SECRET_REDIS_PASSWORD: ${{ secrets[env.SECRET_REDIS_PASSWORD_SECRET] }}
+          SECRET_N8N_ENCRYPTION_KEY: ${{ secrets[env.SECRET_N8N_ENCRYPTION_KEY_SECRET] }}
+          SECRET_API_KEY: ${{ secrets[env.SECRET_API_KEY_SECRET] }}
+          REBUILD: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild || 'true' }}
+        run: |
+          set -euo pipefail
+
+          PORT="${HETZNER_SSH_PORT:-22}"
+          APP_DIR="${HETZNER_APP_DIR:-/opt/vpn-enterprise}"
+
+          if [ -z "${HETZNER_HOST:-}" ] || [ -z "${HETZNER_USER:-}" ]; then
+            echo "Missing required secrets: HETZNER_HOST and/or HETZNER_USER"
+            exit 1
+          fi
+          if [ -z "${ENV_PRODUCTION:-}" ]; then
+            echo "Missing required secret: ENV_PRODUCTION (contents of .env.production)"
+            exit 1
+          fi
+          if [ -z "${SECRET_DB_PASSWORD:-}" ] || [ -z "${SECRET_REDIS_PASSWORD:-}" ] || [ -z "${SECRET_N8N_ENCRYPTION_KEY:-}" ] || [ -z "${SECRET_API_KEY:-}" ]; then
+            echo "Missing required secrets: SECRET_DB_PASSWORD / SECRET_REDIS_PASSWORD / SECRET_N8N_ENCRYPTION_KEY / SECRET_API_KEY"
+            exit 1
+          fi
+
+          echo "Deploying to $HETZNER_USER@$HETZNER_HOST:$APP_DIR (rebuild=$REBUILD)"
+
+          SSH_BASE=(ssh -p "$PORT" "$HETZNER_USER@$HETZNER_HOST")
+
+          # 1) Server prerequisites + repo update (no secrets passed here)
+          printf '%s\n' \
+            'set -euo pipefail' \
+            "APP_DIR=\"$APP_DIR\"" \
+            'command -v docker >/dev/null 2>&1 || { echo "docker is not installed on the server"; exit 1; }' \
+            'docker compose version >/dev/null 2>&1 || { echo "docker compose is not available on the server (need Docker Compose v2)"; exit 1; }' \
+            'if [ ! -d "'$APP_DIR'/.git" ]; then' \
+            '  echo "Repo not found at '$APP_DIR'. Clone it on the server first:"' \
+            '  echo "  sudo mkdir -p '$APP_DIR' && sudo chown -R $USER:$USER '$APP_DIR'"' \
+            '  echo "  git clone git@github.com:${{ github.repository }}.git '$APP_DIR'"' \
+            '  exit 1' \
+            'fi' \
+            'cd "'$APP_DIR'"' \
+            'git fetch --prune origin' \
+            'git checkout main' \
+            'git pull --ff-only origin main' \
+            'mkdir -p "'$APP_DIR'/infrastructure/docker/secrets"' \
+            | "${SSH_BASE[@]}" "bash -s"
+
+          # 2) Upload env + secrets via stdin (avoids relying on remote env propagation)
+          printf '%s' "$ENV_PRODUCTION" | "${SSH_BASE[@]}" "bash -lc 'umask 077; cat > \"$APP_DIR/.env.production\"'"
+          printf '%s' "$SECRET_DB_PASSWORD" | "${SSH_BASE[@]}" "bash -lc 'umask 077; cat > \"$APP_DIR/infrastructure/docker/secrets/db_password\"'"
+          printf '%s' "$SECRET_REDIS_PASSWORD" | "${SSH_BASE[@]}" "bash -lc 'umask 077; cat > \"$APP_DIR/infrastructure/docker/secrets/redis_password\"'"
+          printf '%s' "$SECRET_N8N_ENCRYPTION_KEY" | "${SSH_BASE[@]}" "bash -lc 'umask 077; cat > \"$APP_DIR/infrastructure/docker/secrets/n8n_encryption_key\"'"
+          printf '%s' "$SECRET_API_KEY" | "${SSH_BASE[@]}" "bash -lc 'umask 077; cat > \"$APP_DIR/infrastructure/docker/secrets/api_key\"'"
+
+          # 3) Deploy the stack
+          printf '%s\n' \
+            'set -euo pipefail' \
+            'cd "'$APP_DIR'/infrastructure/docker"' \
+            'if [ "'$REBUILD'" = "true" ]; then' \
+            '  docker compose -f docker-compose.prod.yml up -d --build --remove-orphans' \
+            'else' \
+            '  docker compose -f docker-compose.prod.yml up -d --remove-orphans' \
+            'fi' \
+            'docker compose -f docker-compose.prod.yml ps' \
+            | "${SSH_BASE[@]}" "bash -s"

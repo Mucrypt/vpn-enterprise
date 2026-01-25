@@ -20,10 +20,18 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
+      - POSTGRES_HOST=vpn-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=platform_db
+      - POSTGRES_USER=platform_admin
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+      - REDIS_HOST=vpn-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
     secrets:
       - api_key
-    ports:
-      - "5000:5000"
+      - db_password
+      - redis_password
     networks:
       - vpn-network
     deploy:
@@ -35,16 +43,16 @@ services:
           cpus: '0.5'
           memory: 512M
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:5000/health']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   # ============================================
   # WEB DASHBOARD (Production)
@@ -61,8 +69,8 @@ services:
       - ./config/app.prod.env
     environment:
       - NODE_ENV=production
-    ports:
-      - "3000:3000"
+      # Used for server-side rendering calls from inside the Docker network.
+      - INTERNAL_API_URL=http://api:5000
     networks:
       - vpn-network
     depends_on:
@@ -77,16 +85,16 @@ services:
           cpus: '0.25'
           memory: 256M
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   # ============================================
   # POSTGRESQL DATABASE (Production)
@@ -100,14 +108,14 @@ services:
       - ./config/app.prod.env
     environment:
       - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+      - POSTGRES_ADMIN_PASSWORD_FILE=/run/secrets/db_password
       - POSTGRES_DB=platform_db
       - POSTGRES_USER=platform_admin
     secrets:
       - db_password
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro
       - ../postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - postgres_backups:/backups
     networks:
@@ -121,15 +129,15 @@ services:
           cpus: '1.0'
           memory: 1G
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U platform_admin -d platform_db"]
+      test: ['CMD-SHELL', 'pg_isready -U platform_admin -d platform_db']
       interval: 10s
       timeout: 5s
       retries: 5
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   # ============================================
   # REDIS (Production)
@@ -146,8 +154,6 @@ services:
       --appendonly yes
     secrets:
       - redis_password
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -161,15 +167,15 @@ services:
           cpus: '0.25'
           memory: 256M
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "ping"]
+      test: ['CMD', 'redis-cli', '--no-auth-warning', 'ping']
       interval: 10s
       timeout: 5s
       retries: 3
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   # ============================================
   # N8N WORKFLOW AUTOMATION (Production)
@@ -183,16 +189,18 @@ services:
       - ./config/app.prod.env
     environment:
       - N8N_ENCRYPTION_KEY_FILE=/run/secrets/n8n_encryption_key
-      - N8N_BASIC_AUTH_USER=${N8N_USER}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+      # Credentials should be provided via ../../.env.production as:
+      #   N8N_BASIC_AUTH_USER=...
+      #   N8N_BASIC_AUTH_PASSWORD=...
       - EXECUTIONS_PROCESS=main
       - EXECUTIONS_DATA_SAVE_ON_ERROR=all
       - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
     secrets:
       - n8n_encryption_key
       - db_password
-    ports:
-      - "5678:5678"
+    command: >
+      sh -c
+      'export DB_POSTGRESDB_PASSWORD="$(cat /run/secrets/db_password)" && exec n8n'
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
@@ -211,16 +219,16 @@ services:
           cpus: '0.5'
           memory: 512M
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:5678/healthz']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   # ============================================
   # PYTHON API - FastAPI Service (Production)
@@ -242,8 +250,6 @@ services:
       - db_password
       - redis_password
       - api_key
-    ports:
-      - "5001:5001"
     volumes:
       - python_api_data:/app/data
     networks:
@@ -262,16 +268,16 @@ services:
           cpus: '0.5'
           memory: 512M
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:5001/health']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   # ============================================
   # OLLAMA - AI Model Hosting (Production)
@@ -280,13 +286,12 @@ services:
     image: ollama/ollama:latest
     container_name: vpn-ollama
     restart: always
-    ports:
-      - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
-      - OLLAMA_ORIGINS=${CORS_ORIGINS}
+      # If you need browser access cross-origin, set an explicit value in ../../.env.production
+      # and add it to this service's environment.
     networks:
       - vpn-network
     deploy:
@@ -298,15 +303,34 @@ services:
           cpus: '2.0'
           memory: 4G
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:11434/api/version']
       interval: 30s
       timeout: 10s
       retries: 3
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
+
+  # ============================================
+  # NEXUSAI (Production)
+  # ============================================
+  nexusai:
+    profiles:
+      - nexusai
+    build:
+      context: ../../apps/nexusAi/chat-to-code-38
+      dockerfile: Dockerfile
+    container_name: vpn-nexusai
+    restart: always
+    networks:
+      - vpn-network
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
 
   # ============================================
   # NGINX REVERSE PROXY (Production)
@@ -316,11 +340,11 @@ services:
     container_name: vpn-nginx
     restart: always
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/prod/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/prod/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
       - nginx_logs:/var/log/nginx
     networks:
@@ -331,6 +355,8 @@ services:
       - python-api
       - n8n
       - ollama
+      # Optional; enabled via `--profile nexusai`
+      # - nexusai
     deploy:
       resources:
         limits:
@@ -340,15 +366,15 @@ services:
           cpus: '0.25'
           memory: 128M
     healthcheck:
-      test: ["CMD", "nginx", "-t"]
+      test: ['CMD', 'nginx', '-t']
       interval: 30s
       timeout: 10s
       retries: 3
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
 networks:
   vpn-network:

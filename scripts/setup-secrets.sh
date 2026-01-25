@@ -6,19 +6,13 @@
 
 set -e
 
-SECRETS_DIR="infrastructure/docker/secrets"
-CONFIG_DIR="infrastructure/docker/config"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SECRETS_DIR="$ROOT_DIR/infrastructure/docker/secrets"
+CONFIG_DIR="$ROOT_DIR/infrastructure/docker/config"
 
 echo "🔐 VPN Enterprise - Secrets Setup"
 echo "=================================="
 echo ""
-
-# Check if we're in the right directory
-if [ ! -d "$SECRETS_DIR" ]; then
-    echo "❌ Error: Must run from repository root"
-    echo "   Current directory: $(pwd)"
-    exit 1
-fi
 
 echo "📁 Checking secrets directory..."
 cd "$SECRETS_DIR"

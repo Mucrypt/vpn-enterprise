@@ -3,6 +3,40 @@
 
 set -e
 
+resolve_password() {
+    local value="$1"
+    local filePath="$2"
+
+    if [ -n "$value" ]; then
+        printf '%s' "$value"
+        return 0
+    fi
+
+    if [ -n "$filePath" ] && [ -f "$filePath" ]; then
+        tr -d '\r\n' < "$filePath"
+        return 0
+    fi
+
+    return 1
+}
+
+# Resolve admin password in a secrets-friendly way.
+# Priority:
+# 1) POSTGRES_ADMIN_PASSWORD
+# 2) POSTGRES_ADMIN_PASSWORD_FILE
+# 3) POSTGRES_PASSWORD (plain env)
+# 4) POSTGRES_PASSWORD_FILE
+# 5) /run/secrets/db_password
+if [ -z "${POSTGRES_ADMIN_PASSWORD:-}" ]; then
+    POSTGRES_ADMIN_PASSWORD="$(
+        resolve_password "${POSTGRES_ADMIN_PASSWORD:-}" "${POSTGRES_ADMIN_PASSWORD_FILE:-}" ||
+        resolve_password "${POSTGRES_PASSWORD:-}" "${POSTGRES_PASSWORD_FILE:-}" ||
+        resolve_password "" "/run/secrets/db_password" ||
+        echo ""
+    )"
+    export POSTGRES_ADMIN_PASSWORD
+fi
+
 # ==============================================
 # PLATFORM DATABASE SETUP
 # ==============================================
@@ -14,10 +48,24 @@ echo "📦 Creating platform database and users..."
 
 # Platform admin user (full privileges)
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    -- Create platform roles
-    CREATE ROLE platform_admin WITH LOGIN SUPERUSER CREATEDB CREATEROLE PASSWORD '$POSTGRES_ADMIN_PASSWORD';
-    CREATE ROLE tenant_admin WITH LOGIN CREATEDB PASSWORD 'tenant_admin_password';
-    CREATE ROLE readonly_user WITH LOGIN PASSWORD 'readonly_password';
+        -- Create/update platform roles (idempotent)
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'platform_admin') THEN
+                CREATE ROLE platform_admin WITH LOGIN SUPERUSER CREATEDB CREATEROLE PASSWORD '$POSTGRES_ADMIN_PASSWORD';
+            ELSE
+                ALTER ROLE platform_admin WITH PASSWORD '$POSTGRES_ADMIN_PASSWORD';
+            END IF;
+
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'tenant_admin') THEN
+                CREATE ROLE tenant_admin WITH LOGIN CREATEDB PASSWORD 'tenant_admin_password';
+            END IF;
+
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'readonly_user') THEN
+                CREATE ROLE readonly_user WITH LOGIN PASSWORD 'readonly_password';
+            END IF;
+        END
+        $$;
     
     -- Grant necessary privileges
     GRANT ALL PRIVILEGES ON DATABASE $POSTGRES_DB TO platform_admin;
@@ -104,7 +152,7 @@ CREATE TABLE IF NOT EXISTS usage_metrics (
     metric_type VARCHAR(50) NOT NULL, -- 'queries', 'storage', 'connections'
     value BIGINT NOT NULL,
     recorded_at TIMESTAMPTZ DEFAULT NOW(),
-    INDEX (tenant_database_id, metric_type, recorded_at)
+    -- indexes are created below via CREATE INDEX
 );
 
 -- Backup History
@@ -256,6 +304,33 @@ CREATE TRIGGER database_users_updated_at BEFORE UPDATE ON database_users
 INSERT INTO organizations (name, slug, plan, max_databases, max_storage_gb, max_connections) 
 VALUES ('Development', 'dev-org', 'pro', 10, 10, 100)
 ON CONFLICT (slug) DO NOTHING;
+
+-- Minimal tenant registry used by the dashboard Database editor
+-- connection_info is intentionally stored WITHOUT a password; API reads password via env/secrets.
+CREATE TABLE IF NOT EXISTS tenants (
+    id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    connection_info JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM tenants WHERE id = '123e4567-e89b-12d3-a456-426614174000') THEN
+        INSERT INTO tenants (id, name, connection_info)
+        VALUES (
+            '123e4567-e89b-12d3-a456-426614174000',
+            'Primary Database',
+            jsonb_build_object(
+                'database', 'platform_db',
+                'user', 'platform_admin',
+                'port', 5432
+            )
+        );
+    END IF;
+END
+$$;
 
 EOSQL
 

@@ -91,7 +91,7 @@ export function SidebarNavigation() {
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 flex-shrink-0 items-center justify-between border-b px-6">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b px-6">
         {sidebarOpen ? (
           <h1 className="text-xl font-bold text-gray-900">VPN Enterprise</h1>
         ) : (
@@ -118,7 +118,7 @@ export function SidebarNavigation() {
                 !sidebarOpen && 'justify-center'
               )}
             >
-              <Icon className="h-5 w-5 flex-shrink-0" />
+              <Icon className="h-5 w-5 shrink-0" />
               {sidebarOpen && <span>{item.label}</span>}
             </Link>
           );
@@ -128,7 +128,7 @@ export function SidebarNavigation() {
       {/* Toggle Button */}
       <button
         onClick={toggleSidebar}
-        className="flex h-16 flex-shrink-0 items-center justify-center border-t hover:bg-gray-200"
+        className="flex h-16 shrink-0 items-center justify-center border-t hover:bg-gray-200"
       >
         {sidebarOpen ? (
           <ChevronLeft className="h-5 w-5 text-gray-700" />

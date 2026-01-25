@@ -564,7 +564,7 @@ SELECT * FROM blog.posts LIMIT 5;
       >
       {/* Sample Data Banner */}
       {showSampleDataBanner && (
-        <div className="bg-gradient-to-r from-emerald-600/10 to-blue-600/10 border border-emerald-500/20 p-4 m-4 rounded-lg">
+        <div className="bg-linear-to-r from-emerald-600/10 to-blue-600/10 border border-emerald-500/20 p-4 m-4 rounded-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">

@@ -11,15 +11,38 @@
   "directories": {
     "doc": "docs"
   },
-   "scripts": {
+  "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bash ./scripts/start-dev.sh",
+    "dev:stop": "bash ./scripts/stop-dev.sh",
+    "dev:all": "bash ./scripts/start-all.sh",
+    "db:dev": "bash ./scripts/start-db-dev.sh",
+    "db:platform": "bash ./scripts/start-database-platform.sh",
+    "db:platform:stop": "bash ./scripts/stop-database-platform.sh",
+    "secrets:setup": "bash ./scripts/setup-secrets.sh",
+    "vercel:deploy": "bash ./scripts/deploy-vercel.sh",
+    "vercel:auto": "bash ./scripts/auto-deploy.sh",
+    "release:hetzner": "bash ./scripts/release-hetzner.sh",
+    "hetzner:env": "bash ./scripts/hetzner/setup-env-production.sh",
+    "hetzner:deploy": "bash ./scripts/hetzner/deploy-prod.sh",
+    "hetzner:status": "bash ./scripts/hetzner/status.sh",
+    "hetzner:logs": "bash ./scripts/hetzner/logs.sh",
+    "compose:dev:up": "bash -lc 'cd infrastructure/docker && docker compose -f docker-compose.dev.yml up -d --build'",
+    "compose:dev:down": "bash -lc 'cd infrastructure/docker && docker compose -f docker-compose.dev.yml down --remove-orphans'",
+    "compose:prod:config": "bash -lc 'cd infrastructure/docker && docker compose -f docker-compose.prod.yml config'",
+    "compose:prod:up": "bash -lc 'cd infrastructure/docker && docker compose -f docker-compose.prod.yml up -d --build --remove-orphans'",
+    "compose:prod:down": "bash -lc 'cd infrastructure/docker && docker compose -f docker-compose.prod.yml down --remove-orphans'",
+    "lint:api": "npm run lint --workspace=@vpn-enterprise/api",
+    "lint:web": "cd apps/web-dashboard && npm run lint",
+    "build:api": "npm run build --workspace=@vpn-enterprise/api",
+    "build:web": "cd apps/web-dashboard && npm run build",
     "generate-client-cli": "node ./scripts/generate-client-cli.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
- "dependencies": {
+  "dependencies": {
     "@supabase/supabase-js": "^2.80.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.5",
@@ -29,7 +52,6 @@
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "ts-node": "^10.9.1"
-
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

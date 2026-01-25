@@ -1,183 +1,236 @@
-import { Pool } from 'pg';
+import { Pool } from 'pg'
+import { resolveSecret } from './utils/secrets'
 
 export class DatabasePlatformClient {
-  private pgPool: Pool;
-  public tenantConnections: Map<string, Pool> = new Map();
+  private pgPool: Pool
+  public tenantConnections: Map<string, Pool> = new Map()
 
   constructor() {
     // Main platform database connection
+    const postgresPassword = resolveSecret({
+      valueEnv: 'POSTGRES_PASSWORD',
+      fileEnv: 'POSTGRES_PASSWORD_FILE',
+      defaultFilePath: '/run/secrets/db_password',
+    })
+
     const config = {
       host: process.env.POSTGRES_HOST || 'postgres-primary',
       port: parseInt(process.env.POSTGRES_PORT || '5432'),
       database: process.env.POSTGRES_DB || 'platform_db',
       user: process.env.POSTGRES_USER || 'platform_admin',
-      password: process.env.POSTGRES_PASSWORD,
-      max: 20
-    };
-    
+      password: postgresPassword,
+      max: 20,
+    }
+
     console.log('[DatabasePlatformClient] Platform pool config:', {
       host: config.host,
       port: config.port,
       database: config.database,
-      user: config.user
-    });
-    
-    this.pgPool = new Pool(config);
+      user: config.user,
+    })
+
+    this.pgPool = new Pool(config)
   }
 
   async clearCache(): Promise<void> {
     // Close all existing tenant connections safely
     for (const [tenantId, pool] of this.tenantConnections.entries()) {
       try {
-        console.log(`[DatabasePlatformClient] Closing connection for tenant: ${tenantId}`);
+        console.log(
+          `[DatabasePlatformClient] Closing connection for tenant: ${tenantId}`,
+        )
         if (!pool.ended) {
-          await pool.end();
+          await pool.end()
         }
       } catch (error) {
-        console.warn(`[DatabasePlatformClient] Error closing pool for tenant ${tenantId}:`, error);
+        console.warn(
+          `[DatabasePlatformClient] Error closing pool for tenant ${tenantId}:`,
+          error,
+        )
       }
     }
-    this.tenantConnections.clear();
-    console.log('[DatabasePlatformClient] Connection cache cleared');
+    this.tenantConnections.clear()
+    console.log('[DatabasePlatformClient] Connection cache cleared')
   }
 
   async getTenantConnection(tenantId: string): Promise<Pool> {
-    console.log('🔍 [DatabasePlatformClient] getTenantConnection called for tenant:', tenantId);
-    
+    console.log(
+      '🔍 [DatabasePlatformClient] getTenantConnection called for tenant:',
+      tenantId,
+    )
+
     // Check if we already have a valid connection
     if (this.tenantConnections.has(tenantId)) {
-      const existingPool = this.tenantConnections.get(tenantId)!;
+      const existingPool = this.tenantConnections.get(tenantId)!
       if (!existingPool.ended) {
-        console.log('[DatabasePlatformClient] Reusing existing connection for tenant:', tenantId);
-        return existingPool;
+        console.log(
+          '[DatabasePlatformClient] Reusing existing connection for tenant:',
+          tenantId,
+        )
+        return existingPool
       } else {
         // Remove ended pool from cache
-        console.log('[DatabasePlatformClient] Removing ended connection for tenant:', tenantId);
-        this.tenantConnections.delete(tenantId);
+        console.log(
+          '[DatabasePlatformClient] Removing ended connection for tenant:',
+          tenantId,
+        )
+        this.tenantConnections.delete(tenantId)
       }
     }
-    
+
     if (this.tenantConnections.has(tenantId)) {
-      return this.tenantConnections.get(tenantId)!;
+      return this.tenantConnections.get(tenantId)!
     }
 
-    // In development mode, use direct connection without looking up tenant info
-    if (process.env.NODE_ENV === 'development' && tenantId === '123e4567-e89b-12d3-a456-426614174000') {
-      console.log('[DatabasePlatformClient] Using development mode direct connection');
-      const tenantConfig = {
-        host: process.env.POSTGRES_HOST || 'localhost',
-        port: parseInt(process.env.POSTGRES_PORT || '5432'),
-        database: process.env.POSTGRES_DB || 'postgres',
-        user: process.env.POSTGRES_USER || 'postgres',
-        password: process.env.POSTGRES_PASSWORD || 'password',
-        max: 10
-      };
-      
-      console.log('[DatabasePlatformClient] Development tenant config:', tenantConfig);
-      
-      const tenantPool = new Pool(tenantConfig);
-      this.tenantConnections.set(tenantId, tenantPool);
-      return tenantPool;
-    }
+    // Resolve a default password for tenant connections via env/secrets.
+    const defaultTenantPassword = resolveSecret({
+      valueEnv: 'POSTGRES_PASSWORD',
+      fileEnv: 'POSTGRES_PASSWORD_FILE',
+      defaultFilePath: '/run/secrets/db_password',
+    })
 
     // Get tenant connection info from platform database
-    const client = await this.pgPool.connect();
+    const client = await this.pgPool.connect()
     try {
-      const result = await client.query('SELECT connection_info FROM tenants WHERE id = $1', [tenantId]);
+      const result = await client.query(
+        'SELECT connection_info FROM tenants WHERE id = $1',
+        [tenantId],
+      )
       if (!result.rows[0]) {
-        throw new Error(`Tenant ${tenantId} not found`);
+        throw new Error(`Tenant ${tenantId} not found`)
       }
 
-      const connectionInfo = result.rows[0].connection_info;
+      const connectionInfo = result.rows[0].connection_info
       const tenantConfig = {
-        host: connectionInfo.host || process.env.POSTGRES_HOST,
-        port: parseInt(connectionInfo.port) || parseInt(process.env.POSTGRES_PORT || '5433'),
-        database: connectionInfo.database || process.env.POSTGRES_DB,
-        user: connectionInfo.user || connectionInfo.username || process.env.POSTGRES_USER,
-        password: connectionInfo.password || process.env.POSTGRES_PASSWORD,
-        max: 10
-      };
-      
-      console.log('[DatabasePlatformClient] Raw connection_info:', connectionInfo);
-      console.log('[DatabasePlatformClient] Final tenant config:', tenantConfig);
+        host:
+          connectionInfo.host ||
+          process.env.POSTGRES_HOST ||
+          'postgres-primary',
+        port: Number(connectionInfo.port || process.env.POSTGRES_PORT || 5432),
+        database:
+          connectionInfo.database || process.env.POSTGRES_DB || 'platform_db',
+        user:
+          connectionInfo.user ||
+          connectionInfo.username ||
+          process.env.POSTGRES_USER ||
+          'platform_admin',
+        password: connectionInfo.password || defaultTenantPassword,
+        max: 10,
+      }
+
+      console.log(
+        '[DatabasePlatformClient] Raw connection_info:',
+        connectionInfo,
+      )
+      console.log('[DatabasePlatformClient] Final tenant config:', tenantConfig)
       console.log('[DatabasePlatformClient] Environment fallbacks:', {
         POSTGRES_HOST: process.env.POSTGRES_HOST,
         POSTGRES_PORT: process.env.POSTGRES_PORT,
         POSTGRES_DB: process.env.POSTGRES_DB,
-        POSTGRES_USER: process.env.POSTGRES_USER
-      });
-      
-      const tenantPool = new Pool(tenantConfig);
-      
-      // Test the connection to verify it's connecting to the right database
+        POSTGRES_USER: process.env.POSTGRES_USER,
+      })
+
+      const tenantPool = new Pool(tenantConfig)
+
+      // Test the connection and verify target database (when declared)
       try {
-        const testClient = await tenantPool.connect();
-        const testResult = await testClient.query('SELECT current_database(), current_user, inet_server_port()');
-        console.log('[DatabasePlatformClient] Tenant connection test result:', testResult.rows[0]);
-        
-        const actualDb = testResult.rows[0]?.current_database;
-        const actualUser = testResult.rows[0]?.current_user;
-        const actualPort = testResult.rows[0]?.inet_server_port;
-        
-        if (actualDb !== 'platform_db') {
-          throw new Error(`WRONG DATABASE! Expected 'platform_db', got '${actualDb}'. User: ${actualUser}, Port: ${actualPort}. Host: ${connectionInfo.host}, DB: ${connectionInfo.database}`);
+        const testClient = await tenantPool.connect()
+        const testResult = await testClient.query(
+          'SELECT current_database(), current_user, inet_server_port()',
+        )
+        console.log(
+          '[DatabasePlatformClient] Tenant connection test result:',
+          testResult.rows[0],
+        )
+
+        const actualDb = testResult.rows[0]?.current_database
+        const actualUser = testResult.rows[0]?.current_user
+        const actualPort = testResult.rows[0]?.inet_server_port
+
+        if (tenantConfig.database && actualDb !== tenantConfig.database) {
+          throw new Error(
+            `WRONG DATABASE! Expected '${tenantConfig.database}', got '${actualDb}'. User: ${actualUser}, Port: ${actualPort}. Host: ${tenantConfig.host}`,
+          )
         }
-        
-        testClient.release();
+
+        testClient.release()
       } catch (error) {
-        console.error('[DatabasePlatformClient] Tenant connection test failed:', error);
+        console.error(
+          '[DatabasePlatformClient] Tenant connection test failed:',
+          error,
+        )
         // Safely end the pool
         try {
           if (!tenantPool.ended) {
-            await tenantPool.end();
+            await tenantPool.end()
           }
         } catch (endError) {
-          console.warn('[DatabasePlatformClient] Error ending failed pool:', endError);
+          console.warn(
+            '[DatabasePlatformClient] Error ending failed pool:',
+            endError,
+          )
         }
-        throw error;
+        throw error
       }
 
-      this.tenantConnections.set(tenantId, tenantPool);
-      return tenantPool;
+      this.tenantConnections.set(tenantId, tenantPool)
+      return tenantPool
     } finally {
-      client.release();
+      client.release()
     }
   }
 
-  async executeQuery(tenantId: string, sql: string, params: any[] = []): Promise<any> {
-    const pool = await this.getTenantConnection(tenantId);
-    const client = await pool.connect();
+  async executeQuery(
+    tenantId: string,
+    sql: string,
+    params: any[] = [],
+  ): Promise<any> {
+    const pool = await this.getTenantConnection(tenantId)
+    const client = await pool.connect()
     try {
-      const startTime = Date.now();
-      const result = await client.query(sql, params);
-      const executionTime = Date.now() - startTime;
-      
-      return { 
-        data: result.rows, 
+      const startTime = Date.now()
+      const result = await client.query(sql, params)
+      const executionTime = Date.now() - startTime
+
+      return {
+        data: result.rows,
         rowCount: result.rowCount,
         executionTime,
-        fields: result.fields?.map(f => ({ name: f.name, dataTypeID: f.dataTypeID }))
-      };
+        fields: result.fields?.map((f) => ({
+          name: f.name,
+          dataTypeID: f.dataTypeID,
+        })),
+      }
     } finally {
-      client.release();
+      client.release()
     }
   }
 
   async getSchemas(tenantId: string): Promise<any[]> {
-    const result = await this.executeQuery(tenantId, `
+    const result = await this.executeQuery(
+      tenantId,
+      `
       SELECT schema_name 
       FROM information_schema.schemata 
       WHERE schema_name NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
       ORDER BY schema_name
-    `);
-    return result.data;
+    `,
+    )
+    return result.data
   }
 
-  async getTables(tenantId: string, schemaName: string = 'public'): Promise<any[]> {
-    console.log(`[DatabasePlatformClient] getTables called for tenant: ${tenantId}, schema: ${schemaName}`);
-    
+  async getTables(
+    tenantId: string,
+    schemaName: string = 'public',
+  ): Promise<any[]> {
+    console.log(
+      `[DatabasePlatformClient] getTables called for tenant: ${tenantId}, schema: ${schemaName}`,
+    )
+
     try {
-      const result = await this.executeQuery(tenantId, `
+      const result = await this.executeQuery(
+        tenantId,
+        `
         SELECT 
           t.table_name,
           t.table_type,
@@ -194,22 +247,36 @@ export class DatabasePlatformClient {
         WHERE t.table_schema = $1
         AND t.table_type = 'BASE TABLE'
         ORDER BY t.table_name
-      `, [schemaName]);
-      
-      console.log(`[DatabasePlatformClient] getTables result for schema '${schemaName}':`, {
-        count: result.data?.length || 0,
-        tables: result.data?.map((t: any) => t.table_name)
-      });
-      
-      return result.data || [];
+      `,
+        [schemaName],
+      )
+
+      console.log(
+        `[DatabasePlatformClient] getTables result for schema '${schemaName}':`,
+        {
+          count: result.data?.length || 0,
+          tables: result.data?.map((t: any) => t.table_name),
+        },
+      )
+
+      return result.data || []
     } catch (error) {
-      console.error(`[DatabasePlatformClient] Error getting tables for schema '${schemaName}':`, error);
-      throw error;
+      console.error(
+        `[DatabasePlatformClient] Error getting tables for schema '${schemaName}':`,
+        error,
+      )
+      throw error
     }
   }
 
-  async getTableColumns(tenantId: string, schemaName: string, tableName: string): Promise<any[]> {
-    const result = await this.executeQuery(tenantId, `
+  async getTableColumns(
+    tenantId: string,
+    schemaName: string,
+    tableName: string,
+  ): Promise<any[]> {
+    const result = await this.executeQuery(
+      tenantId,
+      `
       SELECT 
         c.column_name,
         c.data_type,
@@ -230,114 +297,135 @@ export class DatabasePlatformClient {
         AND kcu.table_schema = tc.table_schema
       WHERE c.table_schema = $1 AND c.table_name = $2
       ORDER BY c.ordinal_position
-    `, [schemaName, tableName]);
-    return result.data;
+    `,
+      [schemaName, tableName],
+    )
+    return result.data
   }
 
   async createSchema(tenantId: string, schemaName: string): Promise<void> {
-    await this.executeQuery(tenantId, `CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+    await this.executeQuery(
+      tenantId,
+      `CREATE SCHEMA IF NOT EXISTS "${schemaName}"`,
+    )
   }
 
-  async createTable(tenantId: string, schemaName: string, tableName: string, columns: any[]): Promise<void> {
-    const columnDefs = columns.map(col => {
-      let def = `"${col.name}" ${col.type}`;
-      if (!col.nullable) def += ' NOT NULL';
-      if (col.primary_key) def += ' PRIMARY KEY';
-      if (col.default) def += ` DEFAULT ${col.default}`;
-      return def;
-    }).join(', ');
+  async createTable(
+    tenantId: string,
+    schemaName: string,
+    tableName: string,
+    columns: any[],
+  ): Promise<void> {
+    const columnDefs = columns
+      .map((col) => {
+        let def = `"${col.name}" ${col.type}`
+        if (!col.nullable) def += ' NOT NULL'
+        if (col.primary_key) def += ' PRIMARY KEY'
+        if (col.default) def += ` DEFAULT ${col.default}`
+        return def
+      })
+      .join(', ')
 
-    const sql = `CREATE TABLE "${schemaName}"."${tableName}" (${columnDefs})`;
-    await this.executeQuery(tenantId, sql);
+    const sql = `CREATE TABLE "${schemaName}"."${tableName}" (${columnDefs})`
+    await this.executeQuery(tenantId, sql)
   }
 
   async getTenants(userId?: string): Promise<any[]> {
-    const client = await this.pgPool.connect();
+    const client = await this.pgPool.connect()
     try {
       let query = `
         SELECT t.*, o.name as organization_name 
         FROM tenants t 
         LEFT JOIN organizations o ON t.organization_id = o.id 
         WHERE t.status = 'active'
-      `;
-      const params: any[] = [];
+      `
+      const params: any[] = []
 
       if (userId) {
         query += ` AND t.organization_id IN (
           SELECT organization_id FROM organization_users WHERE user_id = $1
-        )`;
-        params.push(userId);
+        )`
+        params.push(userId)
       }
 
-      query += ' ORDER BY t.created_at DESC';
+      query += ' ORDER BY t.created_at DESC'
 
-      const result = await client.query(query, params);
-      return result.rows;
+      const result = await client.query(query, params)
+      return result.rows
     } finally {
-      client.release();
+      client.release()
     }
   }
 
-  async createTenant(organizationId: string, name: string, plan: string = 'free'): Promise<any> {
+  async createTenant(
+    organizationId: string,
+    name: string,
+    plan: string = 'free',
+  ): Promise<any> {
     // Call tenant provisioner service
     const response = await fetch('http://tenant-provisioner:3003/tenants', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ organizationId, name, plan })
-    });
+      body: JSON.stringify({ organizationId, name, plan }),
+    })
 
     if (!response.ok) {
-      throw new Error(`Failed to create tenant: ${response.statusText}`);
+      throw new Error(`Failed to create tenant: ${response.statusText}`)
     }
 
-    return response.json();
+    return response.json()
   }
 
   // Platform database access
   get platformPool(): Pool {
-    return this.pgPool;
+    return this.pgPool
   }
 
   // Cleanup method for graceful shutdown
   async cleanup(): Promise<void> {
-    console.log('[DatabasePlatformClient] Starting cleanup...');
-    
+    console.log('[DatabasePlatformClient] Starting cleanup...')
+
     // Close all tenant connections
-    await this.clearCache();
-    
+    await this.clearCache()
+
     // Close platform connection
     try {
       if (!this.pgPool.ended) {
-        await this.pgPool.end();
-        console.log('[DatabasePlatformClient] Platform pool closed');
+        await this.pgPool.end()
+        console.log('[DatabasePlatformClient] Platform pool closed')
       }
     } catch (error) {
-      console.warn('[DatabasePlatformClient] Error closing platform pool:', error);
+      console.warn(
+        '[DatabasePlatformClient] Error closing platform pool:',
+        error,
+      )
     }
-    
-    console.log('[DatabasePlatformClient] Cleanup completed');
+
+    console.log('[DatabasePlatformClient] Cleanup completed')
   }
 
   async getUserById(userId: string): Promise<any> {
-    const client = await this.pgPool.connect();
+    const client = await this.pgPool.connect()
     try {
-      const result = await client.query('SELECT * FROM users WHERE id = $1', [userId]);
-      return result.rows[0];
+      const result = await client.query('SELECT * FROM users WHERE id = $1', [
+        userId,
+      ])
+      return result.rows[0]
     } finally {
-      client.release();
+      client.release()
     }
   }
 
   async getUserMembership(userId: string): Promise<any> {
-    const client = await this.pgPool.connect();
+    const client = await this.pgPool.connect()
     try {
       const result = await client.query(
-        'SELECT * FROM organization_users WHERE user_id = $1', 
-        [userId]
-      );
-      return result.rows[0];
+        'SELECT * FROM organization_users WHERE user_id = $1',
+        [userId],
+      )
+      return result.rows[0]
     } finally {
-      client.release();
+      client.release()
     }
   }
 }
