@@ -90,7 +90,7 @@ services:
           'CMD',
           'node',
           '-e',
-          "require('http').get('http://127.0.0.1:3000/', (res) => process.exit((res.statusCode||0) < 500 ? 0 : 1)).on('error', () => process.exit(1));",
+          "const http=require('http');const targets=['127.0.0.1',process.env.HOSTNAME].filter(Boolean);const tryOne=(i)=>{if(i>=targets.length)process.exit(1);const req=http.get('http://'+targets[i]+':3000/',(res)=>process.exit(((res.statusCode||0)<500)?0:1));req.on('error',()=>tryOne(i+1));req.setTimeout(5000,()=>{req.destroy();tryOne(i+1)});};tryOne(0);",
         ]
       interval: 30s
       timeout: 10s
