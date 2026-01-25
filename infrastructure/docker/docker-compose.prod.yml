@@ -88,7 +88,7 @@ services:
       test:
         [
           'CMD-SHELL',
-          "node -e \"require('http').get('http://127.0.0.1:3000/', (res) => process.exit((res.statusCode||0) < 500 ? 0 : 1)).on('error', () => process.exit(1));\"",
+          'node -e "require(''http'').get(''http://127.0.0.1:3000/'', (res) => process.exit((res.statusCode||0) < 500 ? 0 : 1)).on(''error'', () => process.exit(1));"',
         ]
       interval: 30s
       timeout: 10s
@@ -193,6 +193,7 @@ services:
       - ./config/app.prod.env
     environment:
       - N8N_ENCRYPTION_KEY_FILE=/run/secrets/n8n_encryption_key
+      - DB_POSTGRESDB_PASSWORD_FILE=/run/secrets/db_password
       # Credentials should be provided via ../../.env.production as:
       #   N8N_BASIC_AUTH_USER=...
       #   N8N_BASIC_AUTH_PASSWORD=...
@@ -202,9 +203,6 @@ services:
     # NOTE: Docker Compose "secrets" are implemented differently depending on environment.
     # In some setups they end up root-only inside the container, which breaks n8n (runs non-root).
     # Bind-mounting these two files ensures the container user can read them reliably.
-    command: >
-      sh -c
-      'export DB_POSTGRESDB_PASSWORD="$(cat /run/secrets/db_password)" && exec n8n'
     volumes:
       - n8n_data:/home/node/.n8n
       - ./secrets/n8n_encryption_key:/run/secrets/n8n_encryption_key:ro
@@ -225,7 +223,11 @@ services:
           cpus: '0.5'
           memory: 512M
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:5678/healthz']
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "require(''http'').get(''http://127.0.0.1:5678/healthz'', (res) => process.exit((res.statusCode||0) === 200 ? 0 : 1)).on(''error'', () => process.exit(1));"',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

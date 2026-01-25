@@ -19,11 +19,11 @@ This project uses **Docker Secrets** for sensitive data and **environment-specif
 
 ### Why This Approach?
 
-| Method | Use Case | Security | Example |
-|--------|----------|----------|---------|
-| **Docker Secrets** | Passwords, keys, tokens | ✅ Encrypted, mounted as files | Database passwords, API keys |
-| **Config Files** | Environment settings | ⚠️ Not encrypted | Log levels, feature flags, URLs |
-| **Environment Variables** | Runtime overrides | ⚠️ Visible in `docker inspect` | `NODE_ENV=production` |
+| Method                    | Use Case                | Security                       | Example                         |
+| ------------------------- | ----------------------- | ------------------------------ | ------------------------------- |
+| **Docker Secrets**        | Passwords, keys, tokens | ✅ Encrypted, mounted as files | Database passwords, API keys    |
+| **Config Files**          | Environment settings    | ⚠️ Not encrypted               | Log levels, feature flags, URLs |
+| **Environment Variables** | Runtime overrides       | ⚠️ Visible in `docker inspect` | `NODE_ENV=production`           |
 
 ## Quick Start
 
@@ -50,18 +50,21 @@ openssl rand -hex 32 > api_key
 ### 2. Start Services
 
 **Development:**
+
 ```bash
 cd infrastructure/docker
 docker compose -f docker-compose.dev.yml up -d
 ```
 
 **Production:**
+
 ```bash
 cd infrastructure/docker
 docker compose -f docker-compose.prod.yml up -d
 ```
 
 **Database Platform:**
+
 ```bash
 docker compose -f docker-compose.db-dev.yml up -d
 ```
@@ -96,12 +99,12 @@ infrastructure/docker/
 
 ### Available Secrets
 
-| Secret File | Purpose | Used By Services |
-|-------------|---------|------------------|
-| `db_password` | PostgreSQL admin password | postgres, api, python-api |
-| `redis_password` | Redis authentication | redis, api, python-api, n8n |
-| `n8n_encryption_key` | N8N credential encryption | n8n |
-| `api_key` | Internal API authentication | api, python-api |
+| Secret File          | Purpose                     | Used By Services            |
+| -------------------- | --------------------------- | --------------------------- |
+| `db_password`        | PostgreSQL admin password   | postgres, api, python-api   |
+| `redis_password`     | Redis authentication        | redis, api, python-api, n8n |
+| `n8n_encryption_key` | N8N credential encryption   | n8n                         |
+| `api_key`            | Internal API authentication | api, python-api             |
 
 ### How Secrets Work
 
@@ -121,22 +124,24 @@ If you see errors like `EACCES: permission denied, open '/run/secrets/n8n_encryp
 
 - Quick fix: `chmod 644 infrastructure/docker/secrets/n8n_encryption_key` and recreate the container.
 - Tighter fix: keep `chmod 600` and grant read via ACL to the container UID (often `1000`):
-   - `sudo apt-get install -y acl`
-   - `docker run --rm --entrypoint id n8nio/n8n:latest`
-   - `sudo setfacl -m u:1000:r infrastructure/docker/secrets/n8n_encryption_key`
+  - `sudo apt-get install -y acl`
+  - `docker run --rm --entrypoint id n8nio/n8n:latest`
+  - `sudo setfacl -m u:1000:r infrastructure/docker/secrets/n8n_encryption_key`
 
 ### Accessing Secrets in Code
 
 **Node.js/TypeScript:**
-```typescript
-import { readFileSync } from 'fs';
 
-const apiKey = process.env.API_KEY_FILE 
+```typescript
+import { readFileSync } from 'fs'
+
+const apiKey = process.env.API_KEY_FILE
   ? readFileSync(process.env.API_KEY_FILE, 'utf8').trim()
-  : process.env.API_KEY;
+  : process.env.API_KEY
 ```
 
 **Python/FastAPI:**
+
 ```python
 import os
 
@@ -202,6 +207,7 @@ docker compose -f docker-compose.dev.yml up -d
 ```
 
 **Features:**
+
 - Hot reload enabled
 - Debug endpoints exposed
 - SQLite for N8N (simpler)
@@ -217,6 +223,7 @@ docker compose -f docker-compose.prod.yml up -d
 ```
 
 **Features:**
+
 - PostgreSQL for N8N
 - Resource limits enforced
 - Health checks enabled
@@ -231,6 +238,7 @@ docker compose -f docker-compose.db-dev.yml up -d
 ```
 
 **Access:**
+
 - pgAdmin: http://localhost:8082
 - Adminer: http://localhost:8081
 
@@ -239,6 +247,7 @@ docker compose -f docker-compose.db-dev.yml up -d
 ### ✅ DO
 
 1. **Use Strong Passwords**
+
    ```bash
    # Generate 32-character passwords
    openssl rand -base64 32
@@ -250,6 +259,7 @@ docker compose -f docker-compose.db-dev.yml up -d
    - Document rotation date
 
 3. **Restrict File Permissions**
+
    ```bash
    chmod 600 infrastructure/docker/secrets/*
    ```
@@ -272,23 +282,25 @@ docker compose -f docker-compose.db-dev.yml up -d
    - Check `.gitignore` is configured correctly
 
 2. **Avoid Environment Variables for Secrets**
+
    ```bash
    # ❌ Bad: Visible in docker inspect
    environment:
      - DB_PASSWORD=plain_text_password
-   
+
    # ✅ Good: Use secrets
    secrets:
      - db_password
    ```
 
 3. **Don't Hardcode Secrets**
+
    ```javascript
    // ❌ Bad
-   const password = 'my_secret_password';
-   
+   const password = 'my_secret_password'
+
    // ✅ Good
-   const password = readFileSync('/run/secrets/db_password', 'utf8');
+   const password = readFileSync('/run/secrets/db_password', 'utf8')
    ```
 
 4. **Don't Share Secrets via Chat/Email**
@@ -300,39 +312,45 @@ docker compose -f docker-compose.db-dev.yml up -d
 ### Issue: Container can't read secret
 
 **Symptoms:**
+
 ```
 Error: ENOENT: no such file or directory, open '/run/secrets/db_password'
 ```
 
 **Solution:**
+
 1. Check secret file exists:
+
    ```bash
    ls -la infrastructure/docker/secrets/db_password
    ```
 
 2. Verify service declares secret:
+
    ```yaml
    services:
      api:
        secrets:
-         - db_password  # Must be declared
+         - db_password # Must be declared
    ```
 
 3. Check secrets definition:
    ```yaml
    secrets:
      db_password:
-       file: ./secrets/db_password  # Path must be correct
+       file: ./secrets/db_password # Path must be correct
    ```
 
 ### Issue: Permission denied reading secret
 
 **Symptoms:**
+
 ```
 Error: EACCES: permission denied, open '/run/secrets/db_password'
 ```
 
 **Solution:**
+
 ```bash
 chmod 644 infrastructure/docker/secrets/db_password
 ```
@@ -340,11 +358,13 @@ chmod 644 infrastructure/docker/secrets/db_password
 ### Issue: Wrong password being used
 
 **Check secret content:**
+
 ```bash
 cat infrastructure/docker/secrets/db_password
 ```
 
 **Check what container sees:**
+
 ```bash
 docker exec vpn-api-dev cat /run/secrets/api_key
 ```
@@ -352,6 +372,7 @@ docker exec vpn-api-dev cat /run/secrets/api_key
 ### Issue: Service using old secret
 
 **Force recreation:**
+
 ```bash
 docker compose down
 docker compose up -d --force-recreate
