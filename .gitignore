@@ -92,6 +92,10 @@ out/
 !.env.example
 !.env.template
 
+# Track non-secret compose config env files
+!infrastructure/docker/config/app.dev.env
+!infrastructure/docker/config/app.prod.env
+
 # ============================================
 # LOGS
 # ============================================
