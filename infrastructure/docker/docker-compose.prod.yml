@@ -88,7 +88,7 @@ services:
       test:
         [
           'CMD-SHELL',
-          'wget -q -O - http://127.0.0.1:3000 >/dev/null 2>&1 || curl -fsS http://127.0.0.1:3000 >/dev/null 2>&1',
+          "node -e \"require('http').get('http://127.0.0.1:3000/', (res) => process.exit((res.statusCode||0) < 500 ? 0 : 1)).on('error', () => process.exit(1));\"",
         ]
       interval: 30s
       timeout: 10s
@@ -199,20 +199,16 @@ services:
       - EXECUTIONS_PROCESS=main
       - EXECUTIONS_DATA_SAVE_ON_ERROR=all
       - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
-    secrets:
-      # Compose "secrets" here are bind-mounted from ./secrets/* on non-Swarm installs.
-      # Ensure the process user inside the container can read them.
-      - source: n8n_encryption_key
-        target: n8n_encryption_key
-        mode: 0444
-      - source: db_password
-        target: db_password
-        mode: 0444
+    # NOTE: Docker Compose "secrets" are implemented differently depending on environment.
+    # In some setups they end up root-only inside the container, which breaks n8n (runs non-root).
+    # Bind-mounting these two files ensures the container user can read them reliably.
     command: >
       sh -c
       'export DB_POSTGRESDB_PASSWORD="$(cat /run/secrets/db_password)" && exec n8n'
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./secrets/n8n_encryption_key:/run/secrets/n8n_encryption_key:ro
+      - ./secrets/db_password:/run/secrets/db_password:ro
     networks:
       - vpn-network
     depends_on:
