@@ -74,9 +74,18 @@ create_secret() {
             ;;
     esac
     
-    # Set secure permissions
-    chmod 600 "$secret_file"
-    echo "   🔒 Set permissions to 600 (owner read/write only)"
+    # Set permissions.
+    # NOTE: On non-Swarm Docker Compose, secrets may be bind-mounted with the same
+    # permissions as the source file. Some containers (like n8n) run as a non-root
+    # user and must be able to read their *_FILE secrets.
+    if [[ "$secret_name" == "n8n_encryption_key" ]]; then
+        chmod 644 "$secret_file"
+        echo "   🔒 Set permissions to 644 (readable by container user)"
+        echo "   ℹ️  If you prefer tighter host permissions, use ACLs instead (see docs/DOCKER_SECRETS_CONFIG.md)"
+    else
+        chmod 600 "$secret_file"
+        echo "   🔒 Set permissions to 600 (owner read/write only)"
+    fi
 }
 
 echo ""

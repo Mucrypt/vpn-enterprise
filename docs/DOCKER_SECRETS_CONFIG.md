@@ -110,6 +110,21 @@ infrastructure/docker/
 3. **Access Control**: Only services that declare a secret get access to it
 4. **Reading Secrets**: Applications read from `/run/secrets/secret_name`
 
+#### File permissions (important for Docker Compose)
+
+In Docker Swarm, secrets are mounted with safe, readable permissions inside containers.
+When using **Docker Compose with `secrets: file:`**, some setups mount secrets from local
+files in a way that preserves host file permissions. If a container runs as a non-root user
+(for example `n8nio/n8n`), it must be able to read its secret file.
+
+If you see errors like `EACCES: permission denied, open '/run/secrets/n8n_encryption_key'`:
+
+- Quick fix: `chmod 644 infrastructure/docker/secrets/n8n_encryption_key` and recreate the container.
+- Tighter fix: keep `chmod 600` and grant read via ACL to the container UID (often `1000`):
+   - `sudo apt-get install -y acl`
+   - `docker run --rm --entrypoint id n8nio/n8n:latest`
+   - `sudo setfacl -m u:1000:r infrastructure/docker/secrets/n8n_encryption_key`
+
 ### Accessing Secrets in Code
 
 **Node.js/TypeScript:**
