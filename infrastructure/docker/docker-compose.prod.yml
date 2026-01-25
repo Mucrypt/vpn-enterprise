@@ -200,8 +200,14 @@ services:
       - EXECUTIONS_DATA_SAVE_ON_ERROR=all
       - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
     secrets:
-      - n8n_encryption_key
-      - db_password
+      # Compose "secrets" here are bind-mounted from ./secrets/* on non-Swarm installs.
+      # Ensure the process user inside the container can read them.
+      - source: n8n_encryption_key
+        target: n8n_encryption_key
+        mode: 0444
+      - source: db_password
+        target: db_password
+        mode: 0444
     command: >
       sh -c
       'export DB_POSTGRESDB_PASSWORD="$(cat /run/secrets/db_password)" && exec n8n'
