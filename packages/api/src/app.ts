@@ -592,6 +592,71 @@ app.post('/api/v1/auth/signup', async (req, res) => {
     const user = await AuthService.signUp(email, password)
     res.status(201).json({ user, message: 'User created successfully' })
   } catch (error: any) {
+    const cause: any = error?.cause
+    const causeCode = cause?.code || error?.code
+    const causeMsg = String(cause?.message || error?.message || '')
+    const supabaseStatus =
+      typeof error?.status === 'number'
+        ? error.status
+        : typeof cause?.status === 'number'
+          ? cause.status
+          : undefined
+    const supabaseCode = String(error?.code || cause?.code || '')
+
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.error('[AUTH] Signup failed', {
+          message: String(error?.message || ''),
+          supabaseStatus,
+          supabaseCode,
+          causeCode,
+          causeMsg,
+        })
+      } catch {
+        // ignore logging errors
+      }
+    }
+
+    if (
+      causeCode === 'ENOTFOUND' ||
+      causeCode === 'EAI_AGAIN' ||
+      /getaddrinfo\s+ENOTFOUND/i.test(causeMsg) ||
+      /fetch failed/i.test(causeMsg)
+    ) {
+      return res.status(502).json({
+        error: 'Signup failed',
+        message:
+          'Cannot reach Supabase (DNS/network error). Verify internet/DNS and SUPABASE_URL is correct.',
+      })
+    }
+
+    // Common Supabase auth errors
+    if (supabaseStatus === 429) {
+      return res.status(429).json({
+        error: 'Signup failed',
+        message: 'Too many signup attempts. Please wait and try again.',
+      })
+    }
+
+    if (
+      /user already registered/i.test(causeMsg) ||
+      /already\s+registered/i.test(causeMsg) ||
+      supabaseCode === 'user_already_exists'
+    ) {
+      return res.status(409).json({
+        error: 'Signup failed',
+        message: 'User already exists. Please sign in instead.',
+      })
+    }
+
+    if (/signups?\s+not\s+allowed/i.test(causeMsg)) {
+      return res.status(403).json({
+        error: 'Signup failed',
+        message:
+          'Signups are disabled in Supabase Auth settings. Enable signups or create users in the dashboard.',
+      })
+    }
+
     res.status(400).json({ error: 'Signup failed', message: error.message })
   }
 })
@@ -687,6 +752,22 @@ app.post('/api/v1/auth/login', async (req, res) => {
 
     res.json({ user, session })
   } catch (error: any) {
+    const cause: any = error?.cause
+    const causeCode = cause?.code || error?.code
+    const causeMsg = String(cause?.message || error?.message || '')
+    if (
+      causeCode === 'ENOTFOUND' ||
+      causeCode === 'EAI_AGAIN' ||
+      /getaddrinfo\s+ENOTFOUND/i.test(causeMsg) ||
+      /fetch failed/i.test(causeMsg)
+    ) {
+      return res.status(502).json({
+        error: 'Login failed',
+        message:
+          'Cannot reach Supabase (DNS/network error). Verify internet/DNS and SUPABASE_URL is correct.',
+      })
+    }
+
     res.status(401).json({ error: 'Login failed', message: error.message })
   }
 })

@@ -20,6 +20,7 @@ import {
   CheckCircle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { api } from '@/lib/api'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -62,27 +63,7 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL ||
-        (typeof window !== 'undefined'
-          ? window.location.origin
-          : 'http://api:5000')
-      const response = await fetch(`${apiUrl}/api/v1/auth/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Signup failed')
-      }
+      await api.signUp(formData.email, formData.password)
 
       toast.success('Account created successfully! Please login.')
       router.push('/auth/login')
@@ -138,6 +119,7 @@ export default function SignupPage() {
                     id='email'
                     type='email'
                     required
+                    autoComplete='email'
                     value={formData.email}
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
@@ -162,6 +144,7 @@ export default function SignupPage() {
                     id='password'
                     type='password'
                     required
+                    autoComplete='new-password'
                     value={formData.password}
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
@@ -186,6 +169,7 @@ export default function SignupPage() {
                     id='confirmPassword'
                     type='password'
                     required
+                    autoComplete='new-password'
                     value={formData.confirmPassword}
                     onChange={(e) =>
                       setFormData({
