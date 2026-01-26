@@ -53,6 +53,11 @@ wheels/
 *.manifest
 *.spec
 
+# NexusAI app uses src/lib/* for shared utilities.
+# The broad `lib/` ignore above would otherwise exclude it.
+!apps/nexusAi/chat-to-code-38/src/lib/
+!apps/nexusAi/chat-to-code-38/src/lib/**
+
 # ============================================
 # NODE.JS & JAVASCRIPT
 # ============================================
