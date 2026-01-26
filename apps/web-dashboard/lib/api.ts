@@ -3,9 +3,37 @@
 const ENV_API = process.env.NEXT_PUBLIC_API_URL
 const INTERNAL_API = process.env.INTERNAL_API_URL
 
+function isLocalHostName(hostname: string): boolean {
+  const host = (hostname || '').toLowerCase()
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1'
+}
+
+function isLocalhostUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return isLocalHostName(u.hostname)
+  } catch {
+    return false
+  }
+}
+
 function resolveApiBase(): string {
-  // 1) Explicit env var wins
-  if (ENV_API && ENV_API.trim()) return ENV_API.trim()
+  // 1) Explicit env var wins, except when it accidentally points to localhost
+  // (e.g. .env.local got baked into a production build). In that case prefer
+  // same-origin in the browser so /api/* routes through nginx.
+  if (ENV_API && ENV_API.trim()) {
+    const envApi = ENV_API.trim()
+    if (typeof window !== 'undefined') {
+      try {
+        const pageHost = window.location.hostname
+        if (!isLocalHostName(pageHost) && isLocalhostUrl(envApi)) {
+          return window.location.origin
+        }
+      } catch {}
+    }
+
+    return envApi
+  }
 
   // 2) Browser heuristics: on Vercel dashboard domain, default to API subdomain
   if (typeof window !== 'undefined') {
