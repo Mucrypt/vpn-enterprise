@@ -156,7 +156,7 @@ services:
       [
         'sh',
         '-lc',
-        'redis-server --requirepass "$(cat /run/secrets/redis_password)" --maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes',
+        "redis-server --requirepass \"$(tr -d '\\r\\n' < /run/secrets/redis_password)\" --maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes",
       ]
     secrets:
       - redis_password
