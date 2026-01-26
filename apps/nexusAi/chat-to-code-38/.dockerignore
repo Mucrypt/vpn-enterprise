@@ -1,0 +1,22 @@
+# NexusAI (Vite) - Docker build context ignores
+# Keep source included; only exclude heavy/local artifacts.
+
+node_modules/
+dist/
+.vite/
+.cache/
+.parcel-cache/
+
+*.log
+.DS_Store
+
+.env
+.env.*
+
+# VCS
+.git/
+.gitignore
+
+# Editor
+.vscode/
+.idea/
