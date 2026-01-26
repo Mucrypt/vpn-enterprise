@@ -1,25 +1,24 @@
 # Dockerfile for NexusAi - Vite + React + TypeScript app
 # Multi-stage build: 1) Install deps 2) Build 3) Serve with nginx
 
-# Stage 1: Build stage
-# Pin Bun to reduce lockfile format churn across releases.
-FROM oven/bun:1.3.6 AS builder
+# Stage 1: Build stage (Node + npm)
+# Bun builds can fail on some hosts due to lockfile format churn or tooling edge cases.
+# Using Node here is more predictable and we already have a package-lock.json.
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 # Copy package files
-COPY package.json bun.lockb ./
+COPY package.json package-lock.json ./
 
-# Install dependencies
-# NOTE: bun may update bun.lockb even when dependencies haven't changed (format/version churn).
-# Using --frozen-lockfile can break CI/servers unexpectedly, so we install without freezing here.
-RUN bun install
+# Install dependencies (includes devDependencies for Vite build)
+RUN npm ci
 
 # Copy source code
 COPY . .
 
 # Build the app
-RUN bun run build
+RUN npm run build
 
 # Stage 2: Production stage - serve with nginx
 FROM nginx:alpine
