@@ -2,7 +2,8 @@
 # Multi-stage build: 1) Install deps 2) Build 3) Serve with nginx
 
 # Stage 1: Build stage
-FROM oven/bun:1 AS builder
+# Pin Bun to reduce lockfile format churn across releases.
+FROM oven/bun:1.3.6 AS builder
 
 WORKDIR /app
 
@@ -10,7 +11,9 @@ WORKDIR /app
 COPY package.json bun.lockb ./
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+# NOTE: bun may update bun.lockb even when dependencies haven't changed (format/version churn).
+# Using --frozen-lockfile can break CI/servers unexpectedly, so we install without freezing here.
+RUN bun install
 
 # Copy source code
 COPY . .
