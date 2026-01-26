@@ -152,12 +152,12 @@ services:
     image: redis:7-alpine
     container_name: vpn-redis
     restart: always
-    command: >
-      redis-server
-      --requirepass $(cat /run/secrets/redis_password)
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
-      --appendonly yes
+    command:
+      [
+        'sh',
+        '-lc',
+        'redis-server --requirepass "$(cat /run/secrets/redis_password)" --maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes',
+      ]
     secrets:
       - redis_password
     volumes:
