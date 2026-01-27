@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuthStore } from '@/lib/store'
 import {
   Card,
@@ -16,6 +16,8 @@ export default function AdminN8nPage() {
   const [iframeKey, setIframeKey] = useState(0)
   const [ready, setReady] = useState(false)
   const [gateError, setGateError] = useState<string | null>(null)
+  const [focusMode, setFocusMode] = useState(false)
+  const focusContainerRef = useRef<HTMLDivElement | null>(null)
 
   const iframeSrc = process.env.NEXT_PUBLIC_N8N_UI_URL?.trim() || '/admin/n8n/'
 
@@ -147,6 +149,23 @@ export default function AdminN8nPage() {
     }
   }, [accessToken, user?.role])
 
+  useEffect(() => {
+    if (!focusMode) return
+
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFocusMode(false)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [focusMode])
+
   if (!isAdmin) {
     return (
       <div className='space-y-4'>
@@ -213,6 +232,16 @@ export default function AdminN8nPage() {
             <button
               type='button'
               className='underline'
+              onClick={() => setFocusMode(true)}
+              disabled={!ready}
+              aria-disabled={!ready}
+              title={ready ? 'Open n8n in focus mode' : 'Wait for n8n to load'}
+            >
+              Full screen
+            </button>
+            <button
+              type='button'
+              className='underline'
               onClick={() => setIframeKey((k) => k + 1)}
             >
               Reload console
@@ -223,6 +252,71 @@ export default function AdminN8nPage() {
           </div>
         </CardContent>
       </Card>
+
+      {focusMode ? (
+        <div
+          className='fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm'
+          role='dialog'
+          aria-modal='true'
+          aria-label='n8n full screen'
+          onClick={() => setFocusMode(false)}
+        >
+          <div
+            ref={focusContainerRef}
+            className='absolute inset-3 md:inset-6 rounded-xl bg-white shadow-2xl overflow-hidden flex flex-col'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className='flex items-center justify-between gap-3 border-b px-4 py-3'>
+              <div className='min-w-0'>
+                <div className='text-sm font-medium text-gray-900 truncate'>
+                  n8n — Full screen
+                </div>
+                <div className='text-xs text-gray-500 truncate'>
+                  Press Esc to exit.
+                </div>
+              </div>
+
+              <div className='flex items-center gap-2'>
+                <button
+                  type='button'
+                  className='rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50'
+                  onClick={() => {
+                    const el = focusContainerRef.current
+                    const maybe = el as (HTMLDivElement & {
+                      requestFullscreen?: () => Promise<void>
+                    }) | null
+                    maybe?.requestFullscreen?.()
+                  }}
+                >
+                  Browser fullscreen
+                </button>
+                <button
+                  type='button'
+                  className='rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800'
+                  onClick={() => setFocusMode(false)}
+                >
+                  Exit
+                </button>
+              </div>
+            </div>
+
+            <div className='flex-1 bg-white'>
+              {ready ? (
+                <iframe
+                  key={`focus-${iframeKey}`}
+                  title='n8n (full screen)'
+                  src={iframeSrc}
+                  className='h-full w-full'
+                />
+              ) : (
+                <div className='p-6 text-sm text-gray-700'>
+                  {gateError ? gateError : 'Preparing secure session…'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
