@@ -234,7 +234,7 @@ services:
           'CMD',
           'node',
           '-e',
-          "require('http').get('http://127.0.0.1:5678/healthz', (res) => process.exit((res.statusCode||0) === 200 ? 0 : 1)).on('error', () => process.exit(1));",
+          "const http=require('http');const base=(process.env.N8N_PATH||'').replace(/\/+$/,'');const url='http://127.0.0.1:5678'+(base?base:'')+'/healthz';http.get(url,(res)=>process.exit((res.statusCode||0)===200?0:1)).on('error',()=>process.exit(1));",
         ]
       interval: 30s
       timeout: 10s

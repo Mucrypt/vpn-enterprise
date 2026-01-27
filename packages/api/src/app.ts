@@ -1221,6 +1221,17 @@ app.delete(
 // ADMIN ENDPOINTS (AUTH + ADMIN REQUIRED)
 // ==========================
 
+// AuthZ probe endpoint for reverse proxies (nginx auth_request).
+// Returns 204 when the request is authenticated and the user is an admin.
+app.get(
+  '/api/v1/admin/authz',
+  authMiddleware,
+  adminMiddleware,
+  async (_req: AuthRequest, res) => {
+    return res.status(204).end()
+  },
+)
+
 // Platform statistics (admin)
 app.get(
   '/api/v1/admin/audit/logs',
