@@ -282,9 +282,11 @@ export default function AdminN8nPage() {
                   className='rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50'
                   onClick={() => {
                     const el = focusContainerRef.current
-                    const maybe = el as (HTMLDivElement & {
-                      requestFullscreen?: () => Promise<void>
-                    }) | null
+                    const maybe = el as
+                      | (HTMLDivElement & {
+                          requestFullscreen?: () => Promise<void>
+                        })
+                      | null
                     maybe?.requestFullscreen?.()
                   }}
                 >
