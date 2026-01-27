@@ -234,7 +234,7 @@ services:
           'CMD',
           'node',
           '-e',
-          "const http=require('http');let base=(process.env.N8N_PATH||'');while(base.endsWith('/')) base=base.slice(0,-1);const url='http://127.0.0.1:5678'+(base?base:'')+'/healthz';http.get(url,(res)=>process.exit((res.statusCode||0)===200?0:1)).on('error',()=>process.exit(1));",
+          "const http=require('http');const port=Number(process.env.N8N_PORT)||5678;let base=(process.env.N8N_PATH||'');while(base.endsWith('/')) base=base.slice(0,-1);const url='http://127.0.0.1:'+port+(base?base:'')+'/healthz';http.get(url,(res)=>process.exit((res.statusCode||0)===200?0:1)).on('error',()=>process.exit(1));",
         ]
       interval: 30s
       timeout: 10s
