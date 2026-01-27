@@ -11,6 +11,12 @@ export interface AuthRequest extends Request {
 // Simple in-memory cache for token verification to reduce DB calls
 const tokenCache = new Map<string, { user: any; expires: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// Admin endpoints can be extremely chatty (e.g. nginx auth_request for n8n assets).
+// Cache admin verifications briefly to avoid hammering Supabase for every request.
+const ADMIN_CACHE_TTL = 60 * 1000; // 60 seconds
+
+// Single-flight token verification to avoid parallel Supabase calls for the same token.
+const verifyInFlight = new Map<string, Promise<AppUser>>();
 
 // Admin role variants for flexible role checking
 const ADMIN_ROLES = ['admin', 'super_admin', 'superadmin', 'administrator'];
@@ -135,63 +141,76 @@ export async function authMiddleware(
 
     // Check cache first for performance
     const cached = tokenCache.get(token);
-    if (!isAdminRoute && cached && cached.expires > Date.now()) {
+    if (cached && cached.expires > Date.now()) {
       req.user = cached.user;
       console.log('[authMiddleware] Token verified (cache) for:', requestUrl);
       return next();
     }
 
-    // Verify token with Supabase
-    const { data, error } = await supabase.auth.getUser(token);
+    // Verify token with Supabase (single-flight per token)
+    let verifyPromise = verifyInFlight.get(token);
+    if (!verifyPromise) {
+      verifyPromise = (async (): Promise<AppUser> => {
+        const { data, error } = await supabase.auth.getUser(token);
 
-    if (error) {
+        if (error) {
+          // Re-throw with a stable shape for downstream mapping
+          throw { type: 'supabase', message: error.message, status: error.status };
+        }
+
+        if (!data.user) {
+          throw { type: 'supabase', message: 'No user data in token', status: 401 };
+        }
+
+        // Get user role from database
+        const role = await getUserRoleFromDatabase(data.user.id);
+
+        return {
+          id: data.user.id,
+          email: data.user.email!,
+          role,
+        } as AppUser;
+      })();
+      verifyInFlight.set(token, verifyPromise);
+      verifyPromise.finally(() => verifyInFlight.delete(token));
+    }
+
+    let user: AppUser;
+    try {
+      user = await verifyPromise;
+    } catch (e: any) {
+      const msg = String(e?.message || 'Token verification failed');
+      const status = Number(e?.status || 401);
       console.warn('[authMiddleware] Token verification failed for:', requestUrl, {
-        error: error.message,
-        status: error.status
+        error: msg,
+        status,
       });
-      
+
       // Provide specific error messages based on the error type
-      if (error.message.includes('jwt expired')) {
-        res.status(401).json({ 
+      if (msg.includes('jwt expired')) {
+        res.status(401).json({
           error: 'Token expired',
-          message: 'Your session has expired. Please log in again.'
+          message: 'Your session has expired. Please log in again.',
         });
-      } else if (error.message.includes('invalid token')) {
-        res.status(401).json({ 
+      } else if (msg.includes('invalid token') || msg.includes('Invalid JWT')) {
+        res.status(401).json({
           error: 'Invalid token',
-          message: 'Your authentication token is invalid. Please log in again.'
+          message: 'Your authentication token is invalid. Please log in again.',
         });
       } else {
-        res.status(401).json({ 
+        // Keep 401 semantics for auth_request, but preserve status if Supabase returned one.
+        res.status(status === 401 ? 401 : status).json({
           error: 'Authentication failed',
-          message: 'Unable to verify your identity. Please log in again.'
+          message: 'Unable to verify your identity. Please log in again.',
         });
       }
       return;
     }
 
-    if (!data.user) {
-      console.warn('[authMiddleware] No user data in token for:', requestUrl);
-      res.status(401).json({ 
-        error: 'Invalid user',
-        message: 'User information not found in token'
-      });
-      return;
-    }
-
-    // Get user role from database
-    const role = await getUserRoleFromDatabase(data.user.id);
-
-    const user: AppUser = {
-      id: data.user.id,
-      email: data.user.email!,
-      role,
-    };
-
-    // Cache the verified token (always refresh on admin routes to keep role fresh)
+    // Cache the verified token
     tokenCache.set(token, {
       user,
-      expires: Date.now() + CACHE_TTL
+      expires: Date.now() + (isAdminRoute ? ADMIN_CACHE_TTL : CACHE_TTL),
     });
 
     req.user = user;
