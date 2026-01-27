@@ -21,6 +21,17 @@ const verifyInFlight = new Map<string, Promise<AppUser>>()
 // Admin role variants for flexible role checking
 const ADMIN_ROLES = ['admin', 'super_admin', 'superadmin', 'administrator']
 
+function parseAdminEmailsFromEnv(): Set<string> {
+  const raw = process.env.ADMIN_EMAILS
+  if (!raw) return new Set()
+  return new Set(
+    raw
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+  )
+}
+
 /**
  * Clean expired cache entries
  */
@@ -281,6 +292,24 @@ export function adminMiddleware(
       error: 'Not authenticated',
       message: 'Please log in to access admin resources',
     })
+    return
+  }
+
+  // Optional bootstrap: allow specific emails to be treated as admin.
+  // This is useful when the deployment doesn't have a local `users` table with roles
+  // (for example, when auth is handled by Supabase and role sync isn't set up).
+  const adminEmails = parseAdminEmailsFromEnv()
+  const email = (req.user.email || '').trim().toLowerCase()
+  if (email && adminEmails.has(email)) {
+    console.log(
+      '[adminMiddleware] Admin access granted via ADMIN_EMAILS for:',
+      {
+        url: requestUrl,
+        userId: req.user.id,
+        userEmail: req.user.email,
+      },
+    )
+    next()
     return
   }
 
