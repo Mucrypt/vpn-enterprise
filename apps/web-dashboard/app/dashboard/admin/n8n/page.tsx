@@ -15,6 +15,7 @@ export default function AdminN8nPage() {
   const { user, accessToken } = useAuthStore()
   const [iframeKey, setIframeKey] = useState(0)
   const [ready, setReady] = useState(false)
+  const [gateError, setGateError] = useState<string | null>(null)
 
   const iframeSrc = process.env.NEXT_PUBLIC_N8N_UI_URL?.trim() || '/admin/n8n/'
 
@@ -30,7 +31,24 @@ export default function AdminN8nPage() {
   useEffect(() => {
     // nginx protects /admin/n8n/* via auth_request which relies on cookies.
     // Ensure the access_token cookie exists BEFORE the iframe loads.
-    try {
+    let cancelled = false
+
+    const setCookie = (name: string, value: string, isHttps: boolean) => {
+      const sameSite = isHttps ? 'None' : 'Lax'
+      const cookieBits = [
+        `${name}=${value}`,
+        'path=/',
+        `max-age=${60 * 60}`,
+        `SameSite=${sameSite}`,
+        ...(isHttps ? ['Secure'] : []),
+      ]
+      document.cookie = cookieBits.join('; ')
+    }
+
+    const run = async () => {
+      setReady(false)
+      setGateError(null)
+
       const token =
         accessToken ||
         (typeof window !== 'undefined'
@@ -44,33 +62,88 @@ export default function AdminN8nPage() {
 
       const isHttps =
         typeof window !== 'undefined' && window.location.protocol === 'https:'
-      const sameSite = isHttps ? 'None' : 'Lax'
 
       if (typeof window !== 'undefined' && token) {
-        const cookieBits = [
-          `access_token=${token}`,
-          'path=/',
-          `max-age=${60 * 60}`,
-          `SameSite=${sameSite}`,
-          ...(isHttps ? ['Secure'] : []),
-        ]
-        document.cookie = cookieBits.join('; ')
+        setCookie('access_token', token, isHttps)
       }
 
       if (typeof window !== 'undefined' && role) {
-        const roleBits = [
-          `user_role=${role}`,
-          'path=/',
-          `max-age=${60 * 60}`,
-          `SameSite=${isHttps ? 'None' : 'Lax'}`,
-          ...(isHttps ? ['Secure'] : []),
-        ]
-        document.cookie = roleBits.join('; ')
+        setCookie('user_role', role, isHttps)
       }
-    } catch {
-      // Best-effort; if cookie writes fail, iframe will likely 401.
-    } finally {
-      setReady(true)
+
+      // Validate admin authz (prefer Authorization header; fallback to cookie).
+      const checkAuthz = async (bearer: string | null) => {
+        const headers: Record<string, string> = {}
+        if (bearer) headers.Authorization = `Bearer ${bearer}`
+        const resp = await fetch('/api/v1/admin/authz', {
+          method: 'GET',
+          credentials: 'include',
+          headers,
+        })
+        return resp.status
+      }
+
+      try {
+        let status = await checkAuthz(token)
+        if (status === 204) {
+          if (!cancelled) {
+            setReady(true)
+            setIframeKey((k) => k + 1)
+          }
+          return
+        }
+
+        // If unauthorized, attempt a refresh using the httpOnly refresh_token cookie.
+        if (status === 401) {
+          const refreshResp = await fetch('/api/v1/auth/refresh', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          })
+
+          if (refreshResp.ok) {
+            const data = await refreshResp.json().catch(() => ({}))
+            const refreshedToken =
+              data?.session?.access_token || data?.access_token || null
+            if (refreshedToken && typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('access_token', String(refreshedToken))
+              } catch {}
+              setCookie('access_token', String(refreshedToken), isHttps)
+            }
+
+            status = await checkAuthz(refreshedToken)
+            if (status === 204) {
+              if (!cancelled) {
+                setReady(true)
+                setIframeKey((k) => k + 1)
+              }
+              return
+            }
+          }
+        }
+
+        if (!cancelled) {
+          if (status === 403) {
+            setGateError('Admin access required to open n8n.')
+          } else if (status === 401) {
+            setGateError('Session not authorized. Please log in again.')
+          } else {
+            setGateError(`Unable to validate session (status ${status}).`)
+          }
+          setReady(false)
+        }
+      } catch {
+        if (!cancelled) {
+          setGateError('Unable to reach auth service. Please retry.')
+          setReady(false)
+        }
+      }
+    }
+
+    run()
+    return () => {
+      cancelled = true
     }
   }, [accessToken, user?.role])
 
@@ -131,7 +204,7 @@ export default function AdminN8nPage() {
               />
             ) : (
               <div className='p-6 text-sm text-gray-700'>
-                Preparing secure session…
+                {gateError ? gateError : 'Preparing secure session…'}
               </div>
             )}
           </div>
