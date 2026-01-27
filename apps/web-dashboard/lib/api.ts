@@ -26,8 +26,26 @@ function resolveApiBase(): string {
     if (typeof window !== 'undefined') {
       try {
         const pageHost = window.location.hostname
-        if (!isLocalHostName(pageHost) && isLocalhostUrl(envApi)) {
-          return window.location.origin
+
+        // Self-hosted deployments must use same-origin so httpOnly cookies
+        // (refresh_token) are set on the dashboard domain.
+        // Only allow a different origin when running on Vercel.
+        if (!pageHost.endsWith('vercel.app')) {
+          // Guard against accidental localhost bake-in
+          if (!isLocalHostName(pageHost) && isLocalhostUrl(envApi)) {
+            return window.location.origin
+          }
+
+          // If env points to a different host (e.g. api.chatbuilds.com), prefer
+          // same-origin so cookies are available to /admin/n8n auth_request.
+          try {
+            const envUrl = new URL(envApi)
+            if (envUrl.host && envUrl.host !== window.location.host) {
+              return window.location.origin
+            }
+          } catch {
+            // If envApi isn't a valid absolute URL, fall through to using it
+          }
         }
       } catch {}
     }
