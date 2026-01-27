@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '@/lib/store'
 import {
   Card,
@@ -12,7 +12,9 @@ import {
 import Link from 'next/link'
 
 export default function AdminN8nPage() {
-  const { user } = useAuthStore()
+  const { user, accessToken } = useAuthStore()
+  const [iframeKey, setIframeKey] = useState(0)
+  const [ready, setReady] = useState(false)
 
   const iframeSrc = process.env.NEXT_PUBLIC_N8N_UI_URL?.trim() || '/admin/n8n/'
 
@@ -24,6 +26,53 @@ export default function AdminN8nPage() {
       roleKey === 'administrator'
     )
   }, [user?.role])
+
+  useEffect(() => {
+    // nginx protects /admin/n8n/* via auth_request which relies on cookies.
+    // Ensure the access_token cookie exists BEFORE the iframe loads.
+    try {
+      const token =
+        accessToken ||
+        (typeof window !== 'undefined'
+          ? localStorage.getItem('access_token')
+          : null)
+      const role =
+        user?.role ||
+        (typeof window !== 'undefined'
+          ? localStorage.getItem('user_role')
+          : null)
+
+      const isHttps =
+        typeof window !== 'undefined' && window.location.protocol === 'https:'
+      const sameSite = isHttps ? 'None' : 'Lax'
+
+      if (typeof window !== 'undefined' && token) {
+        const cookieBits = [
+          `access_token=${token}`,
+          'path=/',
+          `max-age=${60 * 60}`,
+          `SameSite=${sameSite}`,
+          ...(isHttps ? ['Secure'] : []),
+        ]
+        document.cookie = cookieBits.join('; ')
+      }
+
+      if (typeof window !== 'undefined' && role) {
+        const roleBits = [
+          `user_role=${role}`,
+          'path=/',
+          `max-age=${60 * 60}`,
+          `SameSite=${isHttps ? 'None' : 'Lax'}`,
+          ...(isHttps ? ['Secure'] : []),
+        ]
+        document.cookie = roleBits.join('; ')
+      }
+    } catch {
+      // Best-effort; if cookie writes fail, iframe will likely 401.
+    } finally {
+      setReady(true)
+    }
+  }, [accessToken, user?.role])
 
   if (!isAdmin) {
     return (
@@ -72,12 +121,32 @@ export default function AdminN8nPage() {
         </CardHeader>
         <CardContent>
           <div className='w-full overflow-hidden rounded-lg border bg-white'>
-            <iframe
-              title='n8n'
-              src={iframeSrc}
-              className='w-full'
-              style={{ height: '75vh' }}
-            />
+            {ready ? (
+              <iframe
+                key={iframeKey}
+                title='n8n'
+                src={iframeSrc}
+                className='w-full'
+                style={{ height: '75vh' }}
+              />
+            ) : (
+              <div className='p-6 text-sm text-gray-700'>
+                Preparing secure session…
+              </div>
+            )}
+          </div>
+
+          <div className='mt-3 flex items-center gap-3 text-sm'>
+            <button
+              type='button'
+              className='underline'
+              onClick={() => setIframeKey((k) => k + 1)}
+            >
+              Reload console
+            </button>
+            <span className='text-gray-500'>
+              If you see a 401/blank frame, reload after login.
+            </span>
           </div>
         </CardContent>
       </Card>
