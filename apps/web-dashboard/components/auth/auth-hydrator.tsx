@@ -27,7 +27,9 @@ export default function AuthHydrator() {
       (async () => {
         try {
           try {
-            document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
+            const isHttps = window.location.protocol === 'https:'
+            const sameSite = isHttps ? 'None' : 'Lax'
+            document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=${sameSite}${isHttps ? '; Secure' : ''}`;
           } catch {}
           const profile = await api.getProfile().catch(() => null);
           if (profile?.user) {

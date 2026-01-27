@@ -188,7 +188,9 @@ class APIClient {
 
     // Always set as cookie for server-side usage
     try {
-      document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`
+      const isHttps = window.location.protocol === 'https:'
+      const sameSite = isHttps ? 'None' : 'Lax'
+      document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=${sameSite}${isHttps ? '; Secure' : ''}`
     } catch (e) {
       // Ignore cookie errors
     }
@@ -223,7 +225,9 @@ class APIClient {
     // Always set cookie before request to ensure backend sees it
     if (typeof window !== 'undefined' && token) {
       try {
-        document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`
+        const isHttps = window.location.protocol === 'https:'
+        const sameSite = isHttps ? 'None' : 'Lax'
+        document.cookie = `access_token=${token}; path=/; max-age=3600; SameSite=${sameSite}${isHttps ? '; Secure' : ''}`
       } catch (e) {
         // Ignore cookie errors
       }
@@ -250,7 +254,9 @@ class APIClient {
         // Retry with new token
         if (typeof window !== 'undefined') {
           try {
-            document.cookie = `access_token=${newToken}; path=/; max-age=3600; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`
+            const isHttps = window.location.protocol === 'https:'
+            const sameSite = isHttps ? 'None' : 'Lax'
+            document.cookie = `access_token=${newToken}; path=/; max-age=3600; SameSite=${sameSite}${isHttps ? '; Secure' : ''}`
           } catch (e) {}
         }
         config.headers = {

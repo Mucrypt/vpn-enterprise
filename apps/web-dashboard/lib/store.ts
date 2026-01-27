@@ -48,23 +48,27 @@ export const useAuthStore = create<AuthState>()(
           }
           try {
             if (token) {
+              const isHttps = window.location.protocol === 'https:'
+              const sameSite = isHttps ? 'None' : 'Lax'
               const cookieBits = [
                 `access_token=${token}`,
                 'path=/',
                 `max-age=${60 * 60}`,
-                'SameSite=Lax',
-                ...(window.location.protocol === 'https:' ? ['Secure'] : [])
-              ];
+                `SameSite=${sameSite}`,
+                ...(isHttps ? ['Secure'] : []),
+              ]
               document.cookie = cookieBits.join('; ');
             }
             if (user?.role) {
+              const isHttps = window.location.protocol === 'https:'
+              const sameSite = isHttps ? 'None' : 'Lax'
               const roleBits = [
                 `user_role=${user.role}`,
                 'path=/',
                 `max-age=${60 * 60}`,
-                'SameSite=Lax',
-                ...(window.location.protocol === 'https:' ? ['Secure'] : [])
-              ];
+                `SameSite=${sameSite}`,
+                ...(isHttps ? ['Secure'] : []),
+              ]
               document.cookie = roleBits.join('; ');
             }
           } catch (e) {
@@ -89,13 +93,15 @@ export const useAuthStore = create<AuthState>()(
           }
           try {
             if (token) {
+              const isHttps = window.location.protocol === 'https:'
+              const sameSite = isHttps ? 'None' : 'Lax'
               const cookieBits = [
                 `access_token=${token}`,
                 'path=/',
                 `max-age=${60 * 60}`,
-                'SameSite=Lax',
-                ...(window.location.protocol === 'https:' ? ['Secure'] : [])
-              ];
+                `SameSite=${sameSite}`,
+                ...(isHttps ? ['Secure'] : []),
+              ]
               document.cookie = cookieBits.join('; ');
             }
           } catch (e) {
