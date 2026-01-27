@@ -1,45 +1,86 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect, useRef, Suspense, lazy, useCallback } from 'react';
-import { useQueryStorage } from '@/hooks/use-query-storage';
-import { Database, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import type { DatabaseSection } from '@/components/database/database-layout';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  Suspense,
+  lazy,
+  useCallback,
+} from 'react'
+import { useQueryStorage } from '@/hooks/use-query-storage'
+import { Database, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import type { DatabaseSection } from '@/components/database/database-layout'
 // Import lightweight editor directly - no lazy loading needed for fast component
-import { SqlEditorPageLight } from '@/components/database/sql-editor-page-light';
+import { SqlEditorPageLight } from '@/components/database/sql-editor-page-light'
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
-  <div className="flex items-center justify-center h-96">
-    <div className="text-center">
-      <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mx-auto mb-2" />
-      <p className="text-sm text-gray-600">Loading...</p>
+  <div className='flex items-center justify-center h-96'>
+    <div className='text-center'>
+      <Loader2 className='h-8 w-8 animate-spin text-emerald-600 mx-auto mb-2' />
+      <p className='text-sm text-gray-600'>Loading...</p>
     </div>
   </div>
-);
+)
 
 // Lazy load only heavy/rarely used components
-const DatabaseLayout = lazy(() => import('@/components/database/database-layout').then(module => ({ default: module.DatabaseLayout })));
-const TablesPage = lazy(() => import('@/components/database/tables-page').then(module => ({ default: module.TablesPage })));
-const QueryHistoryPage = lazy(() => import('@/components/database/query-history-page').then(module => ({ default: module.QueryHistoryPage })));
-const SqlTemplatesPage = lazy(() => import('@/components/database/sql-templates-page').then(module => ({ default: module.SqlTemplatesPage })));
-const SavedQueriesPage = lazy(() => import('@/components/database/saved-queries-page').then(module => ({ default: module.SavedQueriesPage })));
-const VisualQueryBuilder = lazy(() => import('@/components/database/visual-query-builder').then(module => ({ default: module.VisualQueryBuilder })));
+const DatabaseLayout = lazy(() =>
+  import('@/components/database/database-layout').then((module) => ({
+    default: module.DatabaseLayout,
+  })),
+)
+const TablesPage = lazy(() =>
+  import('@/components/database/tables-page').then((module) => ({
+    default: module.TablesPage,
+  })),
+)
+const QueryHistoryPage = lazy(() =>
+  import('@/components/database/query-history-page').then((module) => ({
+    default: module.QueryHistoryPage,
+  })),
+)
+const SqlTemplatesPage = lazy(() =>
+  import('@/components/database/sql-templates-page').then((module) => ({
+    default: module.SqlTemplatesPage,
+  })),
+)
+const SavedQueriesPage = lazy(() =>
+  import('@/components/database/saved-queries-page').then((module) => ({
+    default: module.SavedQueriesPage,
+  })),
+)
+const VisualQueryBuilder = lazy(() =>
+  import('@/components/database/visual-query-builder').then((module) => ({
+    default: module.VisualQueryBuilder,
+  })),
+)
 
 // Lazy load dialogs only when needed
-const CreateTableDialog = lazy(() => import('@/components/database/create-table-dialog').then(module => ({ default: module.CreateTableDialog })));
-const CreateSchemaDialog = lazy(() => import('@/components/database/create-schema-dialog').then(module => ({ default: module.CreateSchemaDialog })));
+const CreateTableDialog = lazy(() =>
+  import('@/components/database/create-table-dialog').then((module) => ({
+    default: module.CreateTableDialog,
+  })),
+)
+const CreateSchemaDialog = lazy(() =>
+  import('@/components/database/create-schema-dialog').then((module) => ({
+    default: module.CreateSchemaDialog,
+  })),
+)
 
 export default function DatabasePage() {
   // Query storage hook
-  const { addToHistory } = useQueryStorage();
+  const { addToHistory } = useQueryStorage()
 
   // Database connection state
-  const [tenants, setTenants] = useState<any[]>([]);
-  const [activeTenant, setActiveTenant] = useState<string>('');
-  const [activeSection, setActiveSection] = useState<DatabaseSection>('sql-editor');
-  const [showSampleDataBanner, setShowSampleDataBanner] = useState(false);
-  
+  const [tenants, setTenants] = useState<any[]>([])
+  const [activeTenant, setActiveTenant] = useState<string>('')
+  const [tenantsError, setTenantsError] = useState<string | null>(null)
+  const [activeSection, setActiveSection] =
+    useState<DatabaseSection>('sql-editor')
+  const [showSampleDataBanner, setShowSampleDataBanner] = useState(false)
+
   // SQL Editor state
   const [sql, setSql] = useState<string>(`-- Welcome to the SQL Editor!
 -- Try these example queries:
@@ -51,119 +92,133 @@ SELECT * FROM blog.posts LIMIT 5;
 -- SELECT * FROM ecommerce.products LIMIT 5;
 
 -- Current database info
--- SELECT current_database(), current_user, version();`);
-  const [queryResult, setQueryResult] = useState<any[] | null>(null);
-  const [queryError, setQueryError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [executionTime, setExecutionTime] = useState<number | null>(null);
-  const [activeQueryName, setActiveQueryName] = useState<string>('Welcome Query');
-  
+-- SELECT current_database(), current_user, version();`)
+  const [queryResult, setQueryResult] = useState<any[] | null>(null)
+  const [queryError, setQueryError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [executionTime, setExecutionTime] = useState<number | null>(null)
+  const [activeQueryName, setActiveQueryName] =
+    useState<string>('Welcome Query')
+
   // Dialog state
-  const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
-  const [showCreateSchemaDialog, setShowCreateSchemaDialog] = useState(false);
-  const [selectedSchemaForTable, setSelectedSchemaForTable] = useState('');
+  const [showCreateTableDialog, setShowCreateTableDialog] = useState(false)
+  const [showCreateSchemaDialog, setShowCreateSchemaDialog] = useState(false)
+  const [selectedSchemaForTable, setSelectedSchemaForTable] = useState('')
 
   // Memoize tenant loading to prevent repeated calls
   const loadTenants = useCallback(async () => {
     try {
-      const response = await fetch('/api/v1/tenants');
+      setTenantsError(null)
+      const response = await fetch('/api/v1/tenants', {
+        credentials: 'include',
+      })
       if (response.ok) {
-        const data = await response.json();
-        const tenantList = data.tenants || data.data || [];
-        setTenants(tenantList);
-        
+        const data = await response.json()
+        const tenantList = data.tenants || data.data || []
+        setTenants(tenantList)
+
         // Auto-select first tenant
         if (tenantList.length > 0) {
-          const firstTenant = tenantList[0];
-          const tenantId = firstTenant.tenant_id || firstTenant.id;
-          setActiveTenant(tenantId);
+          const firstTenant = tenantList[0]
+          const tenantId = firstTenant.tenant_id || firstTenant.id
+          setActiveTenant(tenantId)
         } else {
-          // Development fallback
-          setActiveTenant('123e4567-e89b-12d3-a456-426614174000');
+          setActiveTenant('')
+          setTenantsError('No tenants found for your account.')
         }
       } else {
-        // Development fallback
-        setActiveTenant('123e4567-e89b-12d3-a456-426614174000');
+        let details = ''
+        try {
+          const j = await response.json()
+          details = j?.message || j?.error || ''
+        } catch {}
+        setActiveTenant('')
+        setTenantsError(
+          `Failed to load tenants (HTTP ${response.status}).${details ? ` ${details}` : ''}`,
+        )
       }
     } catch (error) {
-      console.error('Error loading tenants:', error);
-      setActiveTenant('123e4567-e89b-12d3-a456-426614174000');
+      console.error('Error loading tenants:', error)
+      setActiveTenant('')
+      setTenantsError('Unable to reach the API to load tenants.')
     }
-  }, []);
+  }, [])
 
   // Check for existing data when tenant changes - define before use
   const checkForExistingData = useCallback(async () => {
-    if (!activeTenant) return;
-    
+    if (!activeTenant) return
+
     try {
       // Optimized: single query instead of fetching all schemas
       const response = await fetch(`/api/v1/tenants/${activeTenant}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          sql: "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast');" 
-        })
-      });
-      
+        body: JSON.stringify({
+          sql: "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast');",
+        }),
+      })
+
       if (response.ok) {
-        const data = await response.json();
-        const tableCount = parseInt(data.data?.[0]?.count || '0');
-        setShowSampleDataBanner(tableCount === 0);
+        const data = await response.json()
+        const tableCount = parseInt(data.data?.[0]?.count || '0')
+        setShowSampleDataBanner(tableCount === 0)
       }
     } catch (error) {
-      console.warn('Could not check for existing data:', error);
-      setShowSampleDataBanner(false);
+      console.warn('Could not check for existing data:', error)
+      setShowSampleDataBanner(false)
     }
-  }, [activeTenant]);
+  }, [activeTenant])
 
   // Load tenants only once on mount
   useEffect(() => {
-    loadTenants();
-  }, [loadTenants]);
-  
+    loadTenants()
+  }, [loadTenants])
+
   // Check for existing data when tenant changes - optimized with callback
   useEffect(() => {
     if (activeTenant) {
       const timer = setTimeout(() => {
-        checkForExistingData();
-      }, 500); // Debounce
-      return () => clearTimeout(timer);
+        checkForExistingData()
+      }, 500) // Debounce
+      return () => clearTimeout(timer)
     }
-  }, [activeTenant, checkForExistingData]);
-  
+  }, [activeTenant, checkForExistingData])
+
   // Query execution with cancel capability
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const [queryStatus, setQueryStatus] = useState<'idle' | 'running' | 'cancelled'>('idle');
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const [queryStatus, setQueryStatus] = useState<
+    'idle' | 'running' | 'cancelled'
+  >('idle')
 
   const cancelQuery = () => {
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-      setQueryStatus('cancelled');
-      setIsLoading(false);
-      setQueryError('Query cancelled by user');
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+      setQueryStatus('cancelled')
+      setIsLoading(false)
+      setQueryError('Query cancelled by user')
     }
-  };
+  }
 
   const runQuery = async (selectedSql?: string) => {
-    const queryToRun = selectedSql || sql.trim();
-    if (!queryToRun || !activeTenant || isLoading) return;
-    
+    const queryToRun = selectedSql || sql.trim()
+    if (!queryToRun || !activeTenant || isLoading) return
+
     // Cancel any existing query
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+      abortControllerRef.current.abort()
     }
-    
+
     // Create new abort controller
-    abortControllerRef.current = new AbortController();
-    
-    setIsLoading(true);
-    setQueryStatus('running');
-    setQueryError(null);
-    setQueryResult(null);
-    
-    const startTime = performance.now();
-    
+    abortControllerRef.current = new AbortController()
+
+    setIsLoading(true)
+    setQueryStatus('running')
+    setQueryError(null)
+    setQueryResult(null)
+
+    const startTime = performance.now()
+
     try {
       const response = await fetch(`/api/v1/tenants/${activeTenant}/query`, {
         method: 'POST',
@@ -172,123 +227,136 @@ SELECT * FROM blog.posts LIMIT 5;
         },
         body: JSON.stringify({
           sql: queryToRun,
-          timeout: 30000 // 30 second timeout
+          timeout: 30000, // 30 second timeout
         }),
-        signal: abortControllerRef.current.signal
-      });
+        signal: abortControllerRef.current.signal,
+      })
 
-      const endTime = performance.now();
-      const duration = Math.round(endTime - startTime);
-      setExecutionTime(duration);
+      const endTime = performance.now()
+      const duration = Math.round(endTime - startTime)
+      setExecutionTime(duration)
 
       if (!response.ok) {
-        const json = await response.json();
-        throw new Error(json.error || `HTTP ${response.status}: ${response.statusText}`);
+        const json = await response.json()
+        throw new Error(
+          json.error || `HTTP ${response.status}: ${response.statusText}`,
+        )
       }
 
-      const json = await response.json();
+      const json = await response.json()
 
       if (json.success !== false) {
         // Handle successful query
-        const resultData = json.data || [];
-        setQueryResult(resultData);
-        setQueryStatus('idle');
-        
+        const resultData = json.data || []
+        setQueryResult(resultData)
+        setQueryStatus('idle')
+
         addToHistory(queryToRun, 'success', {
           rowCount: resultData.length,
-          duration
-        });
+          duration,
+        })
 
         // Show success message for non-SELECT queries
-        if (!queryToRun.toLowerCase().trim().startsWith('select') && json.rowCount !== undefined) {
-          console.log(`Query executed successfully. ${json.rowCount} rows affected.`);
+        if (
+          !queryToRun.toLowerCase().trim().startsWith('select') &&
+          json.rowCount !== undefined
+        ) {
+          console.log(
+            `Query executed successfully. ${json.rowCount} rows affected.`,
+          )
         }
       } else {
         // Handle query execution error
-        const errorMessage = json.error || json.details || 'Query execution failed';
-        setQueryError(errorMessage);
-        setQueryStatus('idle');
+        const errorMessage =
+          json.error || json.details || 'Query execution failed'
+        setQueryError(errorMessage)
+        setQueryStatus('idle')
         addToHistory(queryToRun, 'error', {
           error: errorMessage,
-          duration
-        });
+          duration,
+        })
       }
     } catch (error: any) {
-      const endTime = performance.now();
-      const duration = Math.round(endTime - startTime);
-      setExecutionTime(duration);
-      
+      const endTime = performance.now()
+      const duration = Math.round(endTime - startTime)
+      setExecutionTime(duration)
+
       if (error.name === 'AbortError') {
-        setQueryError('Query was cancelled');
-        setQueryStatus('cancelled');
+        setQueryError('Query was cancelled')
+        setQueryStatus('cancelled')
       } else {
-        const errorMessage = error.message || 'Network error occurred';
-        setQueryError(errorMessage);
-        setQueryStatus('idle');
+        const errorMessage = error.message || 'Network error occurred'
+        setQueryError(errorMessage)
+        setQueryStatus('idle')
         addToHistory(queryToRun, 'error', {
           error: errorMessage,
-          duration
-        });
+          duration,
+        })
       }
     } finally {
-      setIsLoading(false);
-      abortControllerRef.current = null;
+      setIsLoading(false)
+      abortControllerRef.current = null
     }
-  };
+  }
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+        abortControllerRef.current.abort()
       }
-    };
-  }, []);
+    }
+  }, [])
 
   const createSchema = async (schemaName: string, description: string = '') => {
-    console.log('createSchema called with:', schemaName, 'activeTenant:', activeTenant);
+    console.log(
+      'createSchema called with:',
+      schemaName,
+      'activeTenant:',
+      activeTenant,
+    )
     if (!activeTenant || !schemaName.trim()) {
-      console.log('Early return: missing activeTenant or schemaName');
-      return;
+      console.log('Early return: missing activeTenant or schemaName')
+      return
     }
-    
+
     try {
-      console.log('Creating schema using SQL query...');
-      let createSchemaSQL = `CREATE SCHEMA IF NOT EXISTS "${schemaName.trim()}";`;
+      console.log('Creating schema using SQL query...')
+      let createSchemaSQL = `CREATE SCHEMA IF NOT EXISTS "${schemaName.trim()}";`
       if (description.trim()) {
-        createSchemaSQL += `\nCOMMENT ON SCHEMA "${schemaName.trim()}" IS '${description.replace(/'/g, "''")}'`;
+        createSchemaSQL += `\nCOMMENT ON SCHEMA "${schemaName.trim()}" IS '${description.replace(/'/g, "''")}'`
       }
-      
+
       const resp = await fetch(`/api/v1/tenants/${activeTenant}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql: createSchemaSQL })
-      });
-      
-      const json = await resp.json();
-      console.log('API response:', json);
-      
+        body: JSON.stringify({ sql: createSchemaSQL }),
+      })
+
+      const json = await resp.json()
+      console.log('API response:', json)
+
       if (resp.ok && json.data !== undefined) {
-        setShowCreateSchemaDialog(false);
-        console.log('Schema created successfully');
+        setShowCreateSchemaDialog(false)
+        console.log('Schema created successfully')
         // Refresh tables page if active
         if (activeSection === 'tables') {
           // Trigger refresh logic
         }
       } else {
-        const errorMessage = json.error || 'Failed to create schema';
-        console.error('Schema creation failed:', errorMessage);
-        setQueryError(errorMessage);
+        const errorMessage = json.error || 'Failed to create schema'
+        console.error('Schema creation failed:', errorMessage)
+        setQueryError(errorMessage)
       }
     } catch (e: any) {
-      console.error('Network error:', e);
-      setQueryError(e.message || 'Network error');
+      console.error('Network error:', e)
+      setQueryError(e.message || 'Network error')
     }
-  };
+  }
 
   const createSampleData = async () => {
-    if (!activeTenant) return;
-    
+    if (!activeTenant) return
+
     try {
       const sampleDataSQL = `
         -- Create sample schemas
@@ -341,115 +409,135 @@ SELECT * FROM blog.posts LIMIT 5;
         ON CONFLICT (sku) DO NOTHING;
         
         SELECT 'Sample data created successfully!' as message;
-      `;
-      
+      `
+
       const response = await fetch(`/api/v1/tenants/${activeTenant}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql: sampleDataSQL })
-      });
-      
-      const json = await response.json();
-      
+        body: JSON.stringify({ sql: sampleDataSQL }),
+      })
+
+      const json = await response.json()
+
       if (response.ok && json.data !== undefined) {
-        setShowSampleDataBanner(false);
+        setShowSampleDataBanner(false)
         // Switch to tables view and refresh
-        setActiveSection('tables');
+        setActiveSection('tables')
         // Set SQL to show the created data
-        setSql('-- Sample data created! Try these queries:\n\nSELECT * FROM blog.posts LIMIT 5;\n\n-- SELECT * FROM ecommerce.products LIMIT 5;');
+        setSql(
+          '-- Sample data created! Try these queries:\n\nSELECT * FROM blog.posts LIMIT 5;\n\n-- SELECT * FROM ecommerce.products LIMIT 5;',
+        )
       } else {
-        const errorMessage = json.error || 'Failed to create sample data';
-        setQueryError(errorMessage);
+        const errorMessage = json.error || 'Failed to create sample data'
+        setQueryError(errorMessage)
       }
     } catch (error: any) {
-      setQueryError(error.message || 'Network error');
+      setQueryError(error.message || 'Network error')
     }
-  };
-  
-  const createTable = async (tableName: string, description: string, columns: any[], enableRLS: boolean, enableRealtime: boolean) => {
-    if (!activeTenant || !tableName.trim() || !selectedSchemaForTable) return;
-    
+  }
+
+  const createTable = async (
+    tableName: string,
+    description: string,
+    columns: any[],
+    enableRLS: boolean,
+    enableRealtime: boolean,
+  ) => {
+    if (!activeTenant || !tableName.trim() || !selectedSchemaForTable) return
+
     try {
       // Generate column definitions
-      const columnDefs = columns.map(col => {
-        let def = `"${col.name}" ${col.type.toUpperCase()}`;
-        
-        // Add length/precision
-        if (col.maxLength && (col.type === 'varchar' || col.type === 'char')) {
-          def += `(${col.maxLength})`;
-        }
-        if (col.precision && (col.type === 'numeric' || col.type === 'decimal')) {
-          def += col.scale ? `(${col.precision},${col.scale})` : `(${col.precision})`;
-        }
-        
-        // Add constraints
-        if (col.isPrimaryKey) {
-          def += ' PRIMARY KEY';
-        }
-        if (!col.isNullable) {
-          def += ' NOT NULL';
-        }
-        if (col.isUnique && !col.isPrimaryKey) {
-          def += ' UNIQUE';
-        }
-        if (col.defaultValue) {
-          def += ` DEFAULT ${col.defaultValue}`;
-        }
-        
-        return def;
-      }).join(',\n  ');
-      
+      const columnDefs = columns
+        .map((col) => {
+          let def = `"${col.name}" ${col.type.toUpperCase()}`
+
+          // Add length/precision
+          if (
+            col.maxLength &&
+            (col.type === 'varchar' || col.type === 'char')
+          ) {
+            def += `(${col.maxLength})`
+          }
+          if (
+            col.precision &&
+            (col.type === 'numeric' || col.type === 'decimal')
+          ) {
+            def += col.scale
+              ? `(${col.precision},${col.scale})`
+              : `(${col.precision})`
+          }
+
+          // Add constraints
+          if (col.isPrimaryKey) {
+            def += ' PRIMARY KEY'
+          }
+          if (!col.isNullable) {
+            def += ' NOT NULL'
+          }
+          if (col.isUnique && !col.isPrimaryKey) {
+            def += ' UNIQUE'
+          }
+          if (col.defaultValue) {
+            def += ` DEFAULT ${col.defaultValue}`
+          }
+
+          return def
+        })
+        .join(',\n  ')
+
       // Construct the CREATE TABLE statement
-      let createTableSQL = `CREATE TABLE "${selectedSchemaForTable}"."${tableName}" (\n  ${columnDefs}\n);`;
-      
+      let createTableSQL = `CREATE TABLE "${selectedSchemaForTable}"."${tableName}" (\n  ${columnDefs}\n);`
+
       // Add table comment if description provided
       if (description.trim()) {
-        createTableSQL += `\nCOMMENT ON TABLE "${selectedSchemaForTable}"."${tableName}" IS '${description.replace(/'/g, "''")}'`;
+        createTableSQL += `\nCOMMENT ON TABLE "${selectedSchemaForTable}"."${tableName}" IS '${description.replace(/'/g, "''")}'`
       }
-      
+
       // Add column comments
-      columns.forEach(col => {
+      columns.forEach((col) => {
         if (col.description?.trim()) {
-          createTableSQL += `\nCOMMENT ON COLUMN "${selectedSchemaForTable}"."${tableName}"."${col.name}" IS '${col.description.replace(/'/g, "''")}'`;
+          createTableSQL += `\nCOMMENT ON COLUMN "${selectedSchemaForTable}"."${tableName}"."${col.name}" IS '${col.description.replace(/'/g, "''")}'`
         }
-      });
-      
+      })
+
       // Add RLS if enabled
       if (enableRLS) {
-        createTableSQL += `\nALTER TABLE "${selectedSchemaForTable}"."${tableName}" ENABLE ROW LEVEL SECURITY;`;
+        createTableSQL += `\nALTER TABLE "${selectedSchemaForTable}"."${tableName}" ENABLE ROW LEVEL SECURITY;`
       }
-    
+
       const resp = await fetch(`/api/v1/tenants/${activeTenant}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql: createTableSQL })
-      });
-      
-      const json = await resp.json();
-      
+        body: JSON.stringify({ sql: createTableSQL }),
+      })
+
+      const json = await resp.json()
+
       if (resp.ok && json.data !== undefined) {
-        setShowCreateTableDialog(false);
-        setSelectedSchemaForTable('');
+        setShowCreateTableDialog(false)
+        setSelectedSchemaForTable('')
         // Update the SQL editor with a SELECT query for the new table
-        setSql(`SELECT * FROM "${selectedSchemaForTable}"."${tableName}" LIMIT 10;`);
+        setSql(
+          `SELECT * FROM "${selectedSchemaForTable}"."${tableName}" LIMIT 10;`,
+        )
         // Switch to SQL editor to show the new query
-        setActiveSection('sql-editor');
+        setActiveSection('sql-editor')
       } else {
-        const errorMessage = json.error || 'Failed to create table';
-        setQueryError(errorMessage);
+        const errorMessage = json.error || 'Failed to create table'
+        setQueryError(errorMessage)
       }
     } catch (e: any) {
-      setQueryError(e.message || 'Network error');
+      setQueryError(e.message || 'Network error')
     }
-  };
+  }
 
   const renderContent = () => {
     // Helper function to load query into SQL editor
     const loadQueryIntoEditor = (sql: string, name: string) => {
-      setSql(sql);
-      setActiveQueryName(name);
-      setActiveSection('sql-editor');
-    };
+      setSql(sql)
+      setActiveQueryName(name)
+      setActiveSection('sql-editor')
+    }
 
     switch (activeSection) {
       case 'tables':
@@ -458,13 +546,13 @@ SELECT * FROM blog.posts LIMIT 5;
             <TablesPage
               activeTenant={activeTenant}
               onCreateTable={() => {
-                setSelectedSchemaForTable('public');
-                setShowCreateTableDialog(true);
-            }}
+                setSelectedSchemaForTable('public')
+                setShowCreateTableDialog(true)
+              }}
             />
           </Suspense>
-        );
-        
+        )
+
       case 'sql-editor':
         return (
           <SqlEditorPageLight
@@ -481,7 +569,7 @@ SELECT * FROM blog.posts LIMIT 5;
             activeQueryName={activeQueryName}
             setActiveQueryName={setActiveQueryName}
           />
-        );
+        )
 
       case 'query-history':
         return (
@@ -491,16 +579,14 @@ SELECT * FROM blog.posts LIMIT 5;
               onLoadQuery={loadQueryIntoEditor}
             />
           </Suspense>
-        );
+        )
 
       case 'sql-templates':
         return (
           <Suspense fallback={<LoadingSpinner />}>
-            <SqlTemplatesPage
-              onLoadTemplate={loadQueryIntoEditor}
-            />
+            <SqlTemplatesPage onLoadTemplate={loadQueryIntoEditor} />
           </Suspense>
-        );
+        )
 
       case 'saved-queries':
         return (
@@ -510,7 +596,7 @@ SELECT * FROM blog.posts LIMIT 5;
               onLoadQuery={loadQueryIntoEditor}
             />
           </Suspense>
-        );
+        )
 
       case 'visual-query-builder':
         return (
@@ -518,35 +604,39 @@ SELECT * FROM blog.posts LIMIT 5;
             <VisualQueryBuilder
               availableTables={[]}
               onQueryGenerated={(sql: string) => {
-                setSql(sql);
-                setActiveSection('sql-editor');
+                setSql(sql)
+                setActiveSection('sql-editor')
               }}
               onExecuteQuery={runQuery}
             />
           </Suspense>
-        );
-        
+        )
+
       case 'schema-visualizer':
         return (
-          <div className="h-full flex items-center justify-center text-gray-400">
-            <div className="text-center">
-              <h3 className="text-lg font-medium mb-2">Schema Visualizer</h3>
-              <p className="text-sm">Visual database schema explorer - Coming soon</p>
+          <div className='h-full flex items-center justify-center text-gray-400'>
+            <div className='text-center'>
+              <h3 className='text-lg font-medium mb-2'>Schema Visualizer</h3>
+              <p className='text-sm'>
+                Visual database schema explorer - Coming soon
+              </p>
             </div>
           </div>
-        );
-        
+        )
+
       default:
         return (
-          <div className="h-full flex items-center justify-center text-gray-400">
-            <div className="text-center">
-              <h3 className="text-lg font-medium mb-2 capitalize">{activeSection.replace('-', ' ')}</h3>
-              <p className="text-sm">This feature is coming soon</p>
+          <div className='h-full flex items-center justify-center text-gray-400'>
+            <div className='text-center'>
+              <h3 className='text-lg font-medium mb-2 capitalize'>
+                {activeSection.replace('-', ' ')}
+              </h3>
+              <p className='text-sm'>This feature is coming soon</p>
             </div>
           </div>
-        );
+        )
     }
-  };
+  }
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
@@ -557,75 +647,101 @@ SELECT * FROM blog.posts LIMIT 5;
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         onLoadQuery={(sql: string, name: string) => {
-          setSql(sql);
-          setActiveQueryName(name);
-          setActiveSection('sql-editor');
+          setSql(sql)
+          setActiveQueryName(name)
+          setActiveSection('sql-editor')
         }}
       >
-      {/* Sample Data Banner */}
-      {showSampleDataBanner && (
-        <div className="bg-linear-to-r from-emerald-600/10 to-blue-600/10 border border-emerald-500/20 p-4 m-4 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
-                <Database className="h-4 w-4 text-white" />
-              </div>
+        {tenantsError && (
+          <div className='border border-red-500/20 bg-red-500/10 text-red-200 p-4 m-4 rounded-lg'>
+            <div className='flex items-start justify-between gap-3'>
               <div>
-                <h3 className="text-white font-medium">Welcome to your Database!</h3>
-                <p className="text-gray-400 text-sm">
-                  Get started by creating some sample data with blog posts and ecommerce products
-                </p>
+                <div className='font-medium'>Database service error</div>
+                <div className='text-sm opacity-90 mt-1'>{tenantsError}</div>
+                <div className='text-xs text-red-200/80 mt-2'>
+                  This usually means the API cannot read the tenant registry (or
+                  you are not authorized).
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
               <Button
-                onClick={() => setShowSampleDataBanner(false)}
-                variant="ghost"
-                size="sm"
-                className="text-gray-400 hover:text-white"
+                variant='outline'
+                size='sm'
+                className='border-red-500/30 text-red-100 hover:bg-red-500/10'
+                onClick={() => loadTenants()}
               >
-                Skip
-              </Button>
-              <Button
-                onClick={createSampleData}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                size="sm"
-              >
-                Create Sample Data
+                Retry
               </Button>
             </div>
           </div>
-        </div>
-      )}
-      
-      {renderContent()}
-      
-      {/* Create Schema Dialog */}
-      {showCreateSchemaDialog && (
-        <Suspense fallback={null}>
-          <CreateSchemaDialog
-            isOpen={showCreateSchemaDialog}
-            onClose={() => setShowCreateSchemaDialog(false)}
-            onCreateSchema={createSchema}
-          />
-        </Suspense>
-      )}
+        )}
 
-      {/* Create Table Dialog */}
-      {showCreateTableDialog && (
-        <Suspense fallback={null}>
-          <CreateTableDialog
-            isOpen={showCreateTableDialog}
-            onClose={() => {
-              setShowCreateTableDialog(false);
-              setSelectedSchemaForTable('');
-            }}
-            onCreateTable={createTable}
-            schemaName={selectedSchemaForTable}
-          />
-        </Suspense>
-      )}
-    </DatabaseLayout>
+        {/* Sample Data Banner */}
+        {showSampleDataBanner && (
+          <div className='bg-linear-to-r from-emerald-600/10 to-blue-600/10 border border-emerald-500/20 p-4 m-4 rounded-lg'>
+            <div className='flex items-center justify-between'>
+              <div className='flex items-center gap-3'>
+                <div className='w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center'>
+                  <Database className='h-4 w-4 text-white' />
+                </div>
+                <div>
+                  <h3 className='text-white font-medium'>
+                    Welcome to your Database!
+                  </h3>
+                  <p className='text-gray-400 text-sm'>
+                    Get started by creating some sample data with blog posts and
+                    ecommerce products
+                  </p>
+                </div>
+              </div>
+              <div className='flex items-center gap-2'>
+                <Button
+                  onClick={() => setShowSampleDataBanner(false)}
+                  variant='ghost'
+                  size='sm'
+                  className='text-gray-400 hover:text-white'
+                >
+                  Skip
+                </Button>
+                <Button
+                  onClick={createSampleData}
+                  className='bg-emerald-600 hover:bg-emerald-700 text-white'
+                  size='sm'
+                >
+                  Create Sample Data
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {renderContent()}
+
+        {/* Create Schema Dialog */}
+        {showCreateSchemaDialog && (
+          <Suspense fallback={null}>
+            <CreateSchemaDialog
+              isOpen={showCreateSchemaDialog}
+              onClose={() => setShowCreateSchemaDialog(false)}
+              onCreateSchema={createSchema}
+            />
+          </Suspense>
+        )}
+
+        {/* Create Table Dialog */}
+        {showCreateTableDialog && (
+          <Suspense fallback={null}>
+            <CreateTableDialog
+              isOpen={showCreateTableDialog}
+              onClose={() => {
+                setShowCreateTableDialog(false)
+                setSelectedSchemaForTable('')
+              }}
+              onCreateTable={createTable}
+              schemaName={selectedSchemaForTable}
+            />
+          </Suspense>
+        )}
+      </DatabaseLayout>
     </Suspense>
-  );
+  )
 }

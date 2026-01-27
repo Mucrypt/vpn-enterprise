@@ -104,6 +104,20 @@ tenantsRouter.get(
         return res.json({ tenants: mockTenants })
       }
 
+      // Self-host override: allow forcing the tenant registry to come from the platform DB.
+      // This is useful when SUPABASE_* env vars are configured for auth, but the tenant registry
+      // lives in the local Postgres `tenants` table.
+      const tenantsSource = String(process.env.TENANTS_SOURCE || '')
+        .trim()
+        .toLowerCase()
+      if (tenantsSource === 'platform' || tenantsSource === 'local') {
+        const db = new DatabasePlatformClient()
+        const result = await db.platformPool.query(
+          'SELECT id as tenant_id, id, name, created_at FROM tenants ORDER BY created_at DESC',
+        )
+        return res.json({ tenants: result.rows || [] })
+      }
+
       // Self-host fallback: if Supabase env isn't configured, read from local platform DB
       const hasSupabaseEnv =
         !!process.env.SUPABASE_URL &&
