@@ -299,12 +299,14 @@ router.delete(
         }
       }
 
+      // Commit the transaction BEFORE deleting from Supabase (in case Supabase fails)
+      await client.query('COMMIT')
+
       // Delete user from Supabase using Admin API
       const { error: deleteError } =
         await supabaseAdmin.auth.admin.deleteUser(userId)
 
       if (deleteError) {
-        await client.query('ROLLBACK')
         console.error('Supabase deleteUser error:', deleteError)
         return res.status(500).json({
           error: 'Failed to delete user',
@@ -312,32 +314,37 @@ router.delete(
         })
       }
 
-      // Create comprehensive audit log
-      await client.query(
-        `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-        [
-          adminUser.id,
-          'DELETE_USER',
-          'user',
-          userId,
-          JSON.stringify({
-            deleted_user_email: userEmail,
-            deleted_user_role: userRole,
-            tenants_deleted: ownedTenants.length,
-            memberships_removed: membershipResult.rowCount,
-            orphaned_tenants: ownedTenants.map((t: any) => ({
-              id: t.id,
-              name: t.name,
-            })),
-            timestamp: new Date().toISOString(),
-          }),
-          req.ip || req.socket.remoteAddress,
-          req.headers['user-agent'] || 'unknown',
-        ],
-      )
-
-      await client.query('COMMIT')
+      // Create comprehensive audit log (non-blocking, after commit)
+      const auditClient = await dbPlatform.platformPool.connect()
+      try {
+        await auditClient.query(
+          `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+          [
+            adminUser.id,
+            'DELETE_USER',
+            'user',
+            userId,
+            JSON.stringify({
+              deleted_user_email: userEmail,
+              deleted_user_role: userRole,
+              tenants_deleted: ownedTenants.length,
+              memberships_removed: membershipResult.rowCount,
+              orphaned_tenants: ownedTenants.map((t: any) => ({
+                id: t.id,
+                name: t.name,
+              })),
+              timestamp: new Date().toISOString(),
+            }),
+            req.ip || req.socket.remoteAddress,
+            req.headers['user-agent'] || 'unknown',
+          ],
+        )
+      } catch (auditError) {
+        console.warn('Audit log failed (non-critical):', auditError)
+      } finally {
+        auditClient.release()
+      }
 
       console.log(
         `[DELETE USER] Successfully deleted user ${userEmail} and cleaned up ${ownedTenants.length} tenants`,
