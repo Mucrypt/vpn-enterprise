@@ -25,20 +25,20 @@ function defaultPassword(): string {
 
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null
-  
+
   // Try store first
   try {
     const { useAuthStore } = require('@/lib/store')
     const token = useAuthStore.getState().accessToken
     if (token) return token
   } catch {}
-  
+
   // Try localStorage
   try {
     const token = localStorage.getItem('access_token')
     if (token) return token
   } catch {}
-  
+
   // Try cookies
   try {
     const cookies = document.cookie.split('; ')
@@ -47,7 +47,7 @@ function getAuthToken(): string | null {
       if (name === 'access_token') return value
     }
   } catch {}
-  
+
   return null
 }
 
@@ -155,7 +155,7 @@ export function CreateDatabaseProjectWizard({
       if (!token) {
         throw new Error('Please log in to create a project.')
       }
-      
+
       const resp = await fetch('/api/v1/tenants/self', {
         method: 'POST',
         headers: {

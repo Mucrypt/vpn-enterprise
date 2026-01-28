@@ -64,6 +64,15 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL('/dashboard', request.url));
       }
     }
+    
+    // Protect /databases/admin route for admins only
+    if (pathname.startsWith('/databases/admin')) {
+      const userRole = request.cookies.get('user_role')?.value;
+      if (userRole !== 'super_admin' && userRole !== 'admin') {
+        console.warn('[proxy] Non-admin tried to access database admin:', { userRole });
+        return NextResponse.redirect(new URL('/databases', request.url));
+      }
+    }
   }
 
   // Redirect logged-in users away from auth pages
@@ -78,7 +87,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/auth/:path*'],
+  matcher: ['/dashboard/:path*', '/databases/:path*', '/auth/:path*'],
 };
 
 // Ensure Next can consume default export form if required by future versions
