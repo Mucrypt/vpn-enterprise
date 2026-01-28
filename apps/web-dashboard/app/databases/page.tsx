@@ -128,6 +128,13 @@ SELECT * FROM blog.posts LIMIT 5;
 
         const data = await response.json()
         const tenantList = data.tenants || data.data || []
+
+        // If the membership endpoint returns an empty list, try the admin endpoint next.
+        // This helps initial self-host setups where tenant_members isn't populated yet.
+        if (endpoint === '/api/v1/tenants/me' && tenantList.length === 0) {
+          continue
+        }
+
         setTenants(tenantList)
 
         // Auto-select first tenant
