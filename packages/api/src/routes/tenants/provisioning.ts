@@ -96,14 +96,15 @@ export async function ensureTenantDatabaseProvisioned(opts: {
         [tenantRole],
       )
       if (!roleExists.rows?.length) {
+        // Use pg's escaping for password literal
+        const escapedPassword = password.replace(/'/g, "''")
         await admin.query(
-          `CREATE ROLE ${safeIdent(tenantRole)} WITH LOGIN PASSWORD $1`,
-          [password],
+          `CREATE ROLE ${safeIdent(tenantRole)} WITH LOGIN PASSWORD '${escapedPassword}'`,
         )
       } else if (opts.desiredPassword) {
+        const escapedPassword = password.replace(/'/g, "''")
         await admin.query(
-          `ALTER ROLE ${safeIdent(tenantRole)} WITH PASSWORD $1`,
-          [password],
+          `ALTER ROLE ${safeIdent(tenantRole)} WITH PASSWORD '${escapedPassword}'`,
         )
       }
 
