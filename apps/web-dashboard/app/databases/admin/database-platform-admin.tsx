@@ -114,7 +114,10 @@ export function DatabasePlatformAdmin({
       }
 
       const apiUrl = getApiUrl()
-      console.log('[refreshUsers] Fetching from:', `${apiUrl}/api/v1/admin/users`)
+      console.log(
+        '[refreshUsers] Fetching from:',
+        `${apiUrl}/api/v1/admin/users`,
+      )
 
       const response = await fetch(`${apiUrl}/api/v1/admin/users`, {
         headers: {
@@ -136,9 +139,12 @@ export function DatabasePlatformAdmin({
       console.log('[refreshUsers] Received users:', data.users?.length || 0)
 
       setUsers(data.users || [])
-      
+
       if (data.users && data.users.length > 0) {
-        showNotification('success', `Loaded ${data.users.length} users from Supabase`)
+        showNotification(
+          'success',
+          `Loaded ${data.users.length} users from Supabase`,
+        )
       }
     } catch (error) {
       console.error('Refresh users error:', error)
@@ -778,7 +784,9 @@ export function DatabasePlatformAdmin({
                     disabled={isRefreshing}
                     className='border-gray-700 text-gray-300 hover:bg-gray-800'
                   >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <RefreshCw
+                      className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`}
+                    />
                     {isRefreshing ? 'Refreshing...' : 'Refresh'}
                   </Button>
                   <Dialog
@@ -791,120 +799,124 @@ export function DatabasePlatformAdmin({
                         Create User
                       </Button>
                     </DialogTrigger>
-                  <DialogContent className='bg-[#1a1a1a] border-gray-800 text-white'>
-                    <DialogHeader>
-                      <DialogTitle>Create New User</DialogTitle>
-                      <DialogDescription className='text-gray-400'>
-                        Add a new user to the platform. They will receive access
-                        immediately.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className='space-y-4 py-4'>
-                      <div className='space-y-2'>
-                        <Label htmlFor='email' className='text-sm font-medium'>
-                          Email Address
-                        </Label>
-                        <Input
-                          id='email'
-                          type='email'
-                          placeholder='user@example.com'
-                          value={newUserForm.email}
-                          onChange={(e) =>
-                            setNewUserForm({
-                              ...newUserForm,
-                              email: e.target.value,
-                            })
-                          }
-                          className='bg-gray-900 border-gray-700 text-white'
-                        />
+                    <DialogContent className='bg-[#1a1a1a] border-gray-800 text-white'>
+                      <DialogHeader>
+                        <DialogTitle>Create New User</DialogTitle>
+                        <DialogDescription className='text-gray-400'>
+                          Add a new user to the platform. They will receive
+                          access immediately.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className='space-y-4 py-4'>
+                        <div className='space-y-2'>
+                          <Label
+                            htmlFor='email'
+                            className='text-sm font-medium'
+                          >
+                            Email Address
+                          </Label>
+                          <Input
+                            id='email'
+                            type='email'
+                            placeholder='user@example.com'
+                            value={newUserForm.email}
+                            onChange={(e) =>
+                              setNewUserForm({
+                                ...newUserForm,
+                                email: e.target.value,
+                              })
+                            }
+                            className='bg-gray-900 border-gray-700 text-white'
+                          />
+                        </div>
+                        <div className='space-y-2'>
+                          <Label
+                            htmlFor='password'
+                            className='text-sm font-medium'
+                          >
+                            Password
+                          </Label>
+                          <Input
+                            id='password'
+                            type='password'
+                            placeholder='Minimum 8 characters'
+                            value={newUserForm.password}
+                            onChange={(e) =>
+                              setNewUserForm({
+                                ...newUserForm,
+                                password: e.target.value,
+                              })
+                            }
+                            className='bg-gray-900 border-gray-700 text-white'
+                          />
+                          <p className='text-xs text-gray-500'>
+                            User can change this after first login
+                          </p>
+                        </div>
+                        <div className='space-y-2'>
+                          <Label htmlFor='role' className='text-sm font-medium'>
+                            Role
+                          </Label>
+                          <Select
+                            value={newUserForm.role}
+                            onValueChange={(value: any) =>
+                              setNewUserForm({ ...newUserForm, role: value })
+                            }
+                          >
+                            <SelectTrigger className='bg-gray-900 border-gray-700 text-white'>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className='bg-gray-900 border-gray-700'>
+                              <SelectItem value='user'>User</SelectItem>
+                              <SelectItem value='admin'>Admin</SelectItem>
+                              <SelectItem value='super_admin'>
+                                Super Admin
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className='text-xs text-gray-500'>
+                            {newUserForm.role === 'user' &&
+                              'Can create and manage their own projects'}
+                            {newUserForm.role === 'admin' &&
+                              'Can access admin dashboard and manage users'}
+                            {newUserForm.role === 'super_admin' &&
+                              'Full platform access including system settings'}
+                          </p>
+                        </div>
                       </div>
-                      <div className='space-y-2'>
-                        <Label
-                          htmlFor='password'
-                          className='text-sm font-medium'
+                      <DialogFooter>
+                        <Button
+                          variant='outline'
+                          onClick={() => setShowCreateDialog(false)}
+                          className='border-gray-700 text-gray-300 hover:bg-gray-800'
                         >
-                          Password
-                        </Label>
-                        <Input
-                          id='password'
-                          type='password'
-                          placeholder='Minimum 8 characters'
-                          value={newUserForm.password}
-                          onChange={(e) =>
-                            setNewUserForm({
-                              ...newUserForm,
-                              password: e.target.value,
-                            })
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleCreateUser}
+                          disabled={
+                            isCreatingUser ||
+                            !newUserForm.email ||
+                            !newUserForm.password
                           }
-                          className='bg-gray-900 border-gray-700 text-white'
-                        />
-                        <p className='text-xs text-gray-500'>
-                          User can change this after first login
-                        </p>
-                      </div>
-                      <div className='space-y-2'>
-                        <Label htmlFor='role' className='text-sm font-medium'>
-                          Role
-                        </Label>
-                        <Select
-                          value={newUserForm.role}
-                          onValueChange={(value: any) =>
-                            setNewUserForm({ ...newUserForm, role: value })
-                          }
+                          className='bg-emerald-600 hover:bg-emerald-700'
                         >
-                          <SelectTrigger className='bg-gray-900 border-gray-700 text-white'>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className='bg-gray-900 border-gray-700'>
-                            <SelectItem value='user'>User</SelectItem>
-                            <SelectItem value='admin'>Admin</SelectItem>
-                            <SelectItem value='super_admin'>
-                              Super Admin
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className='text-xs text-gray-500'>
-                          {newUserForm.role === 'user' &&
-                            'Can create and manage their own projects'}
-                          {newUserForm.role === 'admin' &&
-                            'Can access admin dashboard and manage users'}
-                          {newUserForm.role === 'super_admin' &&
-                            'Full platform access including system settings'}
-                        </p>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        variant='outline'
-                        onClick={() => setShowCreateDialog(false)}
-                        className='border-gray-700 text-gray-300 hover:bg-gray-800'
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleCreateUser}
-                        disabled={
-                          isCreatingUser ||
-                          !newUserForm.email ||
-                          !newUserForm.password
-                        }
-                        className='bg-emerald-600 hover:bg-emerald-700'
-                      >
-                        {isCreatingUser ? (
-                          <>
-                            <RefreshCw className='h-4 w-4 mr-2 animate-spin' />
-                            Creating...
-                          </>
-                        ) : (
-                          <>
-                            <UserPlus className='h-4 w-4 mr-2' />
-                            Create User
-                          </>
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                          {isCreatingUser ? (
+                            <>
+                              <RefreshCw className='h-4 w-4 mr-2 animate-spin' />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className='h-4 w-4 mr-2' />
+                              Create User
+                            </>
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
