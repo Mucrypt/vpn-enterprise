@@ -17,7 +17,7 @@ async function getTenants() {
       .join('; ')
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-    
+
     // Regular users: only fetch their tenants
     const response = await fetch(`${apiUrl}/api/v1/tenants/me`, {
       headers: {
@@ -38,7 +38,7 @@ async function getTenants() {
 export default async function DatabasePage() {
   // Check if user is admin first
   const isAdmin = await isAdminUser()
-  
+
   // Admins get redirected to the platform admin view
   if (isAdmin) {
     redirect('/databases/admin')

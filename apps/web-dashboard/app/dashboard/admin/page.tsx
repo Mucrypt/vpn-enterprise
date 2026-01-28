@@ -215,10 +215,10 @@ export default function AdminPage() {
         </CardHeader>
         <CardContent>
           <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
-            <Button 
-              className='h-24 flex-col gap-2' 
+            <Button
+              className='h-24 flex-col gap-2'
               variant='outline'
-              onClick={() => window.location.href = '/databases/admin'}
+              onClick={() => (window.location.href = '/databases/admin')}
             >
               <Database className='h-8 w-8' />
               <span>Database Platform</span>

@@ -11,7 +11,7 @@ async function getAllTenants() {
       .join('; ')
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-    
+
     const response = await fetch(`${apiUrl}/api/v1/tenants`, {
       headers: {
         Cookie: cookieHeader,
@@ -36,7 +36,7 @@ async function isAdminUser() {
 
 export default async function DatabaseAdminPage() {
   const isAdmin = await isAdminUser()
-  
+
   // Non-admins should not access this page
   if (!isAdmin) {
     redirect('/databases')
