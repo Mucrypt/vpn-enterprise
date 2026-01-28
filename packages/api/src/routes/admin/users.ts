@@ -127,6 +127,8 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
   }
 
   try {
+    const adminUser = (req as any).user
+
     // Use Supabase Admin API to create user
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -152,6 +154,36 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
         message: error.message,
       })
     }
+
+    // Create audit log in platform_db
+    const client = await dbPlatform.platformPool.connect()
+    try {
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        [
+          adminUser.id,
+          'CREATE_USER',
+          'user',
+          data.user.id,
+          JSON.stringify({
+            created_user_email: email,
+            created_user_role: role,
+            timestamp: new Date().toISOString(),
+          }),
+          req.ip || req.socket.remoteAddress,
+          req.headers['user-agent'] || 'unknown',
+        ],
+      )
+    } catch (auditError) {
+      console.error('Failed to create audit log:', auditError)
+    } finally {
+      client.release()
+    }
+
+    console.log(
+      `[CREATE USER] ${adminUser.email} created new user: ${email} with role: ${role}`,
+    )
 
     res.status(201).json({
       success: true,
@@ -182,6 +214,7 @@ router.delete(
   adminMiddleware,
   async (req, res) => {
     const { userId } = req.params
+    const adminUser = (req as any).user
     const client = await dbPlatform.platformPool.connect()
 
     try {
@@ -211,6 +244,19 @@ router.delete(
         })
       }
 
+      // Prevent self-deletion
+      if (adminUser.id === userId) {
+        await client.query('ROLLBACK')
+        return res.status(403).json({
+          error: 'Cannot delete yourself',
+          message: 'You cannot delete your own account',
+        })
+      }
+
+      console.log(
+        `[DELETE USER] ${adminUser.email} is deleting user: ${userEmail}`,
+      )
+
       // Find tenants owned by this user
       const tenantsResult = await client.query(
         `SELECT t.id, t.name
@@ -221,11 +267,16 @@ router.delete(
       )
 
       const ownedTenants = tenantsResult.rows
+      console.log(`[DELETE USER] Found ${ownedTenants.length} owned tenants`)
 
       // Delete tenant memberships
-      await client.query(
-        'DELETE FROM public.tenant_members WHERE user_id = $1',
+      const membershipResult = await client.query(
+        'DELETE FROM public.tenant_members WHERE user_id = $1 RETURNING tenant_id',
         [userId],
+      )
+
+      console.log(
+        `[DELETE USER] Removed ${membershipResult.rowCount} memberships`,
       )
 
       // Mark orphaned tenants for cleanup (tenants with no owner)
@@ -244,6 +295,7 @@ router.delete(
            WHERE id = $1`,
             [tenant.id],
           )
+          console.log(`[DELETE USER] Marked tenant ${tenant.name} as deleted`)
         }
       }
 
@@ -260,12 +312,41 @@ router.delete(
         })
       }
 
+      // Create comprehensive audit log
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        [
+          adminUser.id,
+          'DELETE_USER',
+          'user',
+          userId,
+          JSON.stringify({
+            deleted_user_email: userEmail,
+            deleted_user_role: userRole,
+            tenants_deleted: ownedTenants.length,
+            memberships_removed: membershipResult.rowCount,
+            orphaned_tenants: ownedTenants.map((t: any) => ({
+              id: t.id,
+              name: t.name,
+            })),
+            timestamp: new Date().toISOString(),
+          }),
+          req.ip || req.socket.remoteAddress,
+          req.headers['user-agent'] || 'unknown',
+        ],
+      )
+
       await client.query('COMMIT')
+
+      console.log(
+        `[DELETE USER] Successfully deleted user ${userEmail} and cleaned up ${ownedTenants.length} tenants`,
+      )
 
       res.json({
         success: true,
         message: `User ${userEmail} deleted successfully`,
-        deletedTenantMemberships: ownedTenants.length,
+        deletedTenantMemberships: membershipResult.rowCount,
         orphanedTenants: ownedTenants.map((t: any) => ({
           id: t.id,
           name: t.name,
@@ -295,6 +376,7 @@ router.patch(
   async (req, res) => {
     const { userId } = req.params
     const { role } = req.body
+    const adminUser = (req as any).user
 
     if (!role || !['user', 'admin', 'super_admin'].includes(role)) {
       return res.status(400).json({
@@ -304,34 +386,83 @@ router.patch(
     }
 
     try {
-      // Update user role in Supabase auth.users metadata
-      const result = await dbPlatform.platformPool.query(
-        `UPDATE auth.users 
-       SET raw_user_meta_data = jsonb_set(
-         COALESCE(raw_user_meta_data, '{}'::jsonb),
-         '{role}',
-         to_jsonb($1::text)
-       ),
-       updated_at = NOW()
-       WHERE id = $2
-       RETURNING email, raw_user_meta_data->>'role' as role`,
-        [role, userId],
-      )
+      // Get current user data before update
+      const { data: currentUser, error: fetchError } =
+        await supabaseAdmin.auth.admin.getUserById(userId)
 
-      if (result.rowCount === 0) {
+      if (fetchError || !currentUser?.user) {
         return res.status(404).json({
           error: 'User not found',
           message: `User with ID ${userId} does not exist`,
         })
       }
 
+      const oldRole = currentUser.user.user_metadata?.role || 'user'
+
+      // Prevent changing your own role to non-admin
+      if (adminUser.id === userId && role !== 'admin' && role !== 'super_admin') {
+        return res.status(403).json({
+          error: 'Cannot demote yourself',
+          message: 'You cannot remove your own admin privileges',
+        })
+      }
+
+      // Update user role in Supabase using Admin API
+      const { data, error: updateError } =
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          user_metadata: { role },
+        })
+
+      if (updateError) {
+        console.error('Supabase updateUserById error:', updateError)
+        return res.status(500).json({
+          error: 'Failed to update user role',
+          message: updateError.message,
+        })
+      }
+
+      // Create audit log in platform_db
+      const client = await dbPlatform.platformPool.connect()
+      try {
+        await client.query(
+          `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+          [
+            adminUser.id,
+            'UPDATE_USER_ROLE',
+            'user',
+            userId,
+            JSON.stringify({
+              user_email: currentUser.user.email,
+              old_role: oldRole,
+              new_role: role,
+              timestamp: new Date().toISOString(),
+            }),
+            req.ip || req.socket.remoteAddress,
+            req.headers['user-agent'] || 'unknown',
+          ],
+        )
+      } catch (auditError) {
+        console.error('Failed to create audit log:', auditError)
+      } finally {
+        client.release()
+      }
+
+      console.log(
+        `[UPDATE USER ROLE] ${adminUser.email} updated ${currentUser.user.email} from ${oldRole} to ${role}`,
+      )
+
       res.json({
         success: true,
         message: `User role updated to ${role}`,
         user: {
           id: userId,
-          email: result.rows[0].email,
-          role: result.rows[0].role,
+          email: data.user.email,
+          role,
+        },
+        changes: {
+          oldRole,
+          newRole: role,
         },
       })
     } catch (error) {
@@ -356,27 +487,20 @@ router.get(
     const { userId } = req.params
 
     try {
-      // Get user details
-      const userResult = await dbPlatform.platformPool.query(
-        `SELECT 
-        u.id,
-        u.email,
-        u.created_at,
-        u.last_sign_in_at,
-        u.raw_user_meta_data->>'role' as role
-      FROM auth.users u
-      WHERE u.id = $1`,
-        [userId],
-      )
+      // Get user details from Supabase Admin API
+      const { data: userData, error: userError } =
+        await supabaseAdmin.auth.admin.getUserById(userId)
 
-      if (userResult.rowCount === 0) {
+      if (userError || !userData?.user) {
         return res.status(404).json({
           error: 'User not found',
           message: `User with ID ${userId} does not exist`,
         })
       }
 
-      // Get user's tenants
+      const user = userData.user
+
+      // Get user's tenants from platform_db
       const tenantsResult = await dbPlatform.platformPool.query(
         `SELECT 
         t.id,
@@ -394,7 +518,13 @@ router.get(
       )
 
       res.json({
-        user: userResult.rows[0],
+        user: {
+          id: user.id,
+          email: user.email,
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at,
+          role: user.user_metadata?.role || 'user',
+        },
         tenants: tenantsResult.rows,
         tenantCount: tenantsResult.rowCount || 0,
       })
