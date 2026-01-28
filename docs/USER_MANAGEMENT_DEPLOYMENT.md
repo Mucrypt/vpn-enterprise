@@ -5,6 +5,7 @@
 Production-ready admin dashboard at `/databases/admin` with two management areas:
 
 ### 1. Database Projects Management (Primary Focus)
+
 - **View all database projects** created by users
 - **Delete database projects** with full cleanup:
   - Drops the PostgreSQL database
@@ -15,6 +16,7 @@ Production-ready admin dashboard at `/databases/admin` with two management areas
 - View project details (owner, region, plan, etc.)
 
 ### 2. Supabase User Management
+
 - **View all Supabase users** (authentication layer)
 - **Promote users to admin** role
 - View user activity (created date, last sign-in)
@@ -234,7 +236,7 @@ DELETE FROM public.tenants WHERE id = '<tenant-id>';
 
 ```sql
 -- Update role in Supabase auth metadata
-UPDATE auth.users 
+UPDATE auth.users
 SET raw_user_meta_data = jsonb_set(
   COALESCE(raw_user_meta_data, '{}'::jsonb),
   '{role}',
@@ -249,6 +251,7 @@ WHERE id = '<user-id>';
 ## API Endpoints
 
 ### Delete Database Project
+
 ```http
 DELETE /api/v1/admin/tenants/{tenantId}
 Authorization: Bearer <token>
@@ -263,6 +266,7 @@ Response:
 ```
 
 ### Update User Role
+
 ```http
 PATCH /api/v1/admin/users/{userId}/role
 Authorization: Bearer <token>
@@ -315,6 +319,7 @@ docker logs vpn-api --tail 100 | grep "admin/tenants"
 Expected: DELETE request with status 200
 
 If you see connection errors dropping the database:
+
 - Ensure no active connections to the database
 - Check if database name is correct in connection_info
 - Verify platform_admin has DROP DATABASE permission
@@ -326,13 +331,14 @@ Check if role is actually updated:
 ```sql
 -- Connect to platform_db
 docker exec vpn-postgres psql -U platform_admin -d platform_db -c "
-  SELECT email, raw_user_meta_data->>'role' as role 
-  FROM auth.users 
+  SELECT email, raw_user_meta_data->>'role' as role
+  FROM auth.users
   WHERE email = 'user@example.com';
 "
 ```
 
 If role shows correctly but user doesn't have admin access:
+
 - Have user log out and log back in
 - Check middleware is reading role from raw_user_meta_data
 - Verify cookies are being set with user_role
@@ -382,6 +388,7 @@ docker compose -f infrastructure/docker/docker-compose.prod.yml up -d --build
 ```
 
 Note: This version had user deletion instead of project deletion. If you need to go back further:
+
 ```bash
 git reset --hard b46b5cf  # Before user management feature
 ```
@@ -399,6 +406,7 @@ After deployment, you can:
 ### Future Enhancements
 
 Potential features to add:
+
 - **Project statistics**: Storage usage, connection count, query metrics
 - **User invitation system**: Invite users via email with specific roles
 - **Audit logs**: Track all admin actions (deletions, role changes)
@@ -411,6 +419,7 @@ Potential features to add:
 ### Monitoring Recommendations
 
 Set up alerts for:
+
 - Failed database drops (check API logs)
 - Orphaned databases (exist but not in tenants table)
 - Users with excessive projects (potential abuse)
@@ -427,6 +436,7 @@ If you encounter issues:
 5. Test manually via SQL if API fails
 
 **Key Commits:**
+
 - `904539d` - fix: Move delete functionality to Database Projects
 - `f2011e6` - feat: Add user management UI to admin dashboard
 - `9e26cd7` - docs: Add user management deployment guide

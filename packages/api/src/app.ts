@@ -1263,58 +1263,8 @@ app.get(
   },
 )
 
-// Admin: list users (simple implementation for dev)
-app.get(
-  '/api/v1/admin/users',
-  authMiddleware,
-  adminMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      // In the absence of a dedicated users repository, return the current
-      // authenticated user as a single-item list (useful for local dev).
-      const userReq = req as AuthRequest
-      const user = userReq.user
-      if (!user) return res.json({ users: [] })
-      res.json({
-        users: [
-          {
-            id: user.id,
-            email: user.email,
-            username: user.email?.split('@')[0] || '',
-            subscription_tier: 'premium', // mock value
-            is_active: true, // mock value
-            max_devices: 3, // mock value
-            updated_at: new Date().toISOString(),
-            role: user.role || 'user',
-          },
-        ],
-      })
-    } catch (error: any) {
-      res
-        .status(500)
-        .json({ error: 'Failed to fetch users', message: error.message })
-    }
-  },
-)
-
-// Admin: set user encryption placeholder (no-op in dev)
-app.put(
-  '/api/v1/admin/users/:id/encryption',
-  authMiddleware,
-  adminMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const { id } = req.params
-      const { protocol_id } = req.body || {}
-      // Placeholder: echo back the request for dev usage
-      res.json({ success: true, id, protocol_id })
-    } catch (error: any) {
-      res
-        .status(500)
-        .json({ error: 'Failed to set encryption', message: error.message })
-    }
-  },
-)
+// Admin users endpoints are handled by adminUsersRouter mounted at '/api/v1/admin'
+// See packages/api/src/routes/admin/users.ts for full implementation
 
 // ==========================
 // ORGANIZATION ENDPOINTS (AUTH + ADMIN REQUIRED)

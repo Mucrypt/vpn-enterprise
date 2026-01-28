@@ -30,7 +30,7 @@ The Admin Dashboard at `/databases/admin` is your **central control center** for
 
 ```sql
 -- Promote your account to admin
-UPDATE auth.users 
+UPDATE auth.users
 SET raw_user_meta_data = jsonb_set(
   COALESCE(raw_user_meta_data, '{}'::jsonb),
   '{role}',
@@ -48,6 +48,7 @@ WHERE email = 'your-email@example.com';
 #### Create New User
 
 **Steps:**
+
 1. Click **"Create User"** button (top right)
 2. Fill in the form:
    - **Email**: User's email address
@@ -56,18 +57,21 @@ WHERE email = 'your-email@example.com';
 3. Click **"Create User"**
 
 **Form Validation:**
+
 - ✅ Email format check
 - ✅ Password length ≥ 8 characters
 - ✅ Role must be valid value
 - ✅ Email uniqueness check
 
 **What Happens:**
+
 ```sql
 INSERT INTO auth.users (email, encrypted_password, raw_user_meta_data)
 VALUES ($email, crypt($password, gen_salt('bf')), '{"role": "$role"}');
 ```
 
 **Success Response:**
+
 ```
 ✅ User created successfully
 Shows: email, role, created_at
@@ -78,6 +82,7 @@ Shows: email, role, created_at
 #### Update User Role
 
 **Steps:**
+
 1. Find user in the table
 2. Click role dropdown
 3. Select new role:
@@ -87,11 +92,13 @@ Shows: email, role, created_at
 4. Role updates immediately
 
 **Visual Indicators:**
+
 - 🟢 Green badge = Admin/Super Admin
 - ⚪ Gray badge = Regular User
 - 🛡️ Shield icon = Protected account
 
 **API Call:**
+
 ```http
 PATCH /api/v1/admin/users/{userId}/role
 {
@@ -104,17 +111,20 @@ PATCH /api/v1/admin/users/{userId}/role
 #### Delete User
 
 **Steps:**
+
 1. Find user in table
 2. Click red **Trash** icon
 3. Confirm deletion in dialog
 
 **Safety Checks:**
+
 - ❌ Cannot delete admin/super_admin users
 - ⚠️ Confirmation dialog explains cascade effects
 - 🔄 Removes tenant memberships
 - 📊 Marks orphaned projects as deleted
 
 **What Gets Deleted:**
+
 ```
 1. User account (auth.users)
 2. All tenant_members entries
@@ -128,6 +138,7 @@ PATCH /api/v1/admin/users/{userId}/role
 #### View All Projects
 
 **Columns Displayed:**
+
 - **Project** - Name, subdomain, owner email
 - **Region** - Geographic location (🇺🇸 🇪🇺 🇸🇬 🇯🇵)
 - **Plan** - free | premium
@@ -138,11 +149,13 @@ PATCH /api/v1/admin/users/{userId}/role
 #### Delete Database Project
 
 **Steps:**
+
 1. Find project in table
 2. Click red **Trash** icon
 3. Confirm deletion
 
 **Complete Cleanup:**
+
 ```sql
 -- 1. Terminate connections
 SELECT pg_terminate_backend(pid)
@@ -167,6 +180,7 @@ DELETE FROM tenants WHERE id = $id;
 ### Professional Design
 
 **Visual Elements:**
+
 - ✨ Avatar icons with user initials
 - 🛡️ Shield badges for admin users
 - 📅 Calendar icons for dates
@@ -174,6 +188,7 @@ DELETE FROM tenants WHERE id = $id;
 - 🎯 Color-coded roles and status
 
 **Interactions:**
+
 - Hover effects on all buttons
 - Smooth transitions
 - Loading spinners for async ops
@@ -182,6 +197,7 @@ DELETE FROM tenants WHERE id = $id;
 ### Toast Notifications
 
 **Success Notifications:**
+
 ```
 ✅ User created successfully
 ✅ Role updated to admin
@@ -189,6 +205,7 @@ DELETE FROM tenants WHERE id = $id;
 ```
 
 **Error Notifications:**
+
 ```
 ❌ Email and password are required
 ❌ Cannot delete admin users
@@ -204,12 +221,14 @@ DELETE FROM tenants WHERE id = $id;
 ### Role-Based Access Control
 
 **Middleware Protection:**
+
 ```typescript
 authMiddleware → Verifies JWT token
 adminMiddleware → Checks user role = 'admin' | 'super_admin'
 ```
 
 **Protected Actions:**
+
 - ❌ Cannot modify super_admin users
 - ❌ Cannot delete admin users
 - ❌ Regular users cannot access /databases/admin
@@ -217,22 +236,26 @@ adminMiddleware → Checks user role = 'admin' | 'super_admin'
 ### Input Validation
 
 **Email:**
+
 - Valid format check
 - Uniqueness validation
 - Case-insensitive storage
 
 **Password:**
+
 - Minimum 8 characters
 - Bcrypt hashing (strength 10)
 - Never logged or exposed
 
 **Role:**
+
 - Enum validation: user | admin | super_admin
 - Stored in raw_user_meta_data JSON
 
 ### Confirmation Dialogs
 
 **Delete User:**
+
 ```
 ⚠️ Delete user user@example.com?
 
@@ -247,6 +270,7 @@ This cannot be undone.
 ```
 
 **Delete Project:**
+
 ```
 ⚠️ Delete project "My Project"?
 
@@ -279,6 +303,7 @@ This cannot be undone.
 ```
 
 **Regional Distribution:**
+
 ```
 us-east-1  ████████████████████ 25
 eu-west-3  ██████████ 12
@@ -292,6 +317,7 @@ ap-south-1 █████ 5
 ### User Management
 
 #### List All Users
+
 ```http
 GET /api/v1/admin/users
 Authorization: Bearer {token}
@@ -313,6 +339,7 @@ Response:
 ```
 
 #### Create User
+
 ```http
 POST /api/v1/admin/users
 Authorization: Bearer {token}
@@ -338,6 +365,7 @@ Response:
 ```
 
 #### Update User Role
+
 ```http
 PATCH /api/v1/admin/users/{userId}/role
 Authorization: Bearer {token}
@@ -360,6 +388,7 @@ Response:
 ```
 
 #### Delete User
+
 ```http
 DELETE /api/v1/admin/users/{userId}
 Authorization: Bearer {token}
@@ -382,6 +411,7 @@ Response:
 ### Project Management
 
 #### List All Projects
+
 ```http
 GET /api/v1/admin/tenants
 Authorization: Bearer {token}
@@ -405,6 +435,7 @@ Response:
 ```
 
 #### Delete Project
+
 ```http
 DELETE /api/v1/admin/tenants/{tenantId}
 Authorization: Bearer {token}
@@ -471,6 +502,7 @@ curl -X POST https://chatbuilds.com/api/v1/admin/users \
 **Symptoms:** Redirected to /databases or 403 Forbidden
 
 **Solution:**
+
 ```sql
 -- Check your role
 SELECT email, raw_user_meta_data->>'role' as role
@@ -494,11 +526,13 @@ WHERE email = 'your-email@example.com';
 **Symptoms:** Button click does nothing or shows error
 
 **Check:**
+
 1. Browser console for errors
 2. Network tab for API requests
 3. Token expiry
 
 **Fix:**
+
 ```bash
 # Check API logs
 docker logs vpn-api --tail 100 | grep "POST /api/v1/admin/users"
@@ -512,6 +546,7 @@ docker logs vpn-api --tail 100 | grep "error"
 **Symptoms:** User appears in table but login fails
 
 **Solution:**
+
 ```sql
 -- Check if user was created properly
 SELECT id, email, encrypted_password IS NOT NULL as has_password
@@ -529,11 +564,13 @@ DELETE FROM auth.users WHERE email = 'newuser@example.com';
 **Symptoms:** Delete fails with error
 
 **Common Causes:**
+
 1. Active connections to database
 2. Permission issues
 3. Database already dropped
 
 **Fix:**
+
 ```sql
 -- Terminate connections
 SELECT pg_terminate_backend(pid)
@@ -557,12 +594,14 @@ DELETE FROM tenants WHERE id = 'uuid';
 ### User Management
 
 ✅ **DO:**
+
 - Create users with strong passwords
 - Assign appropriate roles (principle of least privilege)
 - Review user list regularly
 - Remove inactive users
 
 ❌ **DON'T:**
+
 - Share admin credentials
 - Create users with weak passwords
 - Give everyone admin access
@@ -571,12 +610,14 @@ DELETE FROM tenants WHERE id = 'uuid';
 ### Project Management
 
 ✅ **DO:**
+
 - Monitor project creation patterns
 - Delete abandoned projects
 - Check regional distribution
 - Review storage usage
 
 ❌ **DON'T:**
+
 - Delete active projects without user consent
 - Ignore orphaned databases
 - Allow unlimited project creation
@@ -584,12 +625,14 @@ DELETE FROM tenants WHERE id = 'uuid';
 ### Security
 
 ✅ **DO:**
+
 - Log all admin actions (future enhancement)
 - Use HTTPS in production
 - Rotate admin credentials regularly
 - Monitor failed login attempts
 
 ❌ **DON'T:**
+
 - Expose admin endpoints publicly
 - Log sensitive data (passwords, tokens)
 - Skip confirmation dialogs
@@ -602,24 +645,28 @@ DELETE FROM tenants WHERE id = 'uuid';
 ### For New Admins
 
 **Week 1: Observation**
+
 - Access admin dashboard
 - Browse users and projects
 - Understand role system
 - Review statistics
 
 **Week 2: User Management**
+
 - Create test user
 - Update user roles
 - Practice search/filter
 - Delete test user
 
 **Week 3: Project Management**
+
 - View project details
 - Monitor regional distribution
 - Understand database structure
 - Practice project deletion (test only)
 
 **Week 4: Advanced**
+
 - Handle user requests
 - Troubleshoot issues
 - Clean up old projects
@@ -632,6 +679,7 @@ DELETE FROM tenants WHERE id = 'uuid';
 ### Planned Features
 
 **User Management:**
+
 - [ ] Bulk user import (CSV)
 - [ ] Email invitations
 - [ ] Password reset links
@@ -639,6 +687,7 @@ DELETE FROM tenants WHERE id = 'uuid';
 - [ ] Login history tracking
 
 **Project Management:**
+
 - [ ] Usage metrics (queries, connections)
 - [ ] Storage quotas
 - [ ] Backup management
@@ -646,6 +695,7 @@ DELETE FROM tenants WHERE id = 'uuid';
 - [ ] Scheduled cleanups
 
 **Analytics:**
+
 - [ ] Usage dashboards
 - [ ] Cost tracking
 - [ ] Performance metrics
@@ -653,6 +703,7 @@ DELETE FROM tenants WHERE id = 'uuid';
 - [ ] Export reports (PDF, CSV)
 
 **Notifications:**
+
 - [ ] Email alerts for admin actions
 - [ ] Slack integration
 - [ ] User signup notifications
@@ -665,17 +716,20 @@ DELETE FROM tenants WHERE id = 'uuid';
 ### Getting Help
 
 **Documentation:**
+
 - [Database Schema](./DATABASE_SCHEMA.md)
 - [Deployment Guide](./USER_MANAGEMENT_DEPLOYMENT.md)
 - [API Reference](./api/README.md)
 
 **Troubleshooting:**
+
 1. Check browser console
 2. Review API logs: `docker logs vpn-api`
 3. Verify database: `psql -U platform_admin platform_db`
 4. Test API endpoints with curl
 
 **Contact:**
+
 - GitHub Issues: [vpn-enterprise/issues](https://github.com/Mucrypt/vpn-enterprise/issues)
 - Email: support@chatbuilds.com
 
@@ -684,6 +738,7 @@ DELETE FROM tenants WHERE id = 'uuid';
 ## 📝 Changelog
 
 ### v1.0.0 (2025-01-28)
+
 **Complete Admin Dashboard Implementation**
 
 ✅ Full CRUD operations for users
@@ -698,4 +753,4 @@ DELETE FROM tenants WHERE id = 'uuid';
 
 **Built with ❤️ for VPN Enterprise Platform**
 
-*Last updated: January 28, 2026*
+_Last updated: January 28, 2026_

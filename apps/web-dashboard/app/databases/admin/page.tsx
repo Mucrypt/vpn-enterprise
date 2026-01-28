@@ -48,6 +48,9 @@ async function getAllUsers() {
         ? 'http://api:5000'
         : 'http://localhost:5000')
 
+    console.log('[getAllUsers] Fetching from:', `${apiUrl}/api/v1/admin/users`)
+    console.log('[getAllUsers] Cookie header length:', cookieHeader.length)
+
     const response = await fetch(`${apiUrl}/api/v1/admin/users`, {
       headers: {
         Cookie: cookieHeader,
@@ -55,11 +58,19 @@ async function getAllUsers() {
       cache: 'no-store',
     })
 
-    if (!response.ok) return []
+    console.log('[getAllUsers] Response status:', response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[getAllUsers] Error response:', errorText)
+      return []
+    }
 
     const data = await response.json()
+    console.log('[getAllUsers] Received data:', data)
     return data.users || data.data || []
-  } catch {
+  } catch (error) {
+    console.error('[getAllUsers] Fetch error:', error)
     return []
   }
 }

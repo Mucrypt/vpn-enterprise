@@ -86,11 +86,14 @@ export function DatabasePlatformAdmin({
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCreatingUser, setIsCreatingUser] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null)
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error'
+    message: string
+  } | null>(null)
   const [newUserForm, setNewUserForm] = useState({
     email: '',
     password: '',
-    role: 'user' as 'user' | 'admin' | 'super_admin'
+    role: 'user' as 'user' | 'admin' | 'super_admin',
   })
 
   const filteredTenants = useMemo(() => {
@@ -119,7 +122,11 @@ export function DatabasePlatformAdmin({
   }, [users, searchQuery])
 
   const handleDeleteTenant = async (tenant: Tenant) => {
-    if (!confirm(`Are you sure you want to delete project "${tenant.name}"?\n\nThis will:\n- Drop the database ${tenant.db_name || tenant.id}\n- Remove all project data\n- Remove tenant memberships\n\nThis action cannot be undone.`)) {
+    if (
+      !confirm(
+        `Are you sure you want to delete project "${tenant.name}"?\n\nThis will:\n- Drop the database ${tenant.db_name || tenant.id}\n- Remove all project data\n- Remove tenant memberships\n\nThis action cannot be undone.`,
+      )
+    ) {
       return
     }
 
@@ -127,30 +134,40 @@ export function DatabasePlatformAdmin({
     setTenantToDelete(tenant)
 
     try {
-      const token = 
-        localStorage.getItem('access_token') || 
-        document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1]
+      const token = getAuthToken()
+      if (!token) {
+        throw new Error('Authentication token not found. Please log in again.')
+      }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tenants/${tenant.id}`, {
+      const apiUrl = getApiUrl()
+      const endpoint = `${apiUrl}/api/v1/admin/tenants/${tenant.id}`
+
+      console.log('DELETE request to:', endpoint)
+
+      const response = await fetch(endpoint, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       })
 
       if (!response.ok) {
-        const error = await response.json()
+        const error = await response
+          .json()
+          .catch(() => ({ message: `HTTP ${response.status}` }))
         throw new Error(error.message || 'Failed to delete project')
       }
 
       // Remove tenant from local state
-      setTenants(tenants.filter(t => t.id !== tenant.id))
-      
-      alert('Project deleted successfully')
+      setTenants(tenants.filter((t) => t.id !== tenant.id))
+
+      showNotification('success', 'Project deleted successfully')
     } catch (error) {
       console.error('Delete project error:', error)
-      alert(`Failed to delete project: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
+      showNotification('error', `Failed to delete project: ${errorMessage}`)
     } finally {
       setIsDeleting(false)
       setTenantToDelete(null)
@@ -163,8 +180,26 @@ export function DatabasePlatformAdmin({
   }
 
   const getAuthToken = () => {
-    return localStorage.getItem('access_token') || 
-      document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1]
+    return (
+      localStorage.getItem('access_token') ||
+      document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('access_token='))
+        ?.split('=')[1]
+    )
+  }
+
+  const getApiUrl = () => {
+    // Try multiple sources for API URL
+    const envUrl = process.env.NEXT_PUBLIC_API_URL
+    const windowOrigin =
+      typeof window !== 'undefined' ? window.location.origin : ''
+
+    // In production, use same origin (handled by nginx)
+    // In development, use explicit API URL or localhost:5000
+    if (envUrl) return envUrl
+    if (windowOrigin.includes('chatbuilds.com')) return windowOrigin
+    return 'http://localhost:5000'
   }
 
   const handleCreateUser = async () => {
@@ -182,33 +217,46 @@ export function DatabasePlatformAdmin({
 
     try {
       const token = getAuthToken()
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/users`, {
+      if (!token) {
+        throw new Error('Authentication token not found')
+      }
+
+      const apiUrl = getApiUrl()
+      const response = await fetch(`${apiUrl}/api/v1/admin/users`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(newUserForm),
       })
 
       if (!response.ok) {
-        const error = await response.json()
+        const error = await response
+          .json()
+          .catch(() => ({ message: `HTTP ${response.status}` }))
         throw new Error(error.message || 'Failed to create user')
       }
 
       const result = await response.json()
-      
+
       // Add new user to local state
       setUsers([result.user, ...users])
-      
+
       // Reset form and close dialog
       setNewUserForm({ email: '', password: '', role: 'user' })
       setShowCreateDialog(false)
-      
-      showNotification('success', `User ${result.user.email} created successfully`)
+
+      showNotification(
+        'success',
+        `User ${result.user.email} created successfully`,
+      )
     } catch (error) {
       console.error('Create user error:', error)
-      showNotification('error', `Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      showNotification(
+        'error',
+        `Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      )
     } finally {
       setIsCreatingUser(false)
     }
@@ -217,27 +265,42 @@ export function DatabasePlatformAdmin({
   const handleUpdateUserRole = async (user: User, newRole: string) => {
     try {
       const token = getAuthToken()
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/users/${user.id}/role`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      if (!token) {
+        throw new Error('Authentication token not found')
+      }
+
+      const apiUrl = getApiUrl()
+      const response = await fetch(
+        `${apiUrl}/api/v1/admin/users/${user.id}/role`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ role: newRole }),
         },
-        body: JSON.stringify({ role: newRole }),
-      })
+      )
 
       if (!response.ok) {
-        const error = await response.json()
+        const error = await response
+          .json()
+          .catch(() => ({ message: `HTTP ${response.status}` }))
         throw new Error(error.message || 'Failed to update role')
       }
 
       // Update user in local state
-      setUsers(users.map(u => u.id === user.id ? { ...u, role: newRole } : u))
-      
+      setUsers(
+        users.map((u) => (u.id === user.id ? { ...u, role: newRole } : u)),
+      )
+
       showNotification('success', `Role updated to ${newRole}`)
     } catch (error) {
       console.error('Update role error:', error)
-      showNotification('error', `Failed to update role: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      showNotification(
+        'error',
+        `Failed to update role: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      )
     }
   }
 
@@ -247,7 +310,11 @@ export function DatabasePlatformAdmin({
       return
     }
 
-    if (!confirm(`Delete user ${user.email}?\n\nThis will:\n• Remove the user account\n• Remove all tenant memberships\n• Mark orphaned tenants as deleted\n\nThis cannot be undone.`)) {
+    if (
+      !confirm(
+        `Delete user ${user.email}?\n\nThis will:\n• Remove the user account\n• Remove all tenant memberships\n• Mark orphaned tenants as deleted\n\nThis cannot be undone.`,
+      )
+    ) {
       return
     }
 
@@ -255,25 +322,32 @@ export function DatabasePlatformAdmin({
 
     try {
       const token = getAuthToken()
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/users/${user.id}`, {
+      if (!token) {
+        throw new Error('Authentication token not found')
+      }
+
+      const apiUrl = getApiUrl()
+      const response = await fetch(`${apiUrl}/api/v1/admin/users/${user.id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       })
 
       if (!response.ok) {
-        const error = await response.json()
+        const error = await response
+          .json()
+          .catch(() => ({ message: `HTTP ${response.status}` }))
         throw new Error(error.message || 'Failed to delete user')
       }
 
       // Remove user from local state
-      setUsers(users.filter(u => u.id !== user.id))
-      
+      setUsers(users.filter((u) => u.id !== user.id))
+
       // Refresh tenants to update owner assignments
-      const tenantsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tenants`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+      const tenantsResponse = await fetch(`${apiUrl}/api/v1/admin/tenants`, {
+        headers: { Authorization: `Bearer ${token}` },
       })
       if (tenantsResponse.ok) {
         const data = await tenantsResponse.json()
@@ -283,7 +357,10 @@ export function DatabasePlatformAdmin({
       showNotification('success', 'User deleted successfully')
     } catch (error) {
       console.error('Delete user error:', error)
-      showNotification('error', `Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      showNotification(
+        'error',
+        `Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      )
     } finally {
       setIsDeleting(false)
     }
@@ -328,11 +405,13 @@ export function DatabasePlatformAdmin({
     <div className='min-h-screen bg-gray-950 text-white'>
       {/* Notification Toast */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg border ${
-          notification.type === 'success' 
-            ? 'bg-emerald-950 border-emerald-700 text-emerald-100' 
-            : 'bg-red-950 border-red-700 text-red-100'
-        } animate-in slide-in-from-top-5 duration-300`}>
+        <div
+          className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg border ${
+            notification.type === 'success'
+              ? 'bg-emerald-950 border-emerald-700 text-emerald-100'
+              : 'bg-red-950 border-red-700 text-red-100'
+          } animate-in slide-in-from-top-5 duration-300`}
+        >
           <div className='flex items-center gap-3'>
             {notification.type === 'success' ? (
               <Shield className='h-5 w-5 text-emerald-500' />
@@ -433,7 +512,11 @@ export function DatabasePlatformAdmin({
           <Button
             variant={activeTab === 'projects' ? 'default' : 'outline'}
             onClick={() => setActiveTab('projects')}
-            className={activeTab === 'projects' ? 'bg-emerald-600 hover:bg-emerald-700' : 'border-gray-700 text-gray-300 hover:bg-gray-800'}
+            className={
+              activeTab === 'projects'
+                ? 'bg-emerald-600 hover:bg-emerald-700'
+                : 'border-gray-700 text-gray-300 hover:bg-gray-800'
+            }
           >
             <Database className='h-4 w-4 mr-2' />
             Database Projects ({tenants.length})
@@ -441,7 +524,11 @@ export function DatabasePlatformAdmin({
           <Button
             variant={activeTab === 'users' ? 'default' : 'outline'}
             onClick={() => setActiveTab('users')}
-            className={activeTab === 'users' ? 'bg-emerald-600 hover:bg-emerald-700' : 'border-gray-700 text-gray-300 hover:bg-gray-800'}
+            className={
+              activeTab === 'users'
+                ? 'bg-emerald-600 hover:bg-emerald-700'
+                : 'border-gray-700 text-gray-300 hover:bg-gray-800'
+            }
           >
             <Users className='h-4 w-4 mr-2' />
             Platform Users ({users.length})
@@ -477,141 +564,146 @@ export function DatabasePlatformAdmin({
 
               {/* Tenants Table */}
               <div className='overflow-x-auto'>
-              <table className='w-full'>
-                <thead>
-                  <tr className='border-b border-gray-800 text-left'>
-                    <th className='pb-3 text-sm font-medium text-gray-400'>
-                      Project
-                    </th>
-                    <th className='pb-3 text-sm font-medium text-gray-400'>
-                      Region
-                    </th>
-                    <th className='pb-3 text-sm font-medium text-gray-400'>
-                      Plan
-                    </th>
-                    <th className='pb-3 text-sm font-medium text-gray-400'>
-                      Database
-                    </th>
-                    <th className='pb-3 text-sm font-medium text-gray-400'>
-                      Created
-                    </th>
-                    <th className='pb-3 text-sm font-medium text-gray-400'>
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTenants.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className='py-8 text-center text-gray-500'
-                      >
-                        {searchQuery.trim()
-                          ? 'No projects match your search'
-                          : 'No projects yet'}
-                      </td>
+                <table className='w-full'>
+                  <thead>
+                    <tr className='border-b border-gray-800 text-left'>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Project
+                      </th>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Region
+                      </th>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Plan
+                      </th>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Database
+                      </th>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Created
+                      </th>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Actions
+                      </th>
                     </tr>
-                  ) : (
-                    filteredTenants.map((tenant) => (
-                      <tr
-                        key={tenant.id}
-                        className='border-b border-gray-800 hover:bg-gray-900/50 transition-colors'
-                      >
-                        <td className='py-4'>
-                          <div>
-                            <div className='font-medium text-white'>
-                              {tenant.name}
-                            </div>
-                            {tenant.subdomain && (
-                              <div className='text-sm text-gray-500'>
-                                {tenant.subdomain}
-                              </div>
-                            )}
-                            {tenant.owner_email && (
-                              <div className='text-xs text-gray-600 mt-0.5'>
-                                {tenant.owner_email}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className='py-4'>
-                          <Badge
-                            variant='outline'
-                            className='border-gray-700 text-gray-300'
-                          >
-                            {tenant.region || 'us-east-1'}
-                          </Badge>
-                        </td>
-                        <td className='py-4'>
-                          <Badge
-                            variant={
-                              tenant.plan_type === 'premium'
-                                ? 'default'
-                                : 'secondary'
-                            }
-                            className={
-                              tenant.plan_type === 'premium'
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-gray-800 text-gray-300'
-                            }
-                          >
-                            {tenant.plan_type || 'free'}
-                          </Badge>
-                        </td>
-                        <td className='py-4'>
-                          <div className='text-sm'>
-                            <div className='font-mono text-xs text-gray-400'>
-                              {tenant.db_name || tenant.tenant_id || tenant.id}
-                            </div>
-                            {tenant.db_host && (
-                              <div className='text-xs text-gray-600'>
-                                {tenant.db_host}:{tenant.db_port || 5432}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className='py-4 text-sm text-gray-400'>
-                          {formatDate(tenant.created_at)}
-                        </td>
-                        <td className='py-4'>
-                          <div className='flex items-center gap-2'>
-                            <Button
-                              size='sm'
-                              variant='ghost'
-                              className='h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-gray-800'
-                              title='View details'
-                            >
-                              <Eye className='h-4 w-4' />
-                            </Button>
-                            <Button
-                              size='sm'
-                              variant='ghost'
-                              onClick={() => handleDeleteTenant(tenant)}
-                              disabled={isDeleting && tenantToDelete?.id === tenant.id}
-                              className='h-8 px-3 text-red-400 hover:text-red-300 hover:bg-red-950/30'
-                              title='Delete project'
-                            >
-                              {isDeleting && tenantToDelete?.id === tenant.id ? (
-                                <Activity className='h-4 w-4 animate-spin' />
-                              ) : (
-                                <Trash2 className='h-4 w-4' />
-                              )}
-                            </Button>
-                          </div>
+                  </thead>
+                  <tbody>
+                    {filteredTenants.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className='py-8 text-center text-gray-500'
+                        >
+                          {searchQuery.trim()
+                            ? 'No projects match your search'
+                            : 'No projects yet'}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {filteredTenants.length > 0 && (
-              <div className='mt-6 text-sm text-gray-500 text-center'>
-                Showing {filteredTenants.length} of {tenants.length} projects
+                    ) : (
+                      filteredTenants.map((tenant) => (
+                        <tr
+                          key={tenant.id}
+                          className='border-b border-gray-800 hover:bg-gray-900/50 transition-colors'
+                        >
+                          <td className='py-4'>
+                            <div>
+                              <div className='font-medium text-white'>
+                                {tenant.name}
+                              </div>
+                              {tenant.subdomain && (
+                                <div className='text-sm text-gray-500'>
+                                  {tenant.subdomain}
+                                </div>
+                              )}
+                              {tenant.owner_email && (
+                                <div className='text-xs text-gray-600 mt-0.5'>
+                                  {tenant.owner_email}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className='py-4'>
+                            <Badge
+                              variant='outline'
+                              className='border-gray-700 text-gray-300'
+                            >
+                              {tenant.region || 'us-east-1'}
+                            </Badge>
+                          </td>
+                          <td className='py-4'>
+                            <Badge
+                              variant={
+                                tenant.plan_type === 'premium'
+                                  ? 'default'
+                                  : 'secondary'
+                              }
+                              className={
+                                tenant.plan_type === 'premium'
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-gray-800 text-gray-300'
+                              }
+                            >
+                              {tenant.plan_type || 'free'}
+                            </Badge>
+                          </td>
+                          <td className='py-4'>
+                            <div className='text-sm'>
+                              <div className='font-mono text-xs text-gray-400'>
+                                {tenant.db_name ||
+                                  tenant.tenant_id ||
+                                  tenant.id}
+                              </div>
+                              {tenant.db_host && (
+                                <div className='text-xs text-gray-600'>
+                                  {tenant.db_host}:{tenant.db_port || 5432}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className='py-4 text-sm text-gray-400'>
+                            {formatDate(tenant.created_at)}
+                          </td>
+                          <td className='py-4'>
+                            <div className='flex items-center gap-2'>
+                              <Button
+                                size='sm'
+                                variant='ghost'
+                                className='h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-gray-800'
+                                title='View details'
+                              >
+                                <Eye className='h-4 w-4' />
+                              </Button>
+                              <Button
+                                size='sm'
+                                variant='ghost'
+                                onClick={() => handleDeleteTenant(tenant)}
+                                disabled={
+                                  isDeleting && tenantToDelete?.id === tenant.id
+                                }
+                                className='h-8 px-3 text-red-400 hover:text-red-300 hover:bg-red-950/30'
+                                title='Delete project'
+                              >
+                                {isDeleting &&
+                                tenantToDelete?.id === tenant.id ? (
+                                  <Activity className='h-4 w-4 animate-spin' />
+                                ) : (
+                                  <Trash2 className='h-4 w-4' />
+                                )}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )}
+
+              {filteredTenants.length > 0 && (
+                <div className='mt-6 text-sm text-gray-500 text-center'>
+                  Showing {filteredTenants.length} of {tenants.length} projects
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -624,7 +716,10 @@ export function DatabasePlatformAdmin({
                     Manage user accounts and permissions
                   </CardDescription>
                 </div>
-                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <Dialog
+                  open={showCreateDialog}
+                  onOpenChange={setShowCreateDialog}
+                >
                   <DialogTrigger asChild>
                     <Button className='bg-emerald-600 hover:bg-emerald-700'>
                       <UserPlus className='h-4 w-4 mr-2' />
@@ -635,7 +730,8 @@ export function DatabasePlatformAdmin({
                     <DialogHeader>
                       <DialogTitle>Create New User</DialogTitle>
                       <DialogDescription className='text-gray-400'>
-                        Add a new user to the platform. They will receive access immediately.
+                        Add a new user to the platform. They will receive access
+                        immediately.
                       </DialogDescription>
                     </DialogHeader>
                     <div className='space-y-4 py-4'>
@@ -648,12 +744,20 @@ export function DatabasePlatformAdmin({
                           type='email'
                           placeholder='user@example.com'
                           value={newUserForm.email}
-                          onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                          onChange={(e) =>
+                            setNewUserForm({
+                              ...newUserForm,
+                              email: e.target.value,
+                            })
+                          }
                           className='bg-gray-900 border-gray-700 text-white'
                         />
                       </div>
                       <div className='space-y-2'>
-                        <Label htmlFor='password' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='password'
+                          className='text-sm font-medium'
+                        >
                           Password
                         </Label>
                         <Input
@@ -661,10 +765,17 @@ export function DatabasePlatformAdmin({
                           type='password'
                           placeholder='Minimum 8 characters'
                           value={newUserForm.password}
-                          onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                          onChange={(e) =>
+                            setNewUserForm({
+                              ...newUserForm,
+                              password: e.target.value,
+                            })
+                          }
                           className='bg-gray-900 border-gray-700 text-white'
                         />
-                        <p className='text-xs text-gray-500'>User can change this after first login</p>
+                        <p className='text-xs text-gray-500'>
+                          User can change this after first login
+                        </p>
                       </div>
                       <div className='space-y-2'>
                         <Label htmlFor='role' className='text-sm font-medium'>
@@ -672,7 +783,9 @@ export function DatabasePlatformAdmin({
                         </Label>
                         <Select
                           value={newUserForm.role}
-                          onValueChange={(value: any) => setNewUserForm({ ...newUserForm, role: value })}
+                          onValueChange={(value: any) =>
+                            setNewUserForm({ ...newUserForm, role: value })
+                          }
                         >
                           <SelectTrigger className='bg-gray-900 border-gray-700 text-white'>
                             <SelectValue />
@@ -680,13 +793,18 @@ export function DatabasePlatformAdmin({
                           <SelectContent className='bg-gray-900 border-gray-700'>
                             <SelectItem value='user'>User</SelectItem>
                             <SelectItem value='admin'>Admin</SelectItem>
-                            <SelectItem value='super_admin'>Super Admin</SelectItem>
+                            <SelectItem value='super_admin'>
+                              Super Admin
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                         <p className='text-xs text-gray-500'>
-                          {newUserForm.role === 'user' && 'Can create and manage their own projects'}
-                          {newUserForm.role === 'admin' && 'Can access admin dashboard and manage users'}
-                          {newUserForm.role === 'super_admin' && 'Full platform access including system settings'}
+                          {newUserForm.role === 'user' &&
+                            'Can create and manage their own projects'}
+                          {newUserForm.role === 'admin' &&
+                            'Can access admin dashboard and manage users'}
+                          {newUserForm.role === 'super_admin' &&
+                            'Full platform access including system settings'}
                         </p>
                       </div>
                     </div>
@@ -700,7 +818,11 @@ export function DatabasePlatformAdmin({
                       </Button>
                       <Button
                         onClick={handleCreateUser}
-                        disabled={isCreatingUser || !newUserForm.email || !newUserForm.password}
+                        disabled={
+                          isCreatingUser ||
+                          !newUserForm.email ||
+                          !newUserForm.password
+                        }
                         className='bg-emerald-600 hover:bg-emerald-700'
                       >
                         {isCreatingUser ? (
@@ -782,7 +904,8 @@ export function DatabasePlatformAdmin({
                               <div>
                                 <div className='font-medium text-white flex items-center gap-2'>
                                   {user.email}
-                                  {(user.role === 'admin' || user.role === 'super_admin') && (
+                                  {(user.role === 'admin' ||
+                                    user.role === 'super_admin') && (
                                     <Shield className='h-4 w-4 text-emerald-500' />
                                   )}
                                 </div>
@@ -796,7 +919,9 @@ export function DatabasePlatformAdmin({
                           <td className='py-4'>
                             <Select
                               value={user.role || 'user'}
-                              onValueChange={(newRole) => handleUpdateUserRole(user, newRole)}
+                              onValueChange={(newRole) =>
+                                handleUpdateUserRole(user, newRole)
+                              }
                               disabled={user.role === 'super_admin'}
                             >
                               <SelectTrigger className='w-[140px] h-8 bg-gray-900 border-gray-700 text-white text-sm'>
@@ -843,8 +968,12 @@ export function DatabasePlatformAdmin({
                             </div>
                           </td>
                           <td className='py-4'>
-                            {(user.role === 'admin' || user.role === 'super_admin') ? (
-                              <Badge variant='outline' className='border-emerald-700 text-emerald-400 bg-emerald-950/30'>
+                            {user.role === 'admin' ||
+                            user.role === 'super_admin' ? (
+                              <Badge
+                                variant='outline'
+                                className='border-emerald-700 text-emerald-400 bg-emerald-950/30'
+                              >
                                 <Shield className='h-3 w-3 mr-1' />
                                 Protected
                               </Badge>
@@ -880,41 +1009,44 @@ export function DatabasePlatformAdmin({
         {/* Region Distribution - only show on projects tab */}
         {activeTab === 'projects' && (
           <Card className='bg-[#1e1e1e] border-gray-800 mt-6'>
-          <CardHeader>
-            <CardTitle className='flex items-center gap-2'>
-              <Globe className='h-5 w-5' />
-              Regional Distribution
-            </CardTitle>
-            <CardDescription className='text-gray-400'>
-              Database projects by region
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className='space-y-3'>
-              {Object.entries(stats.regionCounts).map(([region, count]) => (
-                <div key={region} className='flex items-center justify-between'>
-                  <div className='flex items-center gap-3'>
-                    <Server className='h-4 w-4 text-gray-500' />
-                    <span className='text-sm text-gray-300'>{region}</span>
-                  </div>
-                  <div className='flex items-center gap-3'>
-                    <div className='w-32 h-2 bg-gray-800 rounded-full overflow-hidden'>
-                      <div
-                        className='h-full bg-emerald-600'
-                        style={{
-                          width: `${(count / stats.totalProjects) * 100}%`,
-                        }}
-                      />
+            <CardHeader>
+              <CardTitle className='flex items-center gap-2'>
+                <Globe className='h-5 w-5' />
+                Regional Distribution
+              </CardTitle>
+              <CardDescription className='text-gray-400'>
+                Database projects by region
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className='space-y-3'>
+                {Object.entries(stats.regionCounts).map(([region, count]) => (
+                  <div
+                    key={region}
+                    className='flex items-center justify-between'
+                  >
+                    <div className='flex items-center gap-3'>
+                      <Server className='h-4 w-4 text-gray-500' />
+                      <span className='text-sm text-gray-300'>{region}</span>
                     </div>
-                    <span className='text-sm font-medium text-white w-8 text-right'>
-                      {count}
-                    </span>
+                    <div className='flex items-center gap-3'>
+                      <div className='w-32 h-2 bg-gray-800 rounded-full overflow-hidden'>
+                        <div
+                          className='h-full bg-emerald-600'
+                          style={{
+                            width: `${(count / stats.totalProjects) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <span className='text-sm font-medium text-white w-8 text-right'>
+                        {count}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
