@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useDashboardStore, useAuthStore } from '@/lib/store'
+import { useEffect } from 'react'
 import {
   LayoutDashboard,
   Server,
@@ -25,6 +26,7 @@ import {
   FileKey,
   Network,
   Database,
+  X,
 } from 'lucide-react'
 
 // Navigation items for regular users
@@ -99,65 +101,106 @@ export function SidebarNavigation() {
   const navItems = isAdmin ? adminNavItems : userNavItems
   const navScrollbarClass = isAdmin ? 'scrollbar--admin' : 'scrollbar--neutral'
 
+  // Close sidebar on mobile when route changes
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768 && sidebarOpen) {
+        toggleSidebar()
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [sidebarOpen, toggleSidebar])
+
   return (
-    <div
-      className={cn(
-        // Use min-h-0 to allow inner flex children to scroll
-        'flex h-screen min-h-0 flex-col border-r bg-gray-50 transition-all duration-300',
-        sidebarOpen ? 'w-64' : 'w-20',
+    <>
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={toggleSidebar}
+        />
       )}
-    >
-      {/* Logo */}
-      <div className='flex h-16 shrink-0 items-center justify-between border-b px-6'>
-        {sidebarOpen ? (
-          <h1 className='text-xl font-bold text-gray-900'>VPN Enterprise</h1>
-        ) : (
-          <span className='text-xl font-bold text-gray-900'>VE</span>
-        )}
-      </div>
 
-      {/* Navigation */}
-      {/* Make nav scroll when there are many links */}
-      <nav
+      {/* Sidebar */}
+      <div
         className={cn(
-          'flex-1 overflow-y-auto space-y-1 p-4 scrollbar',
-          navScrollbarClass,
+          'flex h-screen min-h-0 flex-col border-r bg-gray-50 transition-all duration-300 z-50',
+          // Desktop
+          'hidden md:flex',
+          sidebarOpen ? 'md:w-64' : 'md:w-20',
+          // Mobile - slide in from left
+          sidebarOpen && 'fixed inset-y-0 left-0 flex w-64 md:relative',
         )}
       >
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href
+        {/* Logo */}
+        <div className='flex h-16 shrink-0 items-center justify-between border-b px-4 md:px-6'>
+          {sidebarOpen ? (
+            <>
+              <h1 className='text-lg sm:text-xl font-bold text-gray-900'>VPN Enterprise</h1>
+              <button
+                onClick={toggleSidebar}
+                className='md:hidden p-2 hover:bg-gray-200 rounded-lg'
+                aria-label='Close menu'
+              >
+                <X className='h-5 w-5 text-gray-700' />
+              </button>
+            </>
+          ) : (
+            <span className='text-xl font-bold text-gray-900'>VE</span>
+          )}
+        </div>
 
-          return (
-            <Link
-              key={`${item.href}-${item.label}`}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
-                isActive
-                  ? 'bg-emerald-100 text-emerald-900 border-l-4 border-emerald-700 shadow-md font-semibold'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-emerald-700 border-l-4 border-transparent',
-                !sidebarOpen && 'justify-center',
-              )}
-            >
-              <Icon className='h-5 w-5 shrink-0' />
-              {sidebarOpen && <span>{item.label}</span>}
-            </Link>
-          )
-        })}
-      </nav>
+        {/* Navigation */}
+        {/* Make nav scroll when there are many links */}
+        <nav
+          className={cn(
+            'flex-1 overflow-y-auto space-y-1 p-3 md:p-4 scrollbar',
+            navScrollbarClass,
+          )}
+        >
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href
 
-      {/* Toggle Button */}
-      <button
-        onClick={toggleSidebar}
-        className='flex h-16 shrink-0 items-center justify-center border-t hover:bg-gray-200'
-      >
-        {sidebarOpen ? (
-          <ChevronLeft className='h-5 w-5 text-gray-700' />
-        ) : (
-          <ChevronRight className='h-5 w-5 text-gray-700' />
-        )}
-      </button>
-    </div>
+            return (
+              <Link
+                key={`${item.href}-${item.label}`}
+                href={item.href}
+                onClick={() => {
+                  // Close mobile menu on navigation
+                  if (window.innerWidth < 768 && sidebarOpen) {
+                    toggleSidebar()
+                  }
+                }}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 touch-manipulation',
+                  isActive
+                    ? 'bg-emerald-100 text-emerald-900 border-l-4 border-emerald-700 shadow-md font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-emerald-700 border-l-4 border-transparent active:bg-gray-200',
+                  !sidebarOpen && 'justify-center md:px-3',
+                )}
+              >
+                <Icon className='h-5 w-5 shrink-0' />
+                {sidebarOpen && <span className='text-sm'>{item.label}</span>}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Toggle Button */}
+        <button
+          onClick={toggleSidebar}
+          className='hidden md:flex h-16 shrink-0 items-center justify-center border-t hover:bg-gray-200 transition-colors'
+          aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+          {sidebarOpen ? (
+            <ChevronLeft className='h-5 w-5 text-gray-700' />
+          ) : (
+            <ChevronRight className='h-5 w-5 text-gray-700' />
+          )}
+        </button>
+      </div>
+    </>
   )
 }

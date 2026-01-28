@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuthStore } from '@/lib/store';
+import { useAuthStore, useDashboardStore } from '@/lib/store';
 import { Bell, Search, User, Settings, LogOut, Shield, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -110,29 +110,42 @@ export function TopBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const { toggleSidebar } = useDashboardStore();
+
   return (
-    <div className="flex h-16 items-center justify-between border-b bg-white px-6">
+    <div className="flex h-14 md:h-16 items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6">
+      {/* Mobile Menu Button */}
+      <button
+        onClick={toggleSidebar}
+        className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation"
+        aria-label="Open menu"
+      >
+        <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
       {/* Search */}
-      <div className="flex flex-1 items-center gap-4">
-        <div className="relative w-96">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      <div className="flex flex-1 items-center gap-2 md:gap-4">
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-2 md:left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Search..."
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-gray-900 placeholder:text-gray-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="w-full rounded-lg border border-gray-300 py-1.5 md:py-2 pl-8 md:pl-10 pr-3 md:pr-4 text-sm md:text-base text-gray-900 placeholder:text-gray-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
         </div>
       </div>
 
       {/* User Menu */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
           <Button 
             variant="ghost" 
             size="icon"
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative"
+            className="relative h-9 w-9 md:h-10 md:w-10 touch-manipulation"
           >
             <Bell className="h-5 w-5 text-gray-600" />
             {unreadCount > 0 && (
@@ -143,8 +156,8 @@ export function TopBar() {
           </Button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[600px] overflow-hidden flex flex-col">
-              <div className="px-4 py-3 border-b flex items-center justify-between bg-gray-50">
+            <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[70vh] sm:max-h-[600px] overflow-hidden flex flex-col">
+              <div className="px-3 sm:px-4 py-3 border-b flex items-center justify-between bg-gray-50">
                 <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
                 <div className="flex items-center gap-2">
                   {unreadCount > 0 && (
@@ -220,13 +233,13 @@ export function TopBar() {
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-3 hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
+            className="flex items-center gap-2 md:gap-3 hover:bg-gray-50 rounded-lg px-2 md:px-3 py-1.5 md:py-2 transition-colors touch-manipulation"
           >
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold">
+            <div className="h-8 w-8 md:h-9 md:w-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold text-sm">
               {user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
-            <div className="flex flex-col items-start">
-              <span className="text-sm font-medium text-gray-900">
+            <div className="hidden sm:flex flex-col items-start">
+              <span className="text-sm font-medium text-gray-900 line-clamp-1">
                 {user?.email?.split('@')[0] || 'User'}
               </span>
               <span className={`text-xs font-medium ${
@@ -240,7 +253,7 @@ export function TopBar() {
           </button>
 
           {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+            <div className="absolute right-0 mt-2 w-56 sm:w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
               <div className="px-4 py-3 border-b">
                 <p className="text-sm font-medium text-gray-900">{user?.email}</p>
                 <p className="text-xs text-gray-500 mt-1">

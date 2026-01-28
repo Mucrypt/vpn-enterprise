@@ -512,13 +512,13 @@ export function DatabasePlatformAdmin({
 
       {/* Header */}
       <div className='border-b border-gray-800 bg-[#1a1a1a]'>
-        <div className='max-w-7xl mx-auto px-6 py-4'>
-          <div className='flex items-center justify-between'>
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 py-4'>
+          <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
             <div className='flex items-center gap-3'>
-              <Database className='h-6 w-6 text-emerald-500' />
+              <Database className='h-5 w-5 sm:h-6 sm:w-6 text-emerald-500' />
               <div>
-                <h1 className='text-xl font-bold'>Database Platform Admin</h1>
-                <p className='text-sm text-gray-400'>
+                <h1 className='text-lg sm:text-xl font-bold'>Database Platform Admin</h1>
+                <p className='text-xs sm:text-sm text-gray-400'>
                   Manage all database projects and tenants
                 </p>
               </div>
@@ -526,7 +526,8 @@ export function DatabasePlatformAdmin({
             <Button
               onClick={() => router.push('/dashboard')}
               variant='outline'
-              className='border-gray-700 text-gray-300 hover:bg-gray-800'
+              size='sm'
+              className='border-gray-700 text-gray-300 hover:bg-gray-800 active:bg-gray-700 w-full sm:w-auto'
             >
               Back to Dashboard
             </Button>
@@ -534,9 +535,9 @@ export function DatabasePlatformAdmin({
         </div>
       </div>
 
-      <div className='max-w-7xl mx-auto px-6 py-8'>
+      <div className='max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8'>
         {/* Stats Cards */}
-        <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-8'>
+        <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8'>
           <Card className='bg-[#1e1e1e] border-gray-800'>
             <CardHeader className='pb-3'>
               <CardTitle className='text-sm font-medium text-gray-400 flex items-center gap-2'>
@@ -595,30 +596,32 @@ export function DatabasePlatformAdmin({
         </div>
 
         {/* Tabs */}
-        <div className='flex gap-2 mb-6'>
+        <div className='flex gap-2 mb-6 overflow-x-auto'>
           <Button
             variant={activeTab === 'projects' ? 'default' : 'outline'}
             onClick={() => setActiveTab('projects')}
-            className={
+            className={`whitespace-nowrap ${
               activeTab === 'projects'
                 ? 'bg-emerald-600 hover:bg-emerald-700'
-                : 'border-gray-700 text-gray-300 hover:bg-gray-800'
-            }
+                : 'border-gray-700 text-gray-300 hover:bg-gray-800 active:bg-gray-700'
+            }`}
           >
             <Database className='h-4 w-4 mr-2' />
-            Database Projects ({tenants.length})
+            <span className='hidden sm:inline'>Database Projects</span>
+            <span className='sm:hidden'>Projects</span> ({tenants.length})
           </Button>
           <Button
             variant={activeTab === 'users' ? 'default' : 'outline'}
             onClick={() => setActiveTab('users')}
-            className={
+            className={`whitespace-nowrap ${
               activeTab === 'users'
                 ? 'bg-emerald-600 hover:bg-emerald-700'
-                : 'border-gray-700 text-gray-300 hover:bg-gray-800'
-            }
+                : 'border-gray-700 text-gray-300 hover:bg-gray-800 active:bg-gray-700'
+            }`}
           >
             <Users className='h-4 w-4 mr-2' />
-            Platform Users ({users.length})
+            <span className='hidden sm:inline'>Platform Users</span>
+            <span className='sm:hidden'>Users</span> ({users.length})
           </Button>
         </div>
 
@@ -636,22 +639,22 @@ export function DatabasePlatformAdmin({
               </div>
             </CardHeader>
             <CardContent>
-              <div className='flex items-center gap-4 mb-6'>
+              <div className='flex items-center gap-2 sm:gap-4 mb-4 sm:mb-6'>
                 <div className='relative flex-1'>
                   <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500' />
                   <Input
                     type='text'
-                    placeholder='Search by name, subdomain, email, or ID...'
+                    placeholder='Search...'
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className='pl-10 bg-gray-900 border-gray-700 text-white'
+                    className='pl-10 bg-gray-900 border-gray-700 text-white text-sm sm:text-base'
                   />
                 </div>
               </div>
 
               {/* Tenants Table */}
-              <div className='overflow-x-auto'>
-                <table className='w-full'>
+              <div className='overflow-x-auto -mx-4 sm:mx-0'>
+                <table className='w-full min-w-[800px]'>
                   <thead>
                     <tr className='border-b border-gray-800 text-left'>
                       <th className='pb-3 text-sm font-medium text-gray-400'>
@@ -751,11 +754,11 @@ export function DatabasePlatformAdmin({
                             {formatDate(tenant.created_at)}
                           </td>
                           <td className='py-4'>
-                            <div className='flex items-center gap-2'>
+                            <div className='flex items-center gap-1 sm:gap-2'>
                               <Button
                                 size='sm'
                                 variant='ghost'
-                                className='h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-gray-800'
+                                className='h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-gray-800 active:bg-gray-700'
                                 title='View details'
                               >
                                 <Eye className='h-4 w-4' />
@@ -767,7 +770,7 @@ export function DatabasePlatformAdmin({
                                 disabled={
                                   isDeleting && tenantToDelete?.id === tenant.id
                                 }
-                                className='h-8 px-3 text-red-400 hover:text-red-300 hover:bg-red-950/30'
+                                className='h-8 px-2 sm:px-3 text-red-400 hover:text-red-300 hover:bg-red-950/30 active:bg-red-950/50'
                                 title='Delete project'
                               >
                                 {isDeleting &&
@@ -796,7 +799,7 @@ export function DatabasePlatformAdmin({
         ) : (
           <Card className='bg-[#1e1e1e] border-gray-800 mb-6'>
             <CardHeader>
-              <div className='flex items-center justify-between'>
+              <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
                 <div>
                   <CardTitle>Platform Users</CardTitle>
                   <CardDescription className='text-gray-400'>
@@ -808,21 +811,23 @@ export function DatabasePlatformAdmin({
                     variant='outline'
                     onClick={refreshUsers}
                     disabled={isRefreshing}
-                    className='border-gray-700 text-gray-300 hover:bg-gray-800'
+                    size='sm'
+                    className='border-gray-700 text-gray-300 hover:bg-gray-800 active:bg-gray-700 flex-1 sm:flex-initial'
                   >
                     <RefreshCw
-                      className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`}
+                      className={`h-4 w-4 sm:mr-2 ${isRefreshing ? 'animate-spin' : ''}`}
                     />
-                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                    <span className='hidden sm:inline'>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
                   </Button>
                   <Dialog
                     open={showCreateDialog}
                     onOpenChange={setShowCreateDialog}
                   >
                     <DialogTrigger asChild>
-                      <Button className='bg-emerald-600 hover:bg-emerald-700'>
-                        <UserPlus className='h-4 w-4 mr-2' />
-                        Create User
+                      <Button size='sm' className='bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 flex-1 sm:flex-initial'>
+                        <UserPlus className='h-4 w-4 sm:mr-2' />
+                        <span className='hidden sm:inline'>Create User</span>
+                        <span className='sm:hidden'>Create</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent className='bg-[#1a1a1a] border-gray-800 text-white'>
@@ -946,22 +951,22 @@ export function DatabasePlatformAdmin({
               </div>
             </CardHeader>
             <CardContent>
-              <div className='flex items-center gap-4 mb-6'>
+              <div className='flex items-center gap-2 sm:gap-4 mb-4 sm:mb-6'>
                 <div className='relative flex-1'>
                   <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500' />
                   <Input
                     type='text'
-                    placeholder='Search by email, role, or ID...'
+                    placeholder='Search...'
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className='pl-10 bg-gray-900 border-gray-700 text-white'
+                    className='pl-10 bg-gray-900 border-gray-700 text-white text-sm sm:text-base'
                   />
                 </div>
               </div>
 
               {/* Users Table */}
-              <div className='overflow-x-auto'>
-                <table className='w-full'>
+              <div className='overflow-x-auto -mx-4 sm:mx-0'>
+                <table className='w-full min-w-[700px]'>
                   <thead>
                     <tr className='border-b border-gray-800 text-left'>
                       <th className='pb-3 text-sm font-medium text-gray-400'>

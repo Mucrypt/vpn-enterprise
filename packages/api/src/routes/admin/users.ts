@@ -400,7 +400,11 @@ router.patch(
       const oldRole = currentUser.user.user_metadata?.role || 'user'
 
       // Prevent changing your own role to non-admin
-      if (adminUser.id === userId && role !== 'admin' && role !== 'super_admin') {
+      if (
+        adminUser.id === userId &&
+        role !== 'admin' &&
+        role !== 'super_admin'
+      ) {
         return res.status(403).json({
           error: 'Cannot demote yourself',
           message: 'You cannot remove your own admin privileges',

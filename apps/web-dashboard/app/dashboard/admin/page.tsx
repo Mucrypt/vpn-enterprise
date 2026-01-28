@@ -105,15 +105,16 @@ export default function AdminPage() {
   return (
     <div className='min-h-screen bg-[#0a0a0a]'>
       {/* Header with gradient */}
-      <div className='border-b border-gray-800 bg-linear-to-r from-[#1e1e1e] to-[#0a0a0a]'>
-        <div className='max-w-7xl mx-auto px-6 py-8'>
-          <div className='flex items-center justify-between'>
+      <div className='border-b border-gray-800 bg-gradient-to-r from-[#1e1e1e] to-[#0a0a0a]'>
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8'>
+          <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
             <div>
-              <h1 className='text-3xl font-bold text-white flex items-center gap-3'>
-                <Shield className='h-8 w-8 text-emerald-500' />
-                Super Admin Panel
+              <h1 className='text-2xl sm:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3'>
+                <Shield className='h-6 w-6 sm:h-8 sm:w-8 text-emerald-500' />
+                <span className='hidden sm:inline'>Super Admin Panel</span>
+                <span className='sm:hidden'>Admin Panel</span>
               </h1>
-              <p className='text-gray-400 mt-2'>
+              <p className='text-sm sm:text-base text-gray-400 mt-2'>
                 System-wide configuration and management
               </p>
             </div>
@@ -147,18 +148,20 @@ export default function AdminPage() {
                   toast.error('Failed to create test client')
                 }
               }}
-              className='bg-emerald-600 hover:bg-emerald-700 text-white'
+              size='sm'
+              className='bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white w-full sm:w-auto'
             >
-              <Zap className='h-4 w-4 mr-2' />
-              Quick Test Client
+              <Zap className='h-4 w-4 sm:mr-2' />
+              <span className='hidden sm:inline'>Quick Test Client</span>
+              <span className='sm:hidden'>Test</span>
             </Button>
           </div>
         </div>
       </div>
 
-      <div className='max-w-7xl mx-auto px-6 py-8 space-y-8'>
+      <div className='max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8'>
         {/* System Overview - Dark Theme */}
-        <div className='grid gap-4 md:grid-cols-4'>
+        <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4'>
           <Card className='bg-[#1e1e1e] border-gray-800'>
             <CardHeader className='pb-3'>
               <CardTitle className='text-sm font-medium text-gray-400 flex items-center gap-2'>
@@ -231,41 +234,41 @@ export default function AdminPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
+            <div className='grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4'>
               <Button
-                className='h-24 flex-col gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600'
+                className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
                 variant='outline'
                 onClick={() => router.push('/databases/admin')}
               >
-                <Database className='h-8 w-8 text-emerald-500' />
-                <span>Database Platform</span>
+                <Database className='h-6 w-6 sm:h-8 sm:w-8 text-emerald-500' />
+                <span className='text-xs sm:text-sm text-center'>Database Platform</span>
               </Button>
               <Button
-                className='h-24 flex-col gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600'
+                className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
                 variant='outline'
                 onClick={() => router.push('/dashboard/admin/organizations')}
               >
-                <Users className='h-8 w-8 text-blue-500' />
-                <span>Organizations</span>
+                <Users className='h-6 w-6 sm:h-8 sm:w-8 text-blue-500' />
+                <span className='text-xs sm:text-sm text-center'>Organizations</span>
               </Button>
               <Button
-                className='h-24 flex-col gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600'
+                className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
                 variant='outline'
                 onClick={() => router.push('/dashboard/admin/realtime')}
               >
-                <Activity className='h-8 w-8 text-purple-500' />
-                <span>Realtime</span>
+                <Activity className='h-6 w-6 sm:h-8 sm:w-8 text-purple-500' />
+                <span className='text-xs sm:text-sm text-center'>Realtime</span>
               </Button>
               <Button
-                className='h-24 flex-col gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600'
+                className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
                 variant='outline'
                 onClick={() => router.push('/dashboard/admin/n8n')}
               >
-                <Zap className='h-8 w-8 text-orange-500' />
-                <span>N8N Workflows</span>
+                <Zap className='h-6 w-6 sm:h-8 sm:w-8 text-orange-500' />
+                <span className='text-xs sm:text-sm text-center'>N8N Workflows</span>
               </Button>
               <Button
-                className='h-24 flex-col gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600'
+                className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
                 variant='outline'
                 onClick={async () => {
                   try {
@@ -296,36 +299,36 @@ export default function AdminPage() {
                   }
                 }}
               >
-                <Server className='h-8 w-8 text-green-500' />
-                <span>Create Test Client</span>
+                <Server className='h-6 w-6 sm:h-8 sm:w-8 text-green-500' />
+                <span className='text-xs sm:text-sm text-center'>Test Client</span>
               </Button>
               <Button
-                className='h-24 flex-col gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600'
+                className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
                 variant='outline'
               >
-                <Bell className='h-8 w-8 text-yellow-500' />
-                <span>View Alerts</span>
+                <Bell className='h-6 w-6 sm:h-8 sm:w-8 text-yellow-500' />
+                <span className='text-xs sm:text-sm text-center'>Alerts</span>
               </Button>
               <Button
-                className='h-24 flex-col gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600'
+                className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
                 variant='outline'
               >
-                <Lock className='h-8 w-8 text-red-500' />
-                <span>Security</span>
+                <Lock className='h-6 w-6 sm:h-8 sm:w-8 text-red-500' />
+                <span className='text-xs sm:text-sm text-center'>Security</span>
               </Button>
               <Button
-                className='h-24 flex-col gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600'
+                className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
                 variant='outline'
               >
-                <Database className='h-8 w-8 text-cyan-500' />
-                <span>Backup Data</span>
+                <Database className='h-6 w-6 sm:h-8 sm:w-8 text-cyan-500' />
+                <span className='text-xs sm:text-sm text-center'>Backup</span>
               </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* System Configuration */}
-        <div className='grid gap-6 md:grid-cols-2'>
+      <div className='grid gap-4 sm:gap-6 md:grid-cols-2'>
           {/* General Settings */}
           <Card className='bg-[#1e1e1e] border-gray-800'>
             <CardHeader>
