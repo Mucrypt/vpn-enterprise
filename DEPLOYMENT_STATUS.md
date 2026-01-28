@@ -5,7 +5,7 @@
 ### Critical Fixes (Must Deploy Now!)
 
 1. **Auth Token Fix** (Commit: 5c6c45c)
-   - Adds Authorization header to `/api/v1/tenants/self` 
+   - Adds Authorization header to `/api/v1/tenants/self`
    - Fixes "Unable to verify your identity" error
    - **Status: ❌ NOT DEPLOYED ON SERVER**
 
@@ -49,6 +49,7 @@ docker logs vpn-api --tail=50 -f
 ## How to Test After Deployment
 
 ### Test 1: Auth Token (Should Fix "Unable to verify your identity")
+
 1. Login as normal user
 2. Go to /databases
 3. Should see wizard
@@ -58,12 +59,14 @@ docker logs vpn-api --tail=50 -f
 7. Should see "Project created" on step 4
 
 ### Test 2: Navigation (Should open database editor)
+
 1. After creating project, click "Go to database"
 2. **Should redirect to database editor** ✅
 3. Should see SQL Editor interface
 4. Should NOT redirect back to wizard
 
 ### Test 3: Existing Projects (No redirect loop)
+
 1. User with existing project clicks "Databases"
 2. **Should go directly to database editor** ✅
 3. Should NOT see wizard flash/flicker
