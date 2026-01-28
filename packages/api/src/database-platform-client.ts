@@ -49,10 +49,38 @@ export class DatabasePlatformClient {
 
   private async ensurePlatformSchema(): Promise<void> {
     if (this.platformSchemaEnsured) return
-    this.platformSchemaEnsured = true
 
     const client = await this.pgPool.connect()
     try {
+      // Enable UUID generation when available (best-effort).
+      // If permissions disallow this, table creation below still works without defaults.
+      try {
+        await client.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;')
+      } catch (e) {
+        console.warn(
+          '[DatabasePlatformClient] Could not create pgcrypto extension (continuing):',
+          (e as any)?.message || e,
+        )
+      }
+
+      // Tenants registry used by /api/v1/tenants, /api/v1/tenants/me, and tenant DB connections.
+      // init scripts may not re-run on existing volumes, so keep this idempotent.
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS tenants (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          name text NOT NULL,
+          subdomain text,
+          status text NOT NULL DEFAULT 'active',
+          plan_type text,
+          connection_info jsonb NOT NULL DEFAULT '{}'::jsonb,
+          created_at timestamptz NOT NULL DEFAULT NOW(),
+          updated_at timestamptz NOT NULL DEFAULT NOW()
+        );
+      `)
+      await client.query(
+        'CREATE INDEX IF NOT EXISTS tenants_created_at_idx ON tenants (created_at DESC);',
+      )
+
       await client.query(`
         CREATE TABLE IF NOT EXISTS tenant_members (
           tenant_id uuid NOT NULL,
@@ -65,6 +93,8 @@ export class DatabasePlatformClient {
       await client.query(
         'CREATE INDEX IF NOT EXISTS tenant_members_user_idx ON tenant_members (user_id);',
       )
+
+      this.platformSchemaEnsured = true
     } finally {
       client.release()
     }

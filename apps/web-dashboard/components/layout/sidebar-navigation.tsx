@@ -35,7 +35,7 @@ const userNavItems = [
   { href: '/dashboard/vpn-config', label: 'VPN Config', icon: FileKey },
   { href: '/dashboard/servers', label: 'Servers', icon: Server },
   { href: '/dashboard/hosting', label: 'Hosting', icon: Server },
-  { href: '/dashboard/databases', label: 'Databases', icon: Database },
+  { href: '/databases', label: 'Databases', icon: Database },
   { href: '/dashboard/tenants', label: 'Tenants', icon: Building2 },
   {
     href: '/dashboard/hosting/my-services',
