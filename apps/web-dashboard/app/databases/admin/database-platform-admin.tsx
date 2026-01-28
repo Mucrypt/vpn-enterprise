@@ -58,6 +58,7 @@ interface Tenant {
   db_port?: number
   db_name?: string
   owner_email?: string
+  owner_name?: string
 }
 
 interface User {
@@ -521,7 +522,7 @@ export function DatabasePlatformAdmin({
                   <h1 className='text-lg sm:text-xl font-bold'>
                     Database Platform Admin
                   </h1>
-                  <Badge className='bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0 px-2 py-0.5 text-xs font-semibold'>
+                  <Badge className='bg-linear-to-r from-emerald-500 to-emerald-600 text-white border-0 px-2 py-0.5 text-xs font-semibold'>
                     <Shield className='h-3 w-3 mr-1' />
                     ADMIN
                   </Badge>
@@ -662,11 +663,14 @@ export function DatabasePlatformAdmin({
 
               {/* Tenants Table */}
               <div className='overflow-x-auto -mx-4 sm:mx-0'>
-                <table className='w-full min-w-[800px]'>
+                <table className='w-full min-w-[900px]'>
                   <thead>
                     <tr className='border-b border-gray-800 text-left'>
                       <th className='pb-3 text-sm font-medium text-gray-400'>
                         Project
+                      </th>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Owner
                       </th>
                       <th className='pb-3 text-sm font-medium text-gray-400'>
                         Region
@@ -689,7 +693,7 @@ export function DatabasePlatformAdmin({
                     {filteredTenants.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className='py-8 text-center text-gray-500'
                         >
                           {searchQuery.trim()
@@ -713,12 +717,34 @@ export function DatabasePlatformAdmin({
                                   {tenant.subdomain}
                                 </div>
                               )}
-                              {tenant.owner_email && (
-                                <div className='text-xs text-gray-600 mt-0.5'>
-                                  {tenant.owner_email}
-                                </div>
-                              )}
                             </div>
+                          </td>
+                          <td className='py-4'>
+                            {tenant.owner_email ? (
+                              <div className='flex items-center gap-2'>
+                                <div className='flex items-center justify-center w-8 h-8 rounded-full bg-emerald-600/20 text-emerald-400 text-xs font-semibold'>
+                                  {tenant.owner_name
+                                    ?.slice(0, 2)
+                                    .toUpperCase() ||
+                                    tenant.owner_email
+                                      ?.slice(0, 2)
+                                      .toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className='text-sm text-white'>
+                                    {tenant.owner_name ||
+                                      tenant.owner_email?.split('@')[0]}
+                                  </div>
+                                  <div className='text-xs text-gray-500'>
+                                    {tenant.owner_email}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className='text-xs text-gray-600'>
+                                No owner
+                              </span>
+                            )}
                           </td>
                           <td className='py-4'>
                             <Badge
@@ -1046,7 +1072,27 @@ export function DatabasePlatformAdmin({
                               disabled={user.role === 'super_admin'}
                             >
                               <SelectTrigger className='w-[140px] h-8 bg-gray-900 border-gray-700 text-white text-sm'>
-                                <SelectValue />
+                                <SelectValue>
+                                  {user.role === 'super_admin' ? (
+                                    <Badge className='bg-purple-600 hover:bg-purple-700 border-0'>
+                                      <Shield className='h-3 w-3 mr-1' />
+                                      Super Admin
+                                    </Badge>
+                                  ) : user.role === 'admin' ? (
+                                    <Badge className='bg-emerald-600 hover:bg-emerald-700 border-0'>
+                                      <Shield className='h-3 w-3 mr-1' />
+                                      Admin
+                                    </Badge>
+                                  ) : (
+                                    <Badge
+                                      variant='outline'
+                                      className='border-gray-600 text-gray-300'
+                                    >
+                                      <Users className='h-3 w-3 mr-1' />
+                                      User
+                                    </Badge>
+                                  )}
+                                </SelectValue>
                               </SelectTrigger>
                               <SelectContent className='bg-gray-900 border-gray-700'>
                                 <SelectItem value='user'>
@@ -1057,13 +1103,13 @@ export function DatabasePlatformAdmin({
                                 </SelectItem>
                                 <SelectItem value='admin'>
                                   <span className='flex items-center gap-2'>
-                                    <Shield className='h-3 w-3' />
+                                    <Shield className='h-3 w-3 text-emerald-500' />
                                     Admin
                                   </span>
                                 </SelectItem>
                                 <SelectItem value='super_admin' disabled>
                                   <span className='flex items-center gap-2'>
-                                    <Shield className='h-3 w-3' />
+                                    <Shield className='h-3 w-3 text-purple-500' />
                                     Super Admin
                                   </span>
                                 </SelectItem>

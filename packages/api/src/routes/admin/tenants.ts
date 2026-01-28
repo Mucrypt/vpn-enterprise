@@ -8,6 +8,18 @@
 import { Router } from 'express'
 import { authMiddleware } from '@vpn-enterprise/auth'
 import { DatabasePlatformClient } from '../../database-platform-client'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  },
+)
 
 const router = Router()
 const dbPlatform = new DatabasePlatformClient()
@@ -48,25 +60,47 @@ router.get('/', authMiddleware, adminMiddleware, async (req, res) => {
         t.created_at,
         t.updated_at,
         t.connection_info,
-        u.email as owner_email,
         tm.user_id as owner_id
       FROM public.tenants t
       LEFT JOIN public.tenant_members tm ON t.id = tm.tenant_id AND tm.role = 'owner'
-      LEFT JOIN auth.users u ON tm.user_id = u.id::text
       ORDER BY t.created_at DESC
     `)
 
-    // Parse connection_info JSON
-    const tenants = tenantsResult.rows.map((tenant: any) => ({
-      ...tenant,
-      db_host: tenant.connection_info?.host,
-      db_port: tenant.connection_info?.port,
-      db_name: tenant.connection_info?.database,
-      tenant_id: tenant.id,
-    }))
+    // Fetch owner emails from Supabase for each tenant
+    const tenantsWithOwners = await Promise.all(
+      tenantsResult.rows.map(async (tenant: any) => {
+        let owner_email = null
+        let owner_name = null
+
+        if (tenant.owner_id) {
+          try {
+            const { data: userData } =
+              await supabaseAdmin.auth.admin.getUserById(tenant.owner_id)
+            if (userData?.user) {
+              owner_email = userData.user.email
+              owner_name =
+                userData.user.user_metadata?.full_name ||
+                userData.user.email?.split('@')[0]
+            }
+          } catch (err) {
+            console.error(`Error fetching user ${tenant.owner_id}:`, err)
+          }
+        }
+
+        return {
+          ...tenant,
+          owner_email,
+          owner_name,
+          db_host: tenant.connection_info?.host,
+          db_port: tenant.connection_info?.port,
+          db_name: tenant.connection_info?.database,
+          tenant_id: tenant.id,
+        }
+      }),
+    )
 
     res.json({
-      tenants,
+      tenants: tenantsWithOwners,
       total: tenantsResult.rowCount || 0,
     })
   } catch (error) {

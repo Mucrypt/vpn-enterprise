@@ -279,7 +279,7 @@ router.delete(
         `[DELETE USER] Removed ${membershipResult.rowCount} memberships`,
       )
 
-      // Mark orphaned tenants for cleanup (tenants with no owner)
+      // Delete orphaned tenants and their databases (tenants with no owner)
       for (const tenant of ownedTenants) {
         const remainingMembers = await client.query(
           'SELECT COUNT(*) as count FROM public.tenant_members WHERE tenant_id = $1',
@@ -287,15 +287,58 @@ router.delete(
         )
 
         if (parseInt(remainingMembers.rows[0].count) === 0) {
-          // No members left, mark tenant for deletion
-          await client.query(
-            `UPDATE public.tenants 
-           SET status = 'deleted', 
-               updated_at = NOW()
-           WHERE id = $1`,
+          // No members left, delete the tenant and its database
+          const tenantDetails = await client.query(
+            'SELECT connection_info FROM public.tenants WHERE id = $1',
             [tenant.id],
           )
-          console.log(`[DELETE USER] Marked tenant ${tenant.name} as deleted`)
+
+          const connectionInfo = tenantDetails.rows[0]?.connection_info
+          const dbName = connectionInfo?.database
+          const dbUser = connectionInfo?.username || connectionInfo?.user
+
+          // Delete tenant from metadata
+          await client.query('DELETE FROM public.tenants WHERE id = $1', [
+            tenant.id,
+          ])
+
+          // Drop the actual database if it exists
+          if (dbName) {
+            try {
+              // Terminate existing connections
+              await client.query(
+                `SELECT pg_terminate_backend(pg_stat_activity.pid)
+                 FROM pg_stat_activity
+                 WHERE pg_stat_activity.datname = $1
+                 AND pid <> pg_backend_pid()`,
+                [dbName],
+              )
+
+              // Drop the database
+              await client.query(
+                `DROP DATABASE IF EXISTS "${dbName.replace(/"/g, '""')}"`,
+              )
+
+              // Drop the database user/role
+              if (dbUser) {
+                await client.query(
+                  `DROP ROLE IF EXISTS "${dbUser.replace(/"/g, '""')}"`,
+                )
+              }
+
+              console.log(
+                `[DELETE USER] Deleted tenant database: ${tenant.name} (${dbName})`,
+              )
+            } catch (dbError) {
+              console.error(
+                `[DELETE USER] Error dropping database ${dbName}:`,
+                dbError,
+              )
+              // Continue even if database drop fails
+            }
+          } else {
+            console.log(`[DELETE USER] Deleted tenant metadata: ${tenant.name}`)
+          }
         }
       }
 
