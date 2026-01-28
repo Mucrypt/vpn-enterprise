@@ -1,53 +1,92 @@
-# User Management Feature - Deployment Guide
+# Database Platform Admin - Deployment Guide
 
 ## What's New
 
-Production-ready user management UI has been added to the admin dashboard at `/databases/admin`. Admins can now:
+Production-ready admin dashboard at `/databases/admin` with two management areas:
 
-- **View all platform users** with their email, role, and activity
-- **Delete test users** safely with automatic cascade cleanup
-- **Switch between tabs**: Database Projects | Platform Users
-- **Search and filter** both projects and users
-- **Protection**: Admin users cannot be deleted accidentally
+### 1. Database Projects Management (Primary Focus)
+- **View all database projects** created by users
+- **Delete database projects** with full cleanup:
+  - Drops the PostgreSQL database
+  - Removes the database user/role
+  - Cleans up tenant_members
+  - Removes tenant record
+- Search and filter projects
+- View project details (owner, region, plan, etc.)
+
+### 2. Supabase User Management
+- **View all Supabase users** (authentication layer)
+- **Promote users to admin** role
+- View user activity (created date, last sign-in)
+- Protected: Cannot modify admin/super_admin users
+- Search and filter users
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│         Supabase Auth (User Management)         │
+│  - Users sign up/login                          │
+│  - Roles: user, admin, super_admin              │
+│  - Stored in auth.users table                   │
+└─────────────────────────────────────────────────┘
+                      │
+                      ↓
+┌─────────────────────────────────────────────────┐
+│    Platform Database (Project Management)       │
+│  - Each user can create database projects       │
+│  - Stored in public.tenants table               │
+│  - tenant_members links users to projects       │
+│  - Each project = isolated PostgreSQL database  │
+└─────────────────────────────────────────────────┘
+                      │
+                      ↓
+┌─────────────────────────────────────────────────┐
+│       Tenant Databases (User Projects)          │
+│  - tenant_xxxxx databases                       │
+│  - tenant_xxxxx_owner role/user                 │
+│  - Fully isolated per project                   │
+└─────────────────────────────────────────────────┘
+```
 
 ## Changes Made
 
 ### Frontend (Web Dashboard)
 
-1. **Admin Dashboard Enhanced** (`/databases/admin`)
-   - Added tabs: "Database Projects" and "Platform Users"
-   - User table shows: email, role, created date, last sign-in, actions
-   - Delete button with confirmation dialog
-   - Search works across both tabs
-   - Real-time state management after deletion
+1. **Database Projects Tab** (`/databases/admin`)
+   - Shows all tenant database projects
+   - **DELETE button** for each project
+   - Confirmation dialog explaining cascade effects
+   - Real-time UI updates after deletion
 
-2. **Server Component** (`apps/web-dashboard/app/databases/admin/page.tsx`)
-   - Now fetches both tenants AND users
-   - Passes `initialUsers` prop to client component
+2. **Platform Users Tab**
+   - Shows all Supabase authenticated users
+   - **"Promote" button** to make users admins
+   - Role badges (green=admin, gray=user)
+   - Protected status for existing admins
 
 ### Backend (API)
 
-3. **Admin User Routes** (`packages/api/src/routes/admin/users.ts`)
-   - `GET /api/v1/admin/users` - List all users with tenant counts
-   - `GET /api/v1/admin/users/:userId` - Get user details
-   - `DELETE /api/v1/admin/users/:userId` - Delete user with cascade cleanup
+3. **Tenant Deletion** (`DELETE /api/v1/admin/tenants/:tenantId`)
+   - Terminates active connections
+   - Drops PostgreSQL database
+   - Drops database role/user
+   - Removes tenant_members entries
+   - Deletes tenant record
+   - Wrapped in transaction for safety
 
-4. **Admin Tenant Routes** (`packages/api/src/routes/admin/tenants.ts`)
-   - `GET /api/v1/admin/tenants` - List all tenants with owner info
-
-5. **App Integration** (`packages/api/src/app.ts`)
-   - Mounted admin routes at `/api/v1/admin`
-   - All endpoints protected by `authMiddleware` + `adminMiddleware`
+4. **User Role Management** (`PATCH /api/v1/admin/users/:userId/role`)
+   - Updates user role in Supabase auth.users metadata
+   - Validates role (user, admin, super_admin)
+   - Immediate effect on next authentication
 
 ### Safety Features
 
-- **Admin Protection**: Cannot delete users with `admin` or `super_admin` roles
-- **Cascade Cleanup**: Automatically removes:
-  - User account from `auth.users`
-  - All entries in `tenant_members`
-  - Marks orphaned tenants as `deleted`
-- **Confirmation Dialog**: Warns about cascade effects before deletion
-- **Transaction Safety**: Uses database transactions - either all succeeds or nothing changes
+- **Transaction Safety**: All operations wrapped in BEGIN/COMMIT/ROLLBACK
+- **Connection Termination**: Kills active connections before dropping database
+- **Admin Protection**: Cannot modify admin/super_admin users
+- **Confirmation Dialogs**: Clear warnings about irreversible actions
+- **Cascade Cleanup**: Automatically removes all related records
 
 ## How to Deploy
 
@@ -94,128 +133,154 @@ git log HEAD..origin/main --oneline
 ```
 1. Login to https://chatbuilds.com with admin account
 2. Go to /databases/admin
-3. You should see two tabs: "Database Projects" and "Platform Users"
+3. You should see two tabs: "Database Projects (X)" and "Platform Users (Y)"
 ```
 
-### 2. View Users
+### 2. Manage Database Projects
+
+```
+1. "Database Projects" tab should be active by default
+2. See list of all database projects with:
+   - Project name & subdomain
+   - Region badge (us-east-1, eu-west-3, etc.)
+   - Plan type (free/premium)
+   - Database name (tenant_xxxxx)
+   - Owner email
+   - Delete button (red trash icon)
+3. Click Delete button on a test project
+4. Confirmation dialog appears explaining:
+   - Database will be dropped
+   - All project data will be lost
+   - Cannot be undone
+5. Confirm deletion
+6. Project disappears from list
+7. Database is actually dropped from PostgreSQL
+```
+
+### 3. View Supabase Users
 
 ```
 1. Click "Platform Users" tab
-2. See list of all users with:
+2. See list of all authenticated users with:
    - Email address
-   - Role badge (admin = green, user = gray)
+   - Role badge (admin=green, user=gray)
    - Created date
    - Last sign-in date
-   - Delete button
+   - Action button (Promote or Protected)
 ```
 
-### 3. Test Search
+### 4. Promote User to Admin
 
 ```
-1. Type in search box
-2. Should filter users by email or role
-3. Switch to "Database Projects" tab
-4. Search should now filter projects
+1. Find a regular user (not already admin)
+2. Click "Promote" button
+3. User's role updates to "admin"
+4. Badge changes to green
+5. Button changes to "Protected"
+6. Next time user logs in, they have admin access
 ```
 
-### 4. Delete Test User
+### 5. Test Search & Filter
 
 ```
-1. Find a test user (NOT an admin)
-2. Click "Delete" button
-3. Confirmation dialog appears:
-   - Shows user email
-   - Warns about cascade effects
-   - Cannot be undone
-4. Click OK to confirm
-5. User should disappear from list
-6. Check database: user removed from auth.users and tenant_members
+1. In Database Projects tab:
+   - Search by project name, subdomain, owner email
+   - Results update in real-time
+2. In Platform Users tab:
+   - Search by email or role
+   - Filter users instantly
 ```
 
-### 5. Try to Delete Admin (Should Fail)
+### 6. Verify Database Cleanup
 
-```
-1. Try to delete a user with admin/super_admin role
-2. API should return 403 Forbidden
-3. User should see error: "Admin users cannot be deleted"
+```bash
+# After deleting a project, verify it's gone
+docker exec vpn-postgres psql -U platform_admin -d platform_db -c "
+  SELECT database FROM pg_database WHERE datname LIKE 'tenant_%';
+"
+
+# Should NOT see the deleted tenant database
+# Also check roles
+docker exec vpn-postgres psql -U platform_admin -d platform_db -c "
+  SELECT rolname FROM pg_roles WHERE rolname LIKE 'tenant_%';
+"
+# Deleted database role should be gone too
 ```
 
 ## Database Impact
 
-When you delete a user, these changes happen:
+### When you DELETE a database project:
 
 ```sql
--- 1. Removed from tenant_members
-DELETE FROM public.tenant_members WHERE user_id = '<user-id>';
+-- 1. Terminate active connections
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE datname = 'tenant_xxxxx';
 
--- 2. Orphaned tenants marked deleted
-UPDATE public.tenants 
-SET status = 'deleted', updated_at = NOW()
-WHERE id IN (SELECT tenant_id FROM tenant_members WHERE user_id = '<user-id>' AND role = 'owner')
-  AND NOT EXISTS (SELECT 1 FROM tenant_members WHERE tenant_id = tenants.id);
+-- 2. Drop the database
+DROP DATABASE "tenant_xxxxx";
 
--- 3. User deleted
-DELETE FROM auth.users WHERE id = '<user-id>';
+-- 3. Drop the database user/role
+DROP ROLE "tenant_xxxxx_owner";
+
+-- 4. Remove tenant memberships
+DELETE FROM public.tenant_members WHERE tenant_id = '<tenant-id>';
+
+-- 5. Remove tenant record
+DELETE FROM public.tenants WHERE id = '<tenant-id>';
+```
+
+### When you UPDATE a user's role:
+
+```sql
+-- Update role in Supabase auth metadata
+UPDATE auth.users 
+SET raw_user_meta_data = jsonb_set(
+  COALESCE(raw_user_meta_data, '{}'::jsonb),
+  '{role}',
+  '"admin"'
+),
+updated_at = NOW()
+WHERE id = '<user-id>';
+
+-- User now has admin access on next login
 ```
 
 ## API Endpoints
 
-### List All Users
+### Delete Database Project
 ```http
-GET /api/v1/admin/users
-Authorization: Bearer <token>
-
-Response:
-{
-  "users": [
-    {
-      "id": "uuid",
-      "email": "user@example.com",
-      "role": "user",
-      "created_at": "2025-01-20T...",
-      "last_sign_in_at": "2025-01-21T...",
-      "tenant_count": 2
-    }
-  ],
-  "total": 5
-}
-```
-
-### Delete User
-```http
-DELETE /api/v1/admin/users/{userId}
+DELETE /api/v1/admin/tenants/{tenantId}
 Authorization: Bearer <token>
 
 Response:
 {
   "success": true,
-  "message": "User user@example.com deleted successfully",
-  "deletedTenantMemberships": 2,
-  "orphanedTenants": [
-    { "id": "...", "name": "Test Project", "db_name": "tenant_xxx" }
-  ]
+  "message": "Project \"My Project\" deleted successfully",
+  "deletedDatabase": "tenant_a1b2c3d4_e5f6_7890_abcd_ef1234567890",
+  "deletedUser": "tenant_a1b2c3d4_e5f6_7890_abcd_ef1234567890_owner"
 }
 ```
 
-### List All Tenants (for admin)
+### Update User Role
 ```http
-GET /api/v1/admin/tenants
+PATCH /api/v1/admin/users/{userId}/role
 Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "role": "admin"
+}
 
 Response:
 {
-  "tenants": [
-    {
-      "id": "uuid",
-      "name": "Project Name",
-      "subdomain": "project-slug",
-      "region": "us-east-1",
-      "plan_type": "free",
-      "owner_email": "owner@example.com",
-      "created_at": "2025-01-20T..."
-    }
-  ],
-  "total": 10
+  "success": true,
+  "message": "User role updated to admin",
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "role": "admin"
+  }
 }
 ```
 
@@ -223,14 +288,15 @@ Response:
 
 ### "Unable to verify your identity" still appearing?
 
+This issue is fixed in the latest deployment. Make sure you've deployed:
+
 ```bash
-# Ensure you deployed the auth fix commits too:
 cd /opt/vpn-enterprise
 git log --oneline -10
 
 # Look for these commits:
+# 904539d - fix: Move delete functionality to Database Projects...
 # f2011e6 - feat: Add user management UI to admin dashboard
-# b46b5cf - [previous auth fix commit]
 # 5c6c45c - [getAuthToken commit]
 
 # If missing, pull and rebuild
@@ -238,47 +304,68 @@ git pull origin main
 docker compose -f infrastructure/docker/docker-compose.prod.yml up -d --build
 ```
 
-### API returning 403 Forbidden?
-
-Check your user role in database:
-
-```sql
--- Connect to platform_db
-SELECT email, raw_user_meta_data->>'role' as role 
-FROM auth.users 
-WHERE email = 'your-email@example.com';
-
--- If role is not 'admin' or 'super_admin', update it:
-UPDATE auth.users 
-SET raw_user_meta_data = jsonb_set(
-  COALESCE(raw_user_meta_data, '{}'::jsonb),
-  '{role}',
-  '"admin"'
-)
-WHERE email = 'your-email@example.com';
-```
-
-### Users tab empty or not loading?
+### Delete button not working on Database Projects?
 
 Check API logs:
 
 ```bash
-docker logs vpn-api --tail 100 | grep "admin/users"
+docker logs vpn-api --tail 100 | grep "admin/tenants"
 ```
 
-Expected: No errors, status 200
+Expected: DELETE request with status 200
 
-### Delete button not working?
+If you see connection errors dropping the database:
+- Ensure no active connections to the database
+- Check if database name is correct in connection_info
+- Verify platform_admin has DROP DATABASE permission
 
-Check browser console for errors:
-```javascript
-// Should see fetch to:
-// https://chatbuilds.com/api/v1/admin/users/<user-id>
-// Method: DELETE
-// Authorization: Bearer <token>
+### Promote button not updating user role?
+
+Check if role is actually updated:
+
+```sql
+-- Connect to platform_db
+docker exec vpn-postgres psql -U platform_admin -d platform_db -c "
+  SELECT email, raw_user_meta_data->>'role' as role 
+  FROM auth.users 
+  WHERE email = 'user@example.com';
+"
 ```
 
-If token missing, ensure you're logged in and cookies are set.
+If role shows correctly but user doesn't have admin access:
+- Have user log out and log back in
+- Check middleware is reading role from raw_user_meta_data
+- Verify cookies are being set with user_role
+
+### Database not being dropped?
+
+If database persists after deletion:
+
+```bash
+# Manually check if database exists
+docker exec vpn-postgres psql -U platform_admin -d platform_db -c "
+  SELECT datname FROM pg_database WHERE datname LIKE 'tenant_%';
+"
+
+# Check for active connections blocking drop
+docker exec vpn-postgres psql -U platform_admin -d platform_db -c "
+  SELECT pid, usename, datname, state
+  FROM pg_stat_activity
+  WHERE datname LIKE 'tenant_%';
+"
+
+# If connections exist, terminate them
+docker exec vpn-postgres psql -U platform_admin -d platform_db -c "
+  SELECT pg_terminate_backend(pid)
+  FROM pg_stat_activity
+  WHERE datname = 'tenant_xxxxx' AND pid <> pg_backend_pid();
+"
+
+# Then drop manually
+docker exec vpn-postgres psql -U platform_admin -d platform_db -c "
+  DROP DATABASE \"tenant_xxxxx\";
+"
+```
 
 ## Rollback Plan
 
@@ -288,29 +375,46 @@ If something goes wrong:
 cd /opt/vpn-enterprise
 
 # Rollback to previous commit
-git reset --hard b46b5cf
+git reset --hard 9e26cd7
 
 # Rebuild containers
 docker compose -f infrastructure/docker/docker-compose.prod.yml up -d --build
 ```
 
-No database migrations were added, so no schema changes to revert.
+Note: This version had user deletion instead of project deletion. If you need to go back further:
+```bash
+git reset --hard b46b5cf  # Before user management feature
+```
 
 ## Next Steps
 
 After deployment, you can:
 
-1. **Clean up test users** safely from the UI
-2. **Monitor user activity** - see last sign-in times
-3. **Manage user roles** - upgrade users to admin if needed (via SQL for now)
-4. **Track project ownership** - see which users own which projects
+1. **Clean up test projects** safely from the Database Projects tab
+2. **Promote trusted users to admin** from the Platform Users tab
+3. **Monitor project creation** - see who creates what and when
+4. **Manage abandoned projects** - delete projects that are no longer needed
+5. **Track user activity** - see last sign-in times
 
-Future enhancements could include:
-- Bulk user deletion
-- User role editing from UI
-- Email notifications on user deletion
-- User audit logs
-- Soft delete with restore option
+### Future Enhancements
+
+Potential features to add:
+- **Project statistics**: Storage usage, connection count, query metrics
+- **User invitation system**: Invite users via email with specific roles
+- **Audit logs**: Track all admin actions (deletions, role changes)
+- **Soft delete**: Mark projects as deleted but keep backup for 30 days
+- **Bulk operations**: Delete multiple projects at once
+- **Usage quotas**: Set limits per user or plan type
+- **Billing integration**: Track project costs and usage
+- **Notification system**: Email users when their project is deleted
+
+### Monitoring Recommendations
+
+Set up alerts for:
+- Failed database drops (check API logs)
+- Orphaned databases (exist but not in tenants table)
+- Users with excessive projects (potential abuse)
+- Projects with no recent activity (candidates for cleanup)
 
 ## Support
 
@@ -320,7 +424,12 @@ If you encounter issues:
 2. Verify database connection: `docker exec vpn-postgres psql -U platform_admin -d platform_db -c "\dt"`
 3. Check commit history: `git log --oneline -5`
 4. Review API responses in browser DevTools Network tab
+5. Test manually via SQL if API fails
 
-Commit: f2011e6
-Branch: main
-Date: $(date)
+**Key Commits:**
+- `904539d` - fix: Move delete functionality to Database Projects
+- `f2011e6` - feat: Add user management UI to admin dashboard
+- `9e26cd7` - docs: Add user management deployment guide
+
+**Branch:** main
+**Date:** January 28, 2026

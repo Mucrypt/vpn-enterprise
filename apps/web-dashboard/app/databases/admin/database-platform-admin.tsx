@@ -13,6 +13,23 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import {
   Database,
   Search,
   BarChart3,
@@ -22,8 +39,11 @@ import {
   Trash2,
   Activity,
   Globe,
-  UserX,
-  AlertTriangle,
+  UserPlus,
+  Shield,
+  Mail,
+  Calendar,
+  RefreshCw,
 } from 'lucide-react'
 
 interface Tenant {
@@ -64,6 +84,14 @@ export function DatabasePlatformAdmin({
   const [activeTab, setActiveTab] = useState<'projects' | 'users'>('projects')
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isCreatingUser, setIsCreatingUser] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null)
+  const [newUserForm, setNewUserForm] = useState({
+    email: '',
+    password: '',
+    role: 'user' as 'user' | 'admin' | 'super_admin'
+  })
 
   const filteredTenants = useMemo(() => {
     if (!searchQuery.trim()) return tenants
@@ -129,12 +157,66 @@ export function DatabasePlatformAdmin({
     }
   }
 
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message })
+    setTimeout(() => setNotification(null), 5000)
+  }
+
+  const getAuthToken = () => {
+    return localStorage.getItem('access_token') || 
+      document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1]
+  }
+
+  const handleCreateUser = async () => {
+    if (!newUserForm.email || !newUserForm.password) {
+      showNotification('error', 'Email and password are required')
+      return
+    }
+
+    if (newUserForm.password.length < 8) {
+      showNotification('error', 'Password must be at least 8 characters')
+      return
+    }
+
+    setIsCreatingUser(true)
+
+    try {
+      const token = getAuthToken()
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newUserForm),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to create user')
+      }
+
+      const result = await response.json()
+      
+      // Add new user to local state
+      setUsers([result.user, ...users])
+      
+      // Reset form and close dialog
+      setNewUserForm({ email: '', password: '', role: 'user' })
+      setShowCreateDialog(false)
+      
+      showNotification('success', `User ${result.user.email} created successfully`)
+    } catch (error) {
+      console.error('Create user error:', error)
+      showNotification('error', `Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsCreatingUser(false)
+    }
+  }
+
   const handleUpdateUserRole = async (user: User, newRole: string) => {
     try {
-      const token = 
-        localStorage.getItem('access_token') || 
-        document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1]
-
+      const token = getAuthToken()
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/users/${user.id}/role`, {
         method: 'PATCH',
         headers: {
@@ -152,10 +234,58 @@ export function DatabasePlatformAdmin({
       // Update user in local state
       setUsers(users.map(u => u.id === user.id ? { ...u, role: newRole } : u))
       
-      alert(`User role updated to ${newRole}`)
+      showNotification('success', `Role updated to ${newRole}`)
     } catch (error) {
       console.error('Update role error:', error)
-      alert(`Failed to update role: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      showNotification('error', `Failed to update role: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const handleDeleteUser = async (user: User) => {
+    if (user.role === 'admin' || user.role === 'super_admin') {
+      showNotification('error', 'Cannot delete admin users')
+      return
+    }
+
+    if (!confirm(`Delete user ${user.email}?\n\nThis will:\n• Remove the user account\n• Remove all tenant memberships\n• Mark orphaned tenants as deleted\n\nThis cannot be undone.`)) {
+      return
+    }
+
+    setIsDeleting(true)
+
+    try {
+      const token = getAuthToken()
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/users/${user.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to delete user')
+      }
+
+      // Remove user from local state
+      setUsers(users.filter(u => u.id !== user.id))
+      
+      // Refresh tenants to update owner assignments
+      const tenantsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tenants`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      })
+      if (tenantsResponse.ok) {
+        const data = await tenantsResponse.json()
+        setTenants(data.tenants || [])
+      }
+
+      showNotification('success', 'User deleted successfully')
+    } catch (error) {
+      console.error('Delete user error:', error)
+      showNotification('error', `Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -196,6 +326,24 @@ export function DatabasePlatformAdmin({
 
   return (
     <div className='min-h-screen bg-gray-950 text-white'>
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg border ${
+          notification.type === 'success' 
+            ? 'bg-emerald-950 border-emerald-700 text-emerald-100' 
+            : 'bg-red-950 border-red-700 text-red-100'
+        } animate-in slide-in-from-top-5 duration-300`}>
+          <div className='flex items-center gap-3'>
+            {notification.type === 'success' ? (
+              <Shield className='h-5 w-5 text-emerald-500' />
+            ) : (
+              <Trash2 className='h-5 w-5 text-red-500' />
+            )}
+            <p className='font-medium'>{notification.message}</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className='border-b border-gray-800 bg-[#1a1a1a]'>
         <div className='max-w-7xl mx-auto px-6 py-4'>
@@ -476,6 +624,100 @@ export function DatabasePlatformAdmin({
                     Manage user accounts and permissions
                   </CardDescription>
                 </div>
+                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                  <DialogTrigger asChild>
+                    <Button className='bg-emerald-600 hover:bg-emerald-700'>
+                      <UserPlus className='h-4 w-4 mr-2' />
+                      Create User
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className='bg-[#1a1a1a] border-gray-800 text-white'>
+                    <DialogHeader>
+                      <DialogTitle>Create New User</DialogTitle>
+                      <DialogDescription className='text-gray-400'>
+                        Add a new user to the platform. They will receive access immediately.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className='space-y-4 py-4'>
+                      <div className='space-y-2'>
+                        <Label htmlFor='email' className='text-sm font-medium'>
+                          Email Address
+                        </Label>
+                        <Input
+                          id='email'
+                          type='email'
+                          placeholder='user@example.com'
+                          value={newUserForm.email}
+                          onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                          className='bg-gray-900 border-gray-700 text-white'
+                        />
+                      </div>
+                      <div className='space-y-2'>
+                        <Label htmlFor='password' className='text-sm font-medium'>
+                          Password
+                        </Label>
+                        <Input
+                          id='password'
+                          type='password'
+                          placeholder='Minimum 8 characters'
+                          value={newUserForm.password}
+                          onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                          className='bg-gray-900 border-gray-700 text-white'
+                        />
+                        <p className='text-xs text-gray-500'>User can change this after first login</p>
+                      </div>
+                      <div className='space-y-2'>
+                        <Label htmlFor='role' className='text-sm font-medium'>
+                          Role
+                        </Label>
+                        <Select
+                          value={newUserForm.role}
+                          onValueChange={(value: any) => setNewUserForm({ ...newUserForm, role: value })}
+                        >
+                          <SelectTrigger className='bg-gray-900 border-gray-700 text-white'>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className='bg-gray-900 border-gray-700'>
+                            <SelectItem value='user'>User</SelectItem>
+                            <SelectItem value='admin'>Admin</SelectItem>
+                            <SelectItem value='super_admin'>Super Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className='text-xs text-gray-500'>
+                          {newUserForm.role === 'user' && 'Can create and manage their own projects'}
+                          {newUserForm.role === 'admin' && 'Can access admin dashboard and manage users'}
+                          {newUserForm.role === 'super_admin' && 'Full platform access including system settings'}
+                        </p>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant='outline'
+                        onClick={() => setShowCreateDialog(false)}
+                        className='border-gray-700 text-gray-300 hover:bg-gray-800'
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleCreateUser}
+                        disabled={isCreatingUser || !newUserForm.email || !newUserForm.password}
+                        className='bg-emerald-600 hover:bg-emerald-700'
+                      >
+                        {isCreatingUser ? (
+                          <>
+                            <RefreshCw className='h-4 w-4 mr-2 animate-spin' />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className='h-4 w-4 mr-2' />
+                            Create User
+                          </>
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
             <CardContent>
@@ -498,7 +740,7 @@ export function DatabasePlatformAdmin({
                   <thead>
                     <tr className='border-b border-gray-800 text-left'>
                       <th className='pb-3 text-sm font-medium text-gray-400'>
-                        Email
+                        User
                       </th>
                       <th className='pb-3 text-sm font-medium text-gray-400'>
                         Role
@@ -507,7 +749,7 @@ export function DatabasePlatformAdmin({
                         Created
                       </th>
                       <th className='pb-3 text-sm font-medium text-gray-400'>
-                        Last Sign In
+                        Last Active
                       </th>
                       <th className='pb-3 text-sm font-medium text-gray-400'>
                         Actions
@@ -519,7 +761,7 @@ export function DatabasePlatformAdmin({
                       <tr>
                         <td
                           colSpan={5}
-                          className='py-8 text-center text-gray-500'
+                          className='py-12 text-center text-gray-500'
                         >
                           {searchQuery.trim()
                             ? 'No users match your search'
@@ -533,51 +775,91 @@ export function DatabasePlatformAdmin({
                           className='border-b border-gray-800 hover:bg-gray-900/50 transition-colors'
                         >
                           <td className='py-4'>
-                            <div className='flex items-center gap-2'>
-                              <Users className='h-4 w-4 text-gray-500' />
-                              <span className='font-mono text-sm'>{user.email}</span>
+                            <div className='flex items-center gap-3'>
+                              <div className='h-10 w-10 rounded-full bg-linear-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white font-semibold'>
+                                {user.email.substring(0, 2).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className='font-medium text-white flex items-center gap-2'>
+                                  {user.email}
+                                  {(user.role === 'admin' || user.role === 'super_admin') && (
+                                    <Shield className='h-4 w-4 text-emerald-500' />
+                                  )}
+                                </div>
+                                <div className='text-xs text-gray-500 flex items-center gap-1'>
+                                  <Mail className='h-3 w-3' />
+                                  {user.id.substring(0, 8)}...
+                                </div>
+                              </div>
                             </div>
                           </td>
                           <td className='py-4'>
-                            <Badge
-                              variant={
-                                user.role === 'super_admin' || user.role === 'admin'
-                                  ? 'default'
-                                  : 'secondary'
-                              }
-                              className={
-                                user.role === 'super_admin' || user.role === 'admin'
-                                  ? 'bg-emerald-600'
-                                  : 'bg-gray-700'
-                              }
+                            <Select
+                              value={user.role || 'user'}
+                              onValueChange={(newRole) => handleUpdateUserRole(user, newRole)}
+                              disabled={user.role === 'super_admin'}
                             >
-                              {user.role || 'user'}
-                            </Badge>
-                          </td>
-                          <td className='py-4 text-sm text-gray-400'>
-                            {formatDate(user.created_at)}
-                          </td>
-                          <td className='py-4 text-sm text-gray-400'>
-                            {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'Never'}
+                              <SelectTrigger className='w-[140px] h-8 bg-gray-900 border-gray-700 text-white text-sm'>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className='bg-gray-900 border-gray-700'>
+                                <SelectItem value='user'>
+                                  <span className='flex items-center gap-2'>
+                                    <Users className='h-3 w-3' />
+                                    User
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value='admin'>
+                                  <span className='flex items-center gap-2'>
+                                    <Shield className='h-3 w-3' />
+                                    Admin
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value='super_admin' disabled>
+                                  <span className='flex items-center gap-2'>
+                                    <Shield className='h-3 w-3' />
+                                    Super Admin
+                                  </span>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
                           </td>
                           <td className='py-4'>
-                            <div className='flex items-center gap-2'>
-                              {(user.role === 'admin' || user.role === 'super_admin') ? (
-                                <Badge variant='outline' className='border-gray-700 text-gray-500'>
-                                  Protected
-                                </Badge>
+                            <div className='flex items-center gap-2 text-sm text-gray-400'>
+                              <Calendar className='h-3 w-3' />
+                              {formatDate(user.created_at)}
+                            </div>
+                          </td>
+                          <td className='py-4'>
+                            <div className='text-sm text-gray-400'>
+                              {user.last_sign_in_at ? (
+                                <div className='flex items-center gap-2'>
+                                  <Activity className='h-3 w-3 text-emerald-500' />
+                                  {formatDate(user.last_sign_in_at)}
+                                </div>
                               ) : (
-                                <Button
-                                  size='sm'
-                                  variant='outline'
-                                  onClick={() => handleUpdateUserRole(user, 'admin')}
-                                  className='h-8 px-3 border-emerald-700 text-emerald-400 hover:bg-emerald-950/30'
-                                  title='Promote to admin'
-                                >
-                                  Promote
-                                </Button>
+                                <span className='text-gray-600'>Never</span>
                               )}
                             </div>
+                          </td>
+                          <td className='py-4'>
+                            {(user.role === 'admin' || user.role === 'super_admin') ? (
+                              <Badge variant='outline' className='border-emerald-700 text-emerald-400 bg-emerald-950/30'>
+                                <Shield className='h-3 w-3 mr-1' />
+                                Protected
+                              </Badge>
+                            ) : (
+                              <Button
+                                size='sm'
+                                variant='ghost'
+                                onClick={() => handleDeleteUser(user)}
+                                disabled={isDeleting}
+                                className='h-8 px-3 text-red-400 hover:text-red-300 hover:bg-red-950/30'
+                                title='Delete user'
+                              >
+                                <Trash2 className='h-4 w-4' />
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       ))

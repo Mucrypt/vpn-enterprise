@@ -67,6 +67,94 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 /**
+ * POST /api/v1/admin/users
+ * Create a new user in Supabase
+ */
+router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
+  const { email, password, role = 'user' } = req.body;
+
+  // Validation
+  if (!email || !password) {
+    return res.status(400).json({
+      error: 'Missing required fields',
+      message: 'Email and password are required',
+    });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({
+      error: 'Invalid password',
+      message: 'Password must be at least 8 characters',
+    });
+  }
+
+  if (!['user', 'admin', 'super_admin'].includes(role)) {
+    return res.status(400).json({
+      error: 'Invalid role',
+      message: 'Role must be one of: user, admin, super_admin',
+    });
+  }
+
+  try {
+    // Check if user already exists
+    const existingUser = await dbPlatform.platformPool.query(
+      'SELECT id FROM auth.users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rowCount && existingUser.rowCount > 0) {
+      return res.status(409).json({
+        error: 'User already exists',
+        message: `A user with email ${email} already exists`,
+      });
+    }
+
+    // Create user in Supabase auth.users
+    // Note: In production Supabase, you'd use the Admin SDK
+    // For self-hosted, we insert directly into auth.users
+    const result = await dbPlatform.platformPool.query(
+      `INSERT INTO auth.users (
+        instance_id,
+        id,
+        aud,
+        role,
+        email,
+        encrypted_password,
+        email_confirmed_at,
+        raw_user_meta_data,
+        created_at,
+        updated_at
+      ) VALUES (
+        '00000000-0000-0000-0000-000000000000',
+        gen_random_uuid(),
+        'authenticated',
+        'authenticated',
+        $1,
+        crypt($2, gen_salt('bf')),
+        NOW(),
+        jsonb_build_object('role', $3),
+        NOW(),
+        NOW()
+      )
+      RETURNING id, email, created_at, raw_user_meta_data->>'role' as role`,
+      [email, password, role]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `User ${email} created successfully`,
+      user: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    res.status(500).json({
+      error: 'Failed to create user',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
  * DELETE /api/v1/admin/users/:userId
  * Delete a user and cascade cleanup
  */
