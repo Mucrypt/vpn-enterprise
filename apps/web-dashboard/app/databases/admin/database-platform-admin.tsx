@@ -22,6 +22,8 @@ import {
   Trash2,
   Activity,
   Globe,
+  UserX,
+  AlertTriangle,
 } from 'lucide-react'
 
 interface Tenant {
@@ -38,16 +40,30 @@ interface Tenant {
   owner_email?: string
 }
 
+interface User {
+  id: string
+  email: string
+  role?: string
+  created_at: string
+  last_sign_in_at?: string
+}
+
 interface DatabasePlatformAdminProps {
   initialTenants: Tenant[]
+  initialUsers: User[]
 }
 
 export function DatabasePlatformAdmin({
   initialTenants,
+  initialUsers,
 }: DatabasePlatformAdminProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-  const [tenants] = useState<Tenant[]>(initialTenants)
+  const [tenants, setTenants] = useState<Tenant[]>(initialTenants)
+  const [users, setUsers] = useState<User[]>(initialUsers)
+  const [activeTab, setActiveTab] = useState<'projects' | 'users'>('projects')
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const filteredTenants = useMemo(() => {
     if (!searchQuery.trim()) return tenants
@@ -61,6 +77,66 @@ export function DatabasePlatformAdmin({
         t.id?.toLowerCase().includes(query),
     )
   }, [tenants, searchQuery])
+
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users
+
+    const query = searchQuery.toLowerCase()
+    return users.filter(
+      (u) =>
+        u.email?.toLowerCase().includes(query) ||
+        u.role?.toLowerCase().includes(query) ||
+        u.id?.toLowerCase().includes(query),
+    )
+  }, [users, searchQuery])
+
+  const handleDeleteUser = async (user: User) => {
+    if (!confirm(`Are you sure you want to delete user ${user.email}?\n\nThis will:\n- Remove the user account\n- Remove all tenant memberships\n- Orphaned tenants will be marked for cleanup\n\nThis action cannot be undone.`)) {
+      return
+    }
+
+    setIsDeleting(true)
+    setUserToDelete(user)
+
+    try {
+      const token = 
+        localStorage.getItem('access_token') || 
+        document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1]
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/users/${user.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to delete user')
+      }
+
+      // Remove user from local state
+      setUsers(users.filter(u => u.id !== user.id))
+      
+      // Refresh tenants to update owner assignments
+      const tenantsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tenants`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      })
+      if (tenantsResponse.ok) {
+        const data = await tenantsResponse.json()
+        setTenants(data.tenants || [])
+      }
+
+      alert('User deleted successfully')
+    } catch (error) {
+      console.error('Delete user error:', error)
+      alert(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsDeleting(false)
+      setUserToDelete(null)
+    }
+  }
 
   const stats = useMemo(() => {
     const totalProjects = tenants.length
@@ -183,34 +259,55 @@ export function DatabasePlatformAdmin({
           </Card>
         </div>
 
-        {/* Search and Actions */}
-        <Card className='bg-[#1e1e1e] border-gray-800 mb-6'>
-          <CardHeader>
-            <div className='flex items-center justify-between'>
-              <div>
-                <CardTitle>All Database Projects</CardTitle>
-                <CardDescription className='text-gray-400'>
-                  View and manage all tenant database projects
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className='flex items-center gap-4 mb-6'>
-              <div className='relative flex-1'>
-                <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500' />
-                <Input
-                  type='text'
-                  placeholder='Search by name, subdomain, email, or ID...'
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className='pl-10 bg-gray-900 border-gray-700 text-white'
-                />
-              </div>
-            </div>
+        {/* Tabs */}
+        <div className='flex gap-2 mb-6'>
+          <Button
+            variant={activeTab === 'projects' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('projects')}
+            className={activeTab === 'projects' ? 'bg-emerald-600 hover:bg-emerald-700' : 'border-gray-700 text-gray-300 hover:bg-gray-800'}
+          >
+            <Database className='h-4 w-4 mr-2' />
+            Database Projects ({tenants.length})
+          </Button>
+          <Button
+            variant={activeTab === 'users' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('users')}
+            className={activeTab === 'users' ? 'bg-emerald-600 hover:bg-emerald-700' : 'border-gray-700 text-gray-300 hover:bg-gray-800'}
+          >
+            <Users className='h-4 w-4 mr-2' />
+            Platform Users ({users.length})
+          </Button>
+        </div>
 
-            {/* Tenants Table */}
-            <div className='overflow-x-auto'>
+        {/* Search and Actions */}
+        {activeTab === 'projects' ? (
+          <Card className='bg-[#1e1e1e] border-gray-800 mb-6'>
+            <CardHeader>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <CardTitle>All Database Projects</CardTitle>
+                  <CardDescription className='text-gray-400'>
+                    View and manage all tenant database projects
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className='flex items-center gap-4 mb-6'>
+                <div className='relative flex-1'>
+                  <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500' />
+                  <Input
+                    type='text'
+                    placeholder='Search by name, subdomain, email, or ID...'
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className='pl-10 bg-gray-900 border-gray-700 text-white'
+                  />
+                </div>
+              </div>
+
+              {/* Tenants Table */}
+              <div className='overflow-x-auto'>
               <table className='w-full'>
                 <thead>
                   <tr className='border-b border-gray-800 text-left'>
@@ -340,11 +437,143 @@ export function DatabasePlatformAdmin({
                 Showing {filteredTenants.length} of {tenants.length} projects
               </div>
             )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className='bg-[#1e1e1e] border-gray-800 mb-6'>
+            <CardHeader>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <CardTitle>Platform Users</CardTitle>
+                  <CardDescription className='text-gray-400'>
+                    Manage user accounts and permissions
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className='flex items-center gap-4 mb-6'>
+                <div className='relative flex-1'>
+                  <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500' />
+                  <Input
+                    type='text'
+                    placeholder='Search by email, role, or ID...'
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className='pl-10 bg-gray-900 border-gray-700 text-white'
+                  />
+                </div>
+              </div>
 
-        {/* Region Distribution */}
-        <Card className='bg-[#1e1e1e] border-gray-800'>
+              {/* Users Table */}
+              <div className='overflow-x-auto'>
+                <table className='w-full'>
+                  <thead>
+                    <tr className='border-b border-gray-800 text-left'>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Email
+                      </th>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Role
+                      </th>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Created
+                      </th>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Last Sign In
+                      </th>
+                      <th className='pb-3 text-sm font-medium text-gray-400'>
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className='py-8 text-center text-gray-500'
+                        >
+                          {searchQuery.trim()
+                            ? 'No users match your search'
+                            : 'No users yet'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <tr
+                          key={user.id}
+                          className='border-b border-gray-800 hover:bg-gray-900/50 transition-colors'
+                        >
+                          <td className='py-4'>
+                            <div className='flex items-center gap-2'>
+                              <Users className='h-4 w-4 text-gray-500' />
+                              <span className='font-mono text-sm'>{user.email}</span>
+                            </div>
+                          </td>
+                          <td className='py-4'>
+                            <Badge
+                              variant={
+                                user.role === 'super_admin' || user.role === 'admin'
+                                  ? 'default'
+                                  : 'secondary'
+                              }
+                              className={
+                                user.role === 'super_admin' || user.role === 'admin'
+                                  ? 'bg-emerald-600'
+                                  : 'bg-gray-700'
+                              }
+                            >
+                              {user.role || 'user'}
+                            </Badge>
+                          </td>
+                          <td className='py-4 text-sm text-gray-400'>
+                            {formatDate(user.created_at)}
+                          </td>
+                          <td className='py-4 text-sm text-gray-400'>
+                            {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'Never'}
+                          </td>
+                          <td className='py-4'>
+                            <Button
+                              size='sm'
+                              variant='ghost'
+                              onClick={() => handleDeleteUser(user)}
+                              disabled={isDeleting && userToDelete?.id === user.id}
+                              className='h-8 px-3 text-red-400 hover:text-red-300 hover:bg-red-950/30'
+                              title='Delete user'
+                            >
+                              {isDeleting && userToDelete?.id === user.id ? (
+                                <>
+                                  <Activity className='h-4 w-4 mr-1 animate-spin' />
+                                  Deleting...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className='h-4 w-4 mr-1' />
+                                  Delete
+                                </>
+                              )}
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {filteredUsers.length > 0 && (
+                <div className='mt-6 text-sm text-gray-500 text-center'>
+                  Showing {filteredUsers.length} of {users.length} users
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Region Distribution - only show on projects tab */}
+        {activeTab === 'projects' && (
+          <Card className='bg-[#1e1e1e] border-gray-800 mt-6'>
           <CardHeader>
             <CardTitle className='flex items-center gap-2'>
               <Globe className='h-5 w-5' />
@@ -380,6 +609,7 @@ export function DatabasePlatformAdmin({
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   )

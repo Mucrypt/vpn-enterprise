@@ -30,6 +30,8 @@ import { AuditRepository, SecurityRepository } from '@vpn-enterprise/database'
 import { DatabasePlatformClient } from './database-platform-client'
 import { hostingRouter } from './routes/hosting'
 import { tenantsRouter } from './routes/tenants'
+import adminUsersRouter from './routes/admin/users'
+import adminTenantsRouter from './routes/admin/tenants'
 import { ApolloServer, gql } from 'apollo-server-express'
 import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
@@ -267,6 +269,9 @@ app.get('/api/v1/debug/connections', async (req, res) => {
 app.use('/api/v1/hosting', hostingRouter)
 // Tenants routes (scaffold)
 app.use('/api/v1/tenants', tenantsRouter)
+// Admin routes
+app.use('/api/v1/admin', adminUsersRouter)
+app.use('/api/v1/admin/tenants', adminTenantsRouter)
 
 // NOTE: UnifiedDataAPI routes are intentionally not mounted here.
 // The production tenant API surface is consolidated under `routes/tenants.ts`

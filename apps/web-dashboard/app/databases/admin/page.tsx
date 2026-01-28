@@ -33,6 +33,37 @@ async function getAllTenants() {
   }
 }
 
+async function getAllUsers() {
+  try {
+    const cookieStore = await cookies()
+    const cookieHeader = cookieStore
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ')
+
+    const apiUrl =
+      process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      (process.env.NODE_ENV === 'production'
+        ? 'http://api:5000'
+        : 'http://localhost:5000')
+
+    const response = await fetch(`${apiUrl}/api/v1/admin/users`, {
+      headers: {
+        Cookie: cookieHeader,
+      },
+      cache: 'no-store',
+    })
+
+    if (!response.ok) return []
+
+    const data = await response.json()
+    return data.users || data.data || []
+  } catch {
+    return []
+  }
+}
+
 async function isAdminUser() {
   const cookieStore = await cookies()
   const userRole = cookieStore.get('user_role')?.value
@@ -47,7 +78,7 @@ export default async function DatabaseAdminPage() {
     redirect('/databases')
   }
 
-  const tenants = await getAllTenants()
+  const [tenants, users] = await Promise.all([getAllTenants(), getAllUsers()])
 
-  return <DatabasePlatformAdmin initialTenants={tenants} />
+  return <DatabasePlatformAdmin initialTenants={tenants} initialUsers={users} />
 }
