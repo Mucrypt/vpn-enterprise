@@ -268,21 +268,47 @@ export function DatabaseLayout({ children, activeTenant, tenants, onTenantChange
           
           {/* Database Selector */}
           {!isCollapsed && (
-            <div className="relative">
-              <select 
-                value={activeTenant} 
-                onChange={(e) => onTenantChange(e.target.value)}
-                className="w-full bg-[#2d2d30] border border-[#3e3e42] rounded-md px-3 py-2 text-sm text-white appearance-none cursor-pointer hover:bg-[#3e3e42] transition-colors"
-              >
-                <option value="">Select Database</option>
-                {tenants.map((tenant) => (
-                  <option key={tenant.tenant_id} value={tenant.tenant_id}>
-                    {tenant.name || tenant.tenant_id}
-                  </option>
-                ))}
-              </select>
-              <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 rotate-90 h-3 w-3 text-gray-400 pointer-events-none" />
-            </div>
+            <>
+              <div className="relative">
+                <select 
+                  value={activeTenant} 
+                  onChange={(e) => onTenantChange(e.target.value)}
+                  className="w-full bg-[#2d2d30] border border-[#3e3e42] rounded-md px-3 py-2 text-sm text-white appearance-none cursor-pointer hover:bg-[#3e3e42] transition-colors"
+                >
+                  <option value="">Select Database</option>
+                  {tenants.map((tenant) => (
+                    <option key={tenant.tenant_id} value={tenant.tenant_id}>
+                      {tenant.name || tenant.tenant_id}
+                    </option>
+                  ))}
+                </select>
+                <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 rotate-90 h-3 w-3 text-gray-400 pointer-events-none" />
+              </div>
+              
+              {/* Upgrade Banner */}
+              {tenants.length === 1 && (
+                <div className="mt-3 bg-linear-to-r from-emerald-600/10 to-blue-600/10 border border-emerald-500/20 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <Zap className="h-4 w-4 text-emerald-400 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-xs font-medium text-white mb-1">
+                        Free Plan
+                      </div>
+                      <p className="text-xs text-gray-400 mb-2">
+                        Upgrade to create multiple projects and unlock premium features.
+                      </p>
+                      <Button
+                        size="sm"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7"
+                        onClick={() => window.location.href = '/dashboard/billing'}
+                      >
+                        Upgrade to Premium
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
