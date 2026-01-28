@@ -72,6 +72,7 @@ export class DatabasePlatformClient {
           subdomain text,
           status text NOT NULL DEFAULT 'active',
           plan_type text,
+          region text DEFAULT 'us-east-1',
           connection_info jsonb NOT NULL DEFAULT '{}'::jsonb,
           created_at timestamptz NOT NULL DEFAULT NOW(),
           updated_at timestamptz NOT NULL DEFAULT NOW()

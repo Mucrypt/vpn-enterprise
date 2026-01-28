@@ -91,6 +91,7 @@ async function ensureSelfTenant(params: {
   name?: string
   subdomain?: string
   planType?: string
+  region?: string
 }): Promise<{ tenant: any; created: boolean }> {
   const db = new DatabasePlatformClient()
   const client = await db.platformPool.connect()
@@ -127,12 +128,14 @@ async function ensureSelfTenant(params: {
       slugify(params.subdomain || '') || slugify(name) || 'project'
     const subdomain = `${baseSub}-${randomSuffix()}`.slice(0, 60)
 
+    const region = (params.region || 'us-east-1').trim()
+
     await client.query(
       `
-      INSERT INTO tenants (id, name, subdomain, plan_type, status, connection_info)
-      VALUES ($1, $2, $3, $4, 'active', '{}'::jsonb)
+      INSERT INTO tenants (id, name, subdomain, plan_type, region, status, connection_info)
+      VALUES ($1, $2, $3, $4, $5, 'active', '{}'::jsonb)
       `,
-      [tenantId, name, subdomain, planType],
+      [tenantId, name, subdomain, planType, region],
     )
 
     await client.query(
@@ -201,12 +204,13 @@ export function registerTenantSelfProvisionRoutes(router: Router) {
             .json({ error: 'unauthorized', message: 'User not authenticated' })
         }
 
-        const { name, subdomain, plan_type, db_password } = (req.body ||
+        const { name, subdomain, plan_type, db_password, region } = (req.body ||
           {}) as {
           name?: string
           subdomain?: string
           plan_type?: string
           db_password?: string
+          region?: string
         }
 
         // Do not trust client-supplied plan_type. Derive from subscription unless admin.
@@ -222,6 +226,7 @@ export function registerTenantSelfProvisionRoutes(router: Router) {
           name,
           subdomain,
           planType: enforcedPlanType,
+          region,
         })
 
         // Ensure the tenant has a real database to connect to.
