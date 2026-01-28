@@ -23,6 +23,34 @@ function defaultPassword(): string {
   return out
 }
 
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null
+  
+  // Try store first
+  try {
+    const { useAuthStore } = require('@/lib/store')
+    const token = useAuthStore.getState().accessToken
+    if (token) return token
+  } catch {}
+  
+  // Try localStorage
+  try {
+    const token = localStorage.getItem('access_token')
+    if (token) return token
+  } catch {}
+  
+  // Try cookies
+  try {
+    const cookies = document.cookie.split('; ')
+    for (const cookie of cookies) {
+      const [name, value] = cookie.split('=')
+      if (name === 'access_token') return value
+    }
+  } catch {}
+  
+  return null
+}
+
 type WizardStep = 1 | 2 | 3 | 4
 
 type CreateProjectResponse = {
@@ -74,8 +102,12 @@ export function CreateDatabaseProjectWizard({
         setInitialCheckLoading(true)
         setInitialCheckError(null)
 
+        const token = getAuthToken()
         const res = await fetch('/api/v1/tenants/me', {
           credentials: 'include',
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
         })
         if (!res.ok) {
           if (res.status === 401) {
@@ -119,9 +151,17 @@ export function CreateDatabaseProjectWizard({
     setError(null)
 
     try {
+      const token = getAuthToken()
+      if (!token) {
+        throw new Error('Please log in to create a project.')
+      }
+      
       const resp = await fetch('/api/v1/tenants/self', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         credentials: 'include',
         body: JSON.stringify({
           name: projectName.trim(),
