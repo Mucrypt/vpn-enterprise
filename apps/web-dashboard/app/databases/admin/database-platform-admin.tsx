@@ -62,7 +62,7 @@ export function DatabasePlatformAdmin({
   const [tenants, setTenants] = useState<Tenant[]>(initialTenants)
   const [users, setUsers] = useState<User[]>(initialUsers)
   const [activeTab, setActiveTab] = useState<'projects' | 'users'>('projects')
-  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const filteredTenants = useMemo(() => {
@@ -90,20 +90,20 @@ export function DatabasePlatformAdmin({
     )
   }, [users, searchQuery])
 
-  const handleDeleteUser = async (user: User) => {
-    if (!confirm(`Are you sure you want to delete user ${user.email}?\n\nThis will:\n- Remove the user account\n- Remove all tenant memberships\n- Orphaned tenants will be marked for cleanup\n\nThis action cannot be undone.`)) {
+  const handleDeleteTenant = async (tenant: Tenant) => {
+    if (!confirm(`Are you sure you want to delete project "${tenant.name}"?\n\nThis will:\n- Drop the database ${tenant.db_name || tenant.id}\n- Remove all project data\n- Remove tenant memberships\n\nThis action cannot be undone.`)) {
       return
     }
 
     setIsDeleting(true)
-    setUserToDelete(user)
+    setTenantToDelete(tenant)
 
     try {
       const token = 
         localStorage.getItem('access_token') || 
         document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1]
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/users/${user.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tenants/${tenant.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -113,28 +113,49 @@ export function DatabasePlatformAdmin({
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.message || 'Failed to delete user')
+        throw new Error(error.message || 'Failed to delete project')
       }
 
-      // Remove user from local state
-      setUsers(users.filter(u => u.id !== user.id))
+      // Remove tenant from local state
+      setTenants(tenants.filter(t => t.id !== tenant.id))
       
-      // Refresh tenants to update owner assignments
-      const tenantsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tenants`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      })
-      if (tenantsResponse.ok) {
-        const data = await tenantsResponse.json()
-        setTenants(data.tenants || [])
-      }
-
-      alert('User deleted successfully')
+      alert('Project deleted successfully')
     } catch (error) {
-      console.error('Delete user error:', error)
-      alert(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Delete project error:', error)
+      alert(`Failed to delete project: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsDeleting(false)
-      setUserToDelete(null)
+      setTenantToDelete(null)
+    }
+  }
+
+  const handleUpdateUserRole = async (user: User, newRole: string) => {
+    try {
+      const token = 
+        localStorage.getItem('access_token') || 
+        document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1]
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/users/${user.id}/role`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: newRole }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to update role')
+      }
+
+      // Update user in local state
+      setUsers(users.map(u => u.id === user.id ? { ...u, role: newRole } : u))
+      
+      alert(`User role updated to ${newRole}`)
+    } catch (error) {
+      console.error('Update role error:', error)
+      alert(`Failed to update role: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -418,10 +439,16 @@ export function DatabasePlatformAdmin({
                             <Button
                               size='sm'
                               variant='ghost'
-                              className='h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-gray-800'
-                              title='Monitor activity'
+                              onClick={() => handleDeleteTenant(tenant)}
+                              disabled={isDeleting && tenantToDelete?.id === tenant.id}
+                              className='h-8 px-3 text-red-400 hover:text-red-300 hover:bg-red-950/30'
+                              title='Delete project'
                             >
-                              <Activity className='h-4 w-4' />
+                              {isDeleting && tenantToDelete?.id === tenant.id ? (
+                                <Activity className='h-4 w-4 animate-spin' />
+                              ) : (
+                                <Trash2 className='h-4 w-4' />
+                              )}
                             </Button>
                           </div>
                         </td>
@@ -534,26 +561,23 @@ export function DatabasePlatformAdmin({
                             {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'Never'}
                           </td>
                           <td className='py-4'>
-                            <Button
-                              size='sm'
-                              variant='ghost'
-                              onClick={() => handleDeleteUser(user)}
-                              disabled={isDeleting && userToDelete?.id === user.id}
-                              className='h-8 px-3 text-red-400 hover:text-red-300 hover:bg-red-950/30'
-                              title='Delete user'
-                            >
-                              {isDeleting && userToDelete?.id === user.id ? (
-                                <>
-                                  <Activity className='h-4 w-4 mr-1 animate-spin' />
-                                  Deleting...
-                                </>
+                            <div className='flex items-center gap-2'>
+                              {(user.role === 'admin' || user.role === 'super_admin') ? (
+                                <Badge variant='outline' className='border-gray-700 text-gray-500'>
+                                  Protected
+                                </Badge>
                               ) : (
-                                <>
-                                  <Trash2 className='h-4 w-4 mr-1' />
-                                  Delete
-                                </>
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  onClick={() => handleUpdateUserRole(user, 'admin')}
+                                  className='h-8 px-3 border-emerald-700 text-emerald-400 hover:bg-emerald-950/30'
+                                  title='Promote to admin'
+                                >
+                                  Promote
+                                </Button>
                               )}
-                            </Button>
+                            </div>
                           </td>
                         </tr>
                       ))

@@ -172,6 +172,61 @@ router.delete('/users/:userId', authMiddleware, adminMiddleware, async (req, res
 });
 
 /**
+ * PATCH /api/v1/admin/users/:userId/role
+ * Update a user's role in Supabase
+ */
+router.patch('/users/:userId/role', authMiddleware, adminMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const { role } = req.body;
+
+  if (!role || !['user', 'admin', 'super_admin'].includes(role)) {
+    return res.status(400).json({
+      error: 'Invalid role',
+      message: 'Role must be one of: user, admin, super_admin',
+    });
+  }
+
+  try {
+    // Update user role in Supabase auth.users metadata
+    const result = await dbPlatform.platformPool.query(
+      `UPDATE auth.users 
+       SET raw_user_meta_data = jsonb_set(
+         COALESCE(raw_user_meta_data, '{}'::jsonb),
+         '{role}',
+         to_jsonb($1::text)
+       ),
+       updated_at = NOW()
+       WHERE id = $2
+       RETURNING email, raw_user_meta_data->>'role' as role`,
+      [role, userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: `User with ID ${userId} does not exist`,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `User role updated to ${role}`,
+      user: {
+        id: userId,
+        email: result.rows[0].email,
+        role: result.rows[0].role,
+      },
+    });
+  } catch (error) {
+    console.error('Update user role error:', error);
+    res.status(500).json({
+      error: 'Failed to update user role',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
  * GET /api/v1/admin/users/:userId
  * Get detailed information about a specific user
  */

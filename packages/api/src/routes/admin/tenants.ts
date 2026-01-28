@@ -78,4 +78,90 @@ router.get('/', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/v1/admin/tenants/:tenantId
+ * Delete a database project (tenant) and cleanup associated resources
+ */
+router.delete('/:tenantId', authMiddleware, adminMiddleware, async (req, res) => {
+  const { tenantId } = req.params;
+  const client = await dbPlatform.platformPool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Get tenant details before deletion
+    const tenantResult = await client.query(
+      'SELECT name, connection_info FROM public.tenants WHERE id = $1',
+      [tenantId]
+    );
+
+    if (tenantResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        error: 'Tenant not found',
+        message: `Tenant with ID ${tenantId} does not exist`,
+      });
+    }
+
+    const tenant = tenantResult.rows[0];
+    const connectionInfo = tenant.connection_info;
+    const dbName = connectionInfo?.database;
+    const dbUser = connectionInfo?.username || connectionInfo?.user;
+
+    // Delete tenant memberships
+    await client.query(
+      'DELETE FROM public.tenant_members WHERE tenant_id = $1',
+      [tenantId]
+    );
+
+    // Delete tenant record
+    await client.query(
+      'DELETE FROM public.tenants WHERE id = $1',
+      [tenantId]
+    );
+
+    // Drop the actual database if it exists
+    if (dbName) {
+      try {
+        // Terminate existing connections to the database
+        await client.query(`
+          SELECT pg_terminate_backend(pg_stat_activity.pid)
+          FROM pg_stat_activity
+          WHERE pg_stat_activity.datname = $1
+          AND pid <> pg_backend_pid()
+        `, [dbName]);
+
+        // Drop the database
+        await client.query(`DROP DATABASE IF EXISTS "${dbName.replace(/"/g, '""')}"`);
+        
+        // Drop the database user/role
+        if (dbUser) {
+          await client.query(`DROP ROLE IF EXISTS "${dbUser.replace(/"/g, '""')}"`);
+        }
+      } catch (dbError) {
+        console.error('Error dropping database:', dbError);
+        // Continue even if database drop fails - metadata is cleaned up
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: `Project "${tenant.name}" deleted successfully`,
+      deletedDatabase: dbName,
+      deletedUser: dbUser,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Delete tenant error:', error);
+    res.status(500).json({
+      error: 'Failed to delete tenant',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;
