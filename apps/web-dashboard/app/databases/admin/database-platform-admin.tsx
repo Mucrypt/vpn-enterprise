@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Card,
@@ -85,6 +85,7 @@ export function DatabasePlatformAdmin({
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCreatingUser, setIsCreatingUser] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [notification, setNotification] = useState<{
     type: 'success' | 'error'
@@ -95,6 +96,60 @@ export function DatabasePlatformAdmin({
     password: '',
     role: 'user' as 'user' | 'admin' | 'super_admin',
   })
+
+  // Auto-fetch users when switching to users tab
+  useEffect(() => {
+    if (activeTab === 'users' && users.length === 0) {
+      refreshUsers()
+    }
+  }, [activeTab])
+
+  const refreshUsers = async () => {
+    setIsRefreshing(true)
+    try {
+      const token = getAuthToken()
+      if (!token) {
+        console.warn('No auth token found, skipping user refresh')
+        return
+      }
+
+      const apiUrl = getApiUrl()
+      console.log('[refreshUsers] Fetching from:', `${apiUrl}/api/v1/admin/users`)
+
+      const response = await fetch(`${apiUrl}/api/v1/admin/users`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      })
+
+      console.log('[refreshUsers] Response status:', response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[refreshUsers] Error response:', errorText)
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+
+      const data = await response.json()
+      console.log('[refreshUsers] Received users:', data.users?.length || 0)
+
+      setUsers(data.users || [])
+      
+      if (data.users && data.users.length > 0) {
+        showNotification('success', `Loaded ${data.users.length} users from Supabase`)
+      }
+    } catch (error) {
+      console.error('Refresh users error:', error)
+      showNotification(
+        'error',
+        `Failed to load users: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      )
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   const filteredTenants = useMemo(() => {
     if (!searchQuery.trim()) return tenants
@@ -716,16 +771,26 @@ export function DatabasePlatformAdmin({
                     Manage user accounts and permissions
                   </CardDescription>
                 </div>
-                <Dialog
-                  open={showCreateDialog}
-                  onOpenChange={setShowCreateDialog}
-                >
-                  <DialogTrigger asChild>
-                    <Button className='bg-emerald-600 hover:bg-emerald-700'>
-                      <UserPlus className='h-4 w-4 mr-2' />
-                      Create User
-                    </Button>
-                  </DialogTrigger>
+                <div className='flex gap-2'>
+                  <Button
+                    variant='outline'
+                    onClick={refreshUsers}
+                    disabled={isRefreshing}
+                    className='border-gray-700 text-gray-300 hover:bg-gray-800'
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                  </Button>
+                  <Dialog
+                    open={showCreateDialog}
+                    onOpenChange={setShowCreateDialog}
+                  >
+                    <DialogTrigger asChild>
+                      <Button className='bg-emerald-600 hover:bg-emerald-700'>
+                        <UserPlus className='h-4 w-4 mr-2' />
+                        Create User
+                      </Button>
+                    </DialogTrigger>
                   <DialogContent className='bg-[#1a1a1a] border-gray-800 text-white'>
                     <DialogHeader>
                       <DialogTitle>Create New User</DialogTitle>
