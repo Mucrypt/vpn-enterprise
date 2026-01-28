@@ -28,6 +28,12 @@ services:
       - REDIS_HOST=vpn-redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+    # NOTE: Docker Compose secrets are sometimes mounted root-only inside containers.
+    # The API image runs as a non-root user, so bind-mount the same secret files to ensure readability.
+    volumes:
+      - ./secrets/db_password:/run/secrets/db_password:ro
+      - ./secrets/redis_password:/run/secrets/redis_password:ro
+      - ./secrets/api_key:/run/secrets/api_key:ro
     secrets:
       - api_key
       - db_password

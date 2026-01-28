@@ -14,6 +14,13 @@ export class DatabasePlatformClient {
       defaultFilePath: '/run/secrets/db_password',
     })
 
+    if (!postgresPassword) {
+      console.warn(
+        '[DatabasePlatformClient] POSTGRES password not resolved. ' +
+          'Ensure POSTGRES_PASSWORD or POSTGRES_PASSWORD_FILE is set and readable (e.g. /run/secrets/db_password).',
+      )
+    }
+
     const config = {
       host: process.env.POSTGRES_HOST || 'postgres-primary',
       port: parseInt(process.env.POSTGRES_PORT || '5432'),
