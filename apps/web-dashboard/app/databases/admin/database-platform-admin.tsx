@@ -256,10 +256,23 @@ export function DatabasePlatformAdmin({
     const windowOrigin =
       typeof window !== 'undefined' ? window.location.origin : ''
 
+    console.log('[getApiUrl] envUrl:', envUrl)
+    console.log('[getApiUrl] windowOrigin:', windowOrigin)
+
     // In production, use same origin (handled by nginx)
     // In development, use explicit API URL or localhost:5000
-    if (envUrl) return envUrl
-    if (windowOrigin.includes('chatbuilds.com')) return windowOrigin
+    if (envUrl) {
+      console.log('[getApiUrl] Using envUrl:', envUrl)
+      return envUrl
+    }
+    
+    // If we're not on localhost, use the current origin (production)
+    if (windowOrigin && !windowOrigin.includes('localhost')) {
+      console.log('[getApiUrl] Using windowOrigin:', windowOrigin)
+      return windowOrigin
+    }
+    
+    console.log('[getApiUrl] Falling back to localhost:5000')
     return 'http://localhost:5000'
   }
 
