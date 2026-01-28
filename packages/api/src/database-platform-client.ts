@@ -4,6 +4,7 @@ import { resolveSecret } from './utils/secrets'
 export class DatabasePlatformClient {
   private pgPool: Pool
   public tenantConnections: Map<string, Pool> = new Map()
+  private platformSchemaEnsured = false
 
   constructor() {
     // Main platform database connection
@@ -30,6 +31,36 @@ export class DatabasePlatformClient {
     })
 
     this.pgPool = new Pool(config)
+
+    // Best-effort bootstrap for platform tables required by the API.
+    // This is intentionally idempotent (CREATE IF NOT EXISTS) to support
+    // self-host deployments where migrations may not be run separately.
+    this.ensurePlatformSchema().catch((e) => {
+      console.warn('[DatabasePlatformClient] ensurePlatformSchema failed:', e)
+    })
+  }
+
+  private async ensurePlatformSchema(): Promise<void> {
+    if (this.platformSchemaEnsured) return
+    this.platformSchemaEnsured = true
+
+    const client = await this.pgPool.connect()
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS tenant_members (
+          tenant_id uuid NOT NULL,
+          user_id uuid NOT NULL,
+          role text NOT NULL DEFAULT 'viewer',
+          created_at timestamptz NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (tenant_id, user_id)
+        );
+      `)
+      await client.query(
+        'CREATE INDEX IF NOT EXISTS tenant_members_user_idx ON tenant_members (user_id);',
+      )
+    } finally {
+      client.release()
+    }
   }
 
   async clearCache(): Promise<void> {
@@ -53,33 +84,38 @@ export class DatabasePlatformClient {
     console.log('[DatabasePlatformClient] Connection cache cleared')
   }
 
-  async getTenantConnection(tenantId: string): Promise<Pool> {
+  async getTenantConnection(
+    tenantId: string,
+    mode: 'ro' | 'rw' = 'rw',
+  ): Promise<Pool> {
     console.log(
       '🔍 [DatabasePlatformClient] getTenantConnection called for tenant:',
       tenantId,
     )
 
+    const cacheKey = `${tenantId}:${mode}`
+
     // Check if we already have a valid connection
-    if (this.tenantConnections.has(tenantId)) {
-      const existingPool = this.tenantConnections.get(tenantId)!
+    if (this.tenantConnections.has(cacheKey)) {
+      const existingPool = this.tenantConnections.get(cacheKey)!
       if (!existingPool.ended) {
         console.log(
           '[DatabasePlatformClient] Reusing existing connection for tenant:',
-          tenantId,
+          cacheKey,
         )
         return existingPool
       } else {
         // Remove ended pool from cache
         console.log(
           '[DatabasePlatformClient] Removing ended connection for tenant:',
-          tenantId,
+          cacheKey,
         )
-        this.tenantConnections.delete(tenantId)
+        this.tenantConnections.delete(cacheKey)
       }
     }
 
-    if (this.tenantConnections.has(tenantId)) {
-      return this.tenantConnections.get(tenantId)!
+    if (this.tenantConnections.has(cacheKey)) {
+      return this.tenantConnections.get(cacheKey)!
     }
 
     // Resolve a default password for tenant connections via env/secrets.
@@ -101,6 +137,35 @@ export class DatabasePlatformClient {
       }
 
       const connectionInfo = result.rows[0].connection_info
+
+      const resolveCred = (
+        info: any,
+        desired: 'ro' | 'rw',
+      ): { user?: string; password?: string } => {
+        const candidateUserKeys =
+          desired === 'ro'
+            ? ['ro_user', 'ro_username', 'username_ro', 'user_ro']
+            : ['rw_user', 'rw_username', 'username_rw', 'user_rw']
+        const candidatePassKeys =
+          desired === 'ro'
+            ? ['ro_password', 'password_ro', 'pass_ro']
+            : ['rw_password', 'password_rw', 'pass_rw']
+
+        const user =
+          candidateUserKeys.map((k) => info?.[k]).find(Boolean) ||
+          info?.user ||
+          info?.username
+        const password =
+          candidatePassKeys.map((k) => info?.[k]).find(Boolean) ||
+          info?.password
+        return { user, password }
+      }
+
+      const { user: chosenUser, password: chosenPassword } = resolveCred(
+        connectionInfo,
+        mode,
+      )
+
       const tenantConfig = {
         host:
           connectionInfo.host ||
@@ -109,12 +174,8 @@ export class DatabasePlatformClient {
         port: Number(connectionInfo.port || process.env.POSTGRES_PORT || 5432),
         database:
           connectionInfo.database || process.env.POSTGRES_DB || 'platform_db',
-        user:
-          connectionInfo.user ||
-          connectionInfo.username ||
-          process.env.POSTGRES_USER ||
-          'platform_admin',
-        password: connectionInfo.password || defaultTenantPassword,
+        user: chosenUser || process.env.POSTGRES_USER || 'platform_admin',
+        password: chosenPassword || defaultTenantPassword,
         max: 10,
       }
 
@@ -173,7 +234,7 @@ export class DatabasePlatformClient {
         throw error
       }
 
-      this.tenantConnections.set(tenantId, tenantPool)
+      this.tenantConnections.set(cacheKey, tenantPool)
       return tenantPool
     } finally {
       client.release()
@@ -184,10 +245,17 @@ export class DatabasePlatformClient {
     tenantId: string,
     sql: string,
     params: any[] = [],
+    mode: 'ro' | 'rw' = 'rw',
   ): Promise<any> {
-    const pool = await this.getTenantConnection(tenantId)
+    const pool = await this.getTenantConnection(tenantId, mode)
     const client = await pool.connect()
     try {
+      // Defensive per-request session timeouts (tiering can be added later).
+      // Use SET (not SET LOCAL) so it works without wrapping in an explicit transaction.
+      await client.query("SET statement_timeout TO '15000ms'")
+      await client.query("SET lock_timeout TO '3000ms'")
+      await client.query("SET idle_in_transaction_session_timeout TO '15000ms'")
+
       const startTime = Date.now()
       const result = await client.query(sql, params)
       const executionTime = Date.now() - startTime
@@ -202,11 +270,19 @@ export class DatabasePlatformClient {
         })),
       }
     } finally {
+      // Reset timeouts to avoid leaking config across pooled sessions.
+      try {
+        await client.query('RESET statement_timeout')
+        await client.query('RESET lock_timeout')
+        await client.query('RESET idle_in_transaction_session_timeout')
+      } catch (_) {
+        // ignore
+      }
       client.release()
     }
   }
 
-  async getSchemas(tenantId: string): Promise<any[]> {
+  async getSchemas(tenantId: string, mode: 'ro' | 'rw' = 'ro'): Promise<any[]> {
     const result = await this.executeQuery(
       tenantId,
       `
@@ -215,6 +291,8 @@ export class DatabasePlatformClient {
       WHERE schema_name NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
       ORDER BY schema_name
     `,
+      [],
+      mode,
     )
     return result.data
   }
@@ -222,6 +300,7 @@ export class DatabasePlatformClient {
   async getTables(
     tenantId: string,
     schemaName: string = 'public',
+    mode: 'ro' | 'rw' = 'ro',
   ): Promise<any[]> {
     console.log(
       `[DatabasePlatformClient] getTables called for tenant: ${tenantId}, schema: ${schemaName}`,
@@ -249,6 +328,7 @@ export class DatabasePlatformClient {
         ORDER BY t.table_name
       `,
         [schemaName],
+        mode,
       )
 
       console.log(
@@ -273,6 +353,7 @@ export class DatabasePlatformClient {
     tenantId: string,
     schemaName: string,
     tableName: string,
+    mode: 'ro' | 'rw' = 'ro',
   ): Promise<any[]> {
     const result = await this.executeQuery(
       tenantId,
@@ -299,6 +380,7 @@ export class DatabasePlatformClient {
       ORDER BY c.ordinal_position
     `,
       [schemaName, tableName],
+      mode,
     )
     return result.data
   }
@@ -307,6 +389,8 @@ export class DatabasePlatformClient {
     await this.executeQuery(
       tenantId,
       `CREATE SCHEMA IF NOT EXISTS "${schemaName}"`,
+      [],
+      'rw',
     )
   }
 
@@ -327,7 +411,7 @@ export class DatabasePlatformClient {
       .join(', ')
 
     const sql = `CREATE TABLE "${schemaName}"."${tableName}" (${columnDefs})`
-    await this.executeQuery(tenantId, sql)
+    await this.executeQuery(tenantId, sql, [], 'rw')
   }
 
   async getTenants(userId?: string): Promise<any[]> {

@@ -315,6 +315,18 @@ CREATE TABLE IF NOT EXISTS tenants (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Tenant membership table (control-plane) used by the API to authorize access.
+-- User ids are Supabase auth user UUIDs.
+CREATE TABLE IF NOT EXISTS tenant_members (
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'viewer',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (tenant_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS tenant_members_user_idx ON tenant_members(user_id);
+
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM tenants WHERE id = '123e4567-e89b-12d3-a456-426614174000') THEN

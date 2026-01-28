@@ -109,10 +109,23 @@ SELECT * FROM blog.posts LIMIT 5;
   const loadTenants = useCallback(async () => {
     try {
       setTenantsError(null)
-      const response = await fetch('/api/v1/tenants', {
-        credentials: 'include',
-      })
-      if (response.ok) {
+      // Prefer membership-based tenants list (works for normal users).
+      // Fallback to admin-only /tenants for operator consoles.
+      const endpoints = ['/api/v1/tenants/me', '/api/v1/tenants']
+      let lastError: { status?: number; message?: string } | null = null
+
+      for (const endpoint of endpoints) {
+        const response = await fetch(endpoint, { credentials: 'include' })
+        if (!response.ok) {
+          let details = ''
+          try {
+            const j = await response.json()
+            details = j?.message || j?.error || ''
+          } catch {}
+          lastError = { status: response.status, message: details }
+          continue
+        }
+
         const data = await response.json()
         const tenantList = data.tenants || data.data || []
         setTenants(tenantList)
@@ -126,15 +139,21 @@ SELECT * FROM blog.posts LIMIT 5;
           setActiveTenant('')
           setTenantsError('No tenants found for your account.')
         }
-      } else {
-        let details = ''
-        try {
-          const j = await response.json()
-          details = j?.message || j?.error || ''
-        } catch {}
-        setActiveTenant('')
+        return
+      }
+
+      setActiveTenant('')
+      const status = lastError?.status
+      const details = lastError?.message
+      if (status === 401) {
+        setTenantsError('Please sign in to access databases.')
+      } else if (status === 403) {
         setTenantsError(
-          `Failed to load tenants (HTTP ${response.status}).${details ? ` ${details}` : ''}`,
+          'Access denied. Ask an admin to add you to a tenant project.',
+        )
+      } else {
+        setTenantsError(
+          `Failed to load tenants${status ? ` (HTTP ${status})` : ''}.${details ? ` ${details}` : ''}`,
         )
       }
     } catch (error) {
@@ -153,6 +172,7 @@ SELECT * FROM blog.posts LIMIT 5;
       const response = await fetch(`/api/v1/tenants/${activeTenant}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           sql: "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast');",
         }),
@@ -225,6 +245,7 @@ SELECT * FROM blog.posts LIMIT 5;
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           sql: queryToRun,
           timeout: 30000, // 30 second timeout
@@ -237,9 +258,22 @@ SELECT * FROM blog.posts LIMIT 5;
       setExecutionTime(duration)
 
       if (!response.ok) {
-        const json = await response.json()
+        let json: any = null
+        try {
+          json = await response.json()
+        } catch {}
+
+        if (response.status === 401) {
+          throw new Error('Not authenticated. Please sign in again.')
+        }
+        if (response.status === 403) {
+          throw new Error(
+            'Forbidden. You are not a member of this tenant or lack permissions.',
+          )
+        }
+
         throw new Error(
-          json.error || `HTTP ${response.status}: ${response.statusText}`,
+          json?.error || `HTTP ${response.status}: ${response.statusText}`,
         )
       }
 

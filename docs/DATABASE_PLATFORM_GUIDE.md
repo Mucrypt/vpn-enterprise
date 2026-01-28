@@ -16,18 +16,19 @@ Complete guide for running the Database-as-a-Service platform with PostgreSQL, p
 
 After starting the platform, access these services:
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| **Web Dashboard** | http://localhost:3001 | SQL Editor & Management UI |
-| **Database Platform API** | http://localhost:3002 | REST API for database operations |
-| **pgAdmin** | http://localhost:8081 | Professional PostgreSQL admin tool |
-| **PostgreSQL Primary** | localhost:5433 | Direct database connection |
-| **PostgreSQL Replica** | Internal only | Read-only replica |
-| **PgBouncer** | Internal only | Connection pooler |
+| Service                   | URL                   | Purpose                            |
+| ------------------------- | --------------------- | ---------------------------------- |
+| **Web Dashboard**         | http://localhost:3001 | SQL Editor & Management UI         |
+| **Database Platform API** | http://localhost:3002 | REST API for database operations   |
+| **pgAdmin**               | http://localhost:8081 | Professional PostgreSQL admin tool |
+| **PostgreSQL Primary**    | localhost:5433        | Direct database connection         |
+| **PostgreSQL Replica**    | Internal only         | Read-only replica                  |
+| **PgBouncer**             | Internal only         | Connection pooler                  |
 
 ## 🔑 Default Credentials
 
 ### PostgreSQL Database
+
 - **Host**: localhost
 - **Port**: 5433 (external) / 5432 (internal)
 - **Database**: postgres
@@ -35,11 +36,13 @@ After starting the platform, access these services:
 - **Password**: Set in `.env` as `POSTGRES_PASSWORD`
 
 ### pgAdmin Web Interface
+
 - **URL**: http://localhost:8081
 - **Email**: admin@platform.com (or `PGADMIN_EMAIL` from `.env`)
 - **Password**: admin (or `PGADMIN_PASSWORD` from `.env`)
 
 ### Pre-configured PostgreSQL Connections in pgAdmin
+
 1. **Primary Database** - Direct connection to main PostgreSQL
 2. **Replica Database** - Read-only replica for load distribution
 3. **via PgBouncer** - Connection through the pooler
@@ -76,22 +79,26 @@ After starting the platform, access these services:
 ## 🛠️ Service Details
 
 ### 1. PostgreSQL Primary
+
 - Full read/write database
 - Port: 5433 (external access)
 - Data persistence: `postgres-primary-data` volume
 - Configuration: `infrastructure/docker/postgres/postgresql.conf`
 
 ### 2. PostgreSQL Replica
+
 - Read-only copy of primary
 - Automatically synced via streaming replication
 - Used for load distribution
 
 ### 3. PgBouncer
+
 - Connection pooling layer
 - Reduces database connection overhead
 - Pool modes: transaction, session, statement
 
 ### 4. pgAdmin
+
 - Professional PostgreSQL management tool
 - Visual query builder
 - Schema design tools
@@ -99,17 +106,20 @@ After starting the platform, access these services:
 - Port: 8081 (no conflict with NexusAI on 8080)
 
 ### 5. Database Platform API
+
 - RESTful API for database operations
 - Port: 3002
 - Health check: http://localhost:3002/health
 
 ### 6. Web Dashboard
+
 - Custom SQL Editor with syntax highlighting
 - Database schema browser
 - Table management
 - Real-time query execution
 
 ### 7. Redis
+
 - Session storage
 - Query result caching
 - Job queue management
@@ -141,13 +151,13 @@ REDIS_PORT=6379
 
 ### Port Configuration
 
-| Port | Service | Can Change? |
-|------|---------|------------|
-| 3001 | Web Dashboard | ✅ Yes |
-| 3002 | API Server | ✅ Yes |
-| 5433 | PostgreSQL | ✅ Yes (change to avoid conflicts) |
-| 8081 | pgAdmin | ✅ Yes (currently avoids 8080 conflict) |
-| 6379 | Redis | ✅ Yes |
+| Port | Service       | Can Change?                             |
+| ---- | ------------- | --------------------------------------- |
+| 3001 | Web Dashboard | ✅ Yes                                  |
+| 3002 | API Server    | ✅ Yes                                  |
+| 5433 | PostgreSQL    | ✅ Yes (change to avoid conflicts)      |
+| 8081 | pgAdmin       | ✅ Yes (currently avoids 8080 conflict) |
+| 6379 | Redis         | ✅ Yes                                  |
 
 **Port Conflict Resolution**: pgAdmin is on port 8081 to avoid conflict with NexusAI (port 8080) and N8N (port 5678).
 
@@ -195,14 +205,38 @@ curl -X POST http://localhost:3002/api/v1/query \
   -d '{"query": "SELECT version();"}'
 ```
 
+## 🔐 Tenant Access (Production)
+
+In production, all tenant-scoped endpoints under `/api/v1/tenants/:tenantId/*` enforce:
+
+- Authentication (Supabase JWT via cookies or `Authorization: Bearer ...`)
+- Tenant membership (platform DB table `tenant_members`)
+- Role-based access (`viewer` read-only, `editor` for writes)
+
+Useful endpoints:
+
+- `GET /api/v1/tenants/me` — list tenants for the currently authenticated user (reads from platform DB `tenant_members`)
+- `GET /api/v1/tenants/:tenantId/*` — tenant-scoped operations (schemas/tables/query/etc) with membership enforcement
+
+### Bootstrapping membership
+
+On a fresh self-host install, you can grant access by inserting rows into `tenant_members` in `platform_db`.
+
+Operator-only API endpoints (require global admin):
+
+- `GET /api/v1/tenants/:tenantId/members`
+- `POST /api/v1/tenants/:tenantId/members` with JSON: `{ "userId": "<supabase-user-uuid>", "role": "viewer|editor|admin|owner" }`
+
 ## 🔍 Monitoring & Logs
 
 ### View All Logs
+
 ```bash
 docker compose -f infrastructure/docker/docker-compose.database-platform.yml logs -f
 ```
 
 ### View Specific Service Logs
+
 ```bash
 # PostgreSQL Primary
 docker logs dbplatform-postgres-primary -f
@@ -218,6 +252,7 @@ docker logs dbplatform-web -f
 ```
 
 ### Check Service Status
+
 ```bash
 docker compose -f infrastructure/docker/docker-compose.database-platform.yml ps
 ```
@@ -285,6 +320,7 @@ docker compose -f infrastructure/docker/docker-compose.database-platform.yml up 
 ### Additional Steps for Production
 
 1. **SSL/TLS Configuration**
+
    ```bash
    # Add SSL certificates
    cp your-cert.crt infrastructure/docker/nginx/ssl/
@@ -292,10 +328,11 @@ docker compose -f infrastructure/docker/docker-compose.database-platform.yml up 
    ```
 
 2. **Database Backups**
+
    ```bash
    # Manual backup
    docker exec dbplatform-postgres-primary pg_dump -U postgres postgres > backup.sql
-   
+
    # Restore
    docker exec -i dbplatform-postgres-primary psql -U postgres postgres < backup.sql
    ```
@@ -318,6 +355,7 @@ docker compose -f infrastructure/docker/docker-compose.database-platform.yml up 
 ## 🆘 Support
 
 For issues or questions:
+
 1. Check logs: `docker compose logs -f`
 2. Review configuration files in `infrastructure/docker/`
 3. Check network connectivity between containers

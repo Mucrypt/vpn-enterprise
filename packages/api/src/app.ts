@@ -30,7 +30,6 @@ import { AuditRepository, SecurityRepository } from '@vpn-enterprise/database'
 import { DatabasePlatformClient } from './database-platform-client'
 import { hostingRouter } from './routes/hosting'
 import { tenantsRouter } from './routes/tenants'
-import { UnifiedDataAPI } from './unified-data-api'
 import { ApolloServer, gql } from 'apollo-server-express'
 import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
@@ -269,17 +268,9 @@ app.use('/api/v1/hosting', hostingRouter)
 // Tenants routes (scaffold)
 app.use('/api/v1/tenants', tenantsRouter)
 
-// Unified Data API (scaffold initialization)
-try {
-  const unified = new UnifiedDataAPI(app, dbPlatform)
-  unified.initialize()
-  console.log('[INIT] UnifiedDataAPI initialized')
-} catch (e) {
-  console.warn(
-    '[INIT] UnifiedDataAPI failed to initialize:',
-    (e as any)?.message || e,
-  )
-}
+// NOTE: UnifiedDataAPI routes are intentionally not mounted here.
+// The production tenant API surface is consolidated under `routes/tenants.ts`
+// with strict auth + tenant membership enforcement.
 
 /*
 // GraphQL basic schema (placeholder) and server
