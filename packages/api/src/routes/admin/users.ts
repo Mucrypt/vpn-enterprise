@@ -9,9 +9,22 @@
 import { Router } from 'express'
 import { authMiddleware } from '@vpn-enterprise/auth'
 import { DatabasePlatformClient } from '../../database-platform-client'
+import { createClient } from '@supabase/supabase-js'
 
 const router = Router()
 const dbPlatform = new DatabasePlatformClient()
+
+// Initialize Supabase Admin client for auth.users access
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
+)
 
 // Admin middleware - checks if user has admin role
 const adminMiddleware = async (req: any, res: any, next: any) => {
@@ -38,24 +51,41 @@ const adminMiddleware = async (req: any, res: any, next: any) => {
  */
 router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    // Query users from auth.users table
-    const usersResult = await dbPlatform.platformPool.query(`
-      SELECT 
-        u.id,
-        u.email,
-        u.created_at,
-        u.last_sign_in_at,
-        u.raw_user_meta_data->>'role' as role,
-        COUNT(DISTINCT tm.tenant_id) as tenant_count
-      FROM auth.users u
-      LEFT JOIN public.tenant_members tm ON u.id::text = tm.user_id
-      GROUP BY u.id, u.email, u.created_at, u.last_sign_in_at, u.raw_user_meta_data
-      ORDER BY u.created_at DESC
-    `)
+    // Use Supabase Admin API to list users
+    const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers()
+
+    if (usersError) {
+      console.error('Supabase listUsers error:', usersError)
+      return res.status(500).json({
+        error: 'Failed to fetch users',
+        message: usersError.message,
+      })
+    }
+
+    // Get tenant counts for each user
+    const usersWithTenants = await Promise.all(
+      usersData.users.map(async (user) => {
+        const tenantResult = await dbPlatform.platformPool.query(
+          `SELECT COUNT(*) as tenant_count 
+           FROM public.tenant_members 
+           WHERE user_id = $1`,
+          [user.id]
+        )
+        
+        return {
+          id: user.id,
+          email: user.email,
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at,
+          role: user.user_metadata?.role || 'user',
+          tenant_count: parseInt(tenantResult.rows[0]?.tenant_count || '0'),
+        }
+      })
+    )
 
     res.json({
-      users: usersResult.rows,
-      total: usersResult.rowCount || 0,
+      users: usersWithTenants,
+      total: usersData.users.length,
     })
   } catch (error) {
     console.error('Get users error:', error)
@@ -96,54 +126,41 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
   }
 
   try {
-    // Check if user already exists
-    const existingUser = await dbPlatform.platformPool.query(
-      'SELECT id FROM auth.users WHERE email = $1',
-      [email],
-    )
+    // Use Supabase Admin API to create user
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        role,
+      },
+    })
 
-    if (existingUser.rowCount && existingUser.rowCount > 0) {
-      return res.status(409).json({
-        error: 'User already exists',
-        message: `A user with email ${email} already exists`,
+    if (error) {
+      console.error('Supabase createUser error:', error)
+      
+      if (error.message.includes('already been registered')) {
+        return res.status(409).json({
+          error: 'User already exists',
+          message: `A user with email ${email} already exists`,
+        })
+      }
+      
+      return res.status(500).json({
+        error: 'Failed to create user',
+        message: error.message,
       })
     }
-
-    // Create user in Supabase auth.users
-    // Note: In production Supabase, you'd use the Admin SDK
-    // For self-hosted, we insert directly into auth.users
-    const result = await dbPlatform.platformPool.query(
-      `INSERT INTO auth.users (
-        instance_id,
-        id,
-        aud,
-        role,
-        email,
-        encrypted_password,
-        email_confirmed_at,
-        raw_user_meta_data,
-        created_at,
-        updated_at
-      ) VALUES (
-        '00000000-0000-0000-0000-000000000000',
-        gen_random_uuid(),
-        'authenticated',
-        'authenticated',
-        $1,
-        crypt($2, gen_salt('bf')),
-        NOW(),
-        jsonb_build_object('role', $3),
-        NOW(),
-        NOW()
-      )
-      RETURNING id, email, created_at, raw_user_meta_data->>'role' as role`,
-      [email, password, role],
-    )
 
     res.status(201).json({
       success: true,
       message: `User ${email} created successfully`,
-      user: result.rows[0],
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        created_at: data.user.created_at,
+        role,
+      },
     })
   } catch (error) {
     console.error('Create user error:', error)
@@ -169,13 +186,10 @@ router.delete(
     try {
       await client.query('BEGIN')
 
-      // Get user details before deletion
-      const userResult = await client.query(
-        'SELECT email FROM auth.users WHERE id = $1',
-        [userId],
-      )
+      // Get user details from Supabase Admin API
+      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId)
 
-      if (userResult.rowCount === 0) {
+      if (userError || !userData?.user) {
         await client.query('ROLLBACK')
         return res.status(404).json({
           error: 'User not found',
@@ -183,15 +197,10 @@ router.delete(
         })
       }
 
-      const userEmail = userResult.rows[0].email
+      const userEmail = userData.user.email
+      const userRole = userData.user.user_metadata?.role
 
       // Prevent deletion of admin users
-      const adminCheck = await client.query(
-        `SELECT raw_user_meta_data->>'role' as role FROM auth.users WHERE id = $1`,
-        [userId],
-      )
-
-      const userRole = adminCheck.rows[0]?.role
       if (userRole === 'admin' || userRole === 'super_admin') {
         await client.query('ROLLBACK')
         return res.status(403).json({
@@ -202,7 +211,7 @@ router.delete(
 
       // Find tenants owned by this user
       const tenantsResult = await client.query(
-        `SELECT t.id, t.name, t.db_name
+        `SELECT t.id, t.name
        FROM public.tenants t
        JOIN public.tenant_members tm ON t.id = tm.tenant_id
        WHERE tm.user_id = $1 AND tm.role = 'owner'`,
@@ -236,8 +245,17 @@ router.delete(
         }
       }
 
-      // Delete user from auth.users
-      await client.query('DELETE FROM auth.users WHERE id = $1', [userId])
+      // Delete user from Supabase using Admin API
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+
+      if (deleteError) {
+        await client.query('ROLLBACK')
+        console.error('Supabase deleteUser error:', deleteError)
+        return res.status(500).json({
+          error: 'Failed to delete user',
+          message: deleteError.message,
+        })
+      }
 
       await client.query('COMMIT')
 
@@ -248,7 +266,6 @@ router.delete(
         orphanedTenants: ownedTenants.map((t: any) => ({
           id: t.id,
           name: t.name,
-          db_name: t.db_name,
         })),
       })
     } catch (error) {

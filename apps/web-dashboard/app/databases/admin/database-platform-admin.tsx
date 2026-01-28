@@ -270,7 +270,10 @@ export function DatabasePlatformAdmin({
 
       // For production deployments, always use same-origin
       if (!isLocalhost) {
-        console.log('[getApiUrl] Production mode, using same-origin:', windowOrigin)
+        console.log(
+          '[getApiUrl] Production mode, using same-origin:',
+          windowOrigin,
+        )
         return windowOrigin
       }
     }
