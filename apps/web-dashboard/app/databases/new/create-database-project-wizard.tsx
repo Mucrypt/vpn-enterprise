@@ -569,7 +569,10 @@ export function CreateDatabaseProjectWizard({
                 <Button
                   type='button'
                   className='bg-emerald-600 hover:bg-emerald-700 text-white'
-                  onClick={() => router.push(returnTo)}
+                  onClick={() => {
+                    // Force hard navigation to refresh server component and fetch new tenant list
+                    window.location.href = '/databases'
+                  }}
                 >
                   Go to database
                 </Button>
