@@ -251,7 +251,7 @@ export function DatabasePlatformAdmin({
   }
 
   const getApiUrl = () => {
-    // Try multiple sources for API URL
+    // Match logic from /lib/api.ts to ensure consistency
     const envUrl = process.env.NEXT_PUBLIC_API_URL
     const windowOrigin =
       typeof window !== 'undefined' ? window.location.origin : ''
@@ -259,19 +259,29 @@ export function DatabasePlatformAdmin({
     console.log('[getApiUrl] envUrl:', envUrl)
     console.log('[getApiUrl] windowOrigin:', windowOrigin)
 
-    // In production, use same origin (handled by nginx)
-    // In development, use explicit API URL or localhost:5000
-    if (envUrl) {
-      console.log('[getApiUrl] Using envUrl:', envUrl)
-      return envUrl
+    // If we're on production (not localhost), use same-origin (nginx proxy)
+    // This is critical for httpOnly cookies and auth to work
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname
+      const isLocalhost =
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '::1'
+
+      // For production deployments, always use same-origin
+      if (!isLocalhost) {
+        console.log('[getApiUrl] Production mode, using same-origin:', windowOrigin)
+        return windowOrigin
+      }
     }
-    
-    // If we're not on localhost, use the current origin (production)
-    if (windowOrigin && !windowOrigin.includes('localhost')) {
-      console.log('[getApiUrl] Using windowOrigin:', windowOrigin)
-      return windowOrigin
+
+    // For local development, prefer env var if set
+    if (envUrl && envUrl.trim()) {
+      console.log('[getApiUrl] Dev mode, using envUrl:', envUrl)
+      return envUrl.trim()
     }
-    
+
+    // Fallback for local dev
     console.log('[getApiUrl] Falling back to localhost:5000')
     return 'http://localhost:5000'
   }
