@@ -10,7 +10,12 @@ async function getAllTenants() {
       .map((c) => `${c.name}=${c.value}`)
       .join('; ')
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+    const apiUrl =
+      process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      (process.env.NODE_ENV === 'production'
+        ? 'http://api:5000'
+        : 'http://localhost:5000')
 
     const response = await fetch(`${apiUrl}/api/v1/tenants`, {
       headers: {

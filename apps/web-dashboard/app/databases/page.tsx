@@ -16,7 +16,14 @@ async function getTenants() {
       .map((c) => `${c.name}=${c.value}`)
       .join('; ')
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+    // For server-side requests, use internal Docker service URL in production
+    // or localhost in development
+    const apiUrl =
+      process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      (process.env.NODE_ENV === 'production'
+        ? 'http://api:5000'
+        : 'http://localhost:5000')
 
     // Regular users: only fetch their tenants
     const response = await fetch(`${apiUrl}/api/v1/tenants/me`, {
