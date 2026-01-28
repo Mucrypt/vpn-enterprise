@@ -23,7 +23,7 @@ const supabaseAdmin = createClient(
       autoRefreshToken: false,
       persistSession: false,
     },
-  }
+  },
 )
 
 // Admin middleware - checks if user has admin role
@@ -52,7 +52,8 @@ const adminMiddleware = async (req: any, res: any, next: any) => {
 router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     // Use Supabase Admin API to list users
-    const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers()
+    const { data: usersData, error: usersError } =
+      await supabaseAdmin.auth.admin.listUsers()
 
     if (usersError) {
       console.error('Supabase listUsers error:', usersError)
@@ -69,9 +70,9 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
           `SELECT COUNT(*) as tenant_count 
            FROM public.tenant_members 
            WHERE user_id = $1`,
-          [user.id]
+          [user.id],
         )
-        
+
         return {
           id: user.id,
           email: user.email,
@@ -80,7 +81,7 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
           role: user.user_metadata?.role || 'user',
           tenant_count: parseInt(tenantResult.rows[0]?.tenant_count || '0'),
         }
-      })
+      }),
     )
 
     res.json({
@@ -138,14 +139,14 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
 
     if (error) {
       console.error('Supabase createUser error:', error)
-      
+
       if (error.message.includes('already been registered')) {
         return res.status(409).json({
           error: 'User already exists',
           message: `A user with email ${email} already exists`,
         })
       }
-      
+
       return res.status(500).json({
         error: 'Failed to create user',
         message: error.message,
@@ -187,7 +188,8 @@ router.delete(
       await client.query('BEGIN')
 
       // Get user details from Supabase Admin API
-      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId)
+      const { data: userData, error: userError } =
+        await supabaseAdmin.auth.admin.getUserById(userId)
 
       if (userError || !userData?.user) {
         await client.query('ROLLBACK')
@@ -246,7 +248,8 @@ router.delete(
       }
 
       // Delete user from Supabase using Admin API
-      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      const { error: deleteError } =
+        await supabaseAdmin.auth.admin.deleteUser(userId)
 
       if (deleteError) {
         await client.query('ROLLBACK')
