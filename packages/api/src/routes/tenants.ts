@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { tenantUuidGuard } from './tenants/guards'
 import { registerTenantsRootRoutes } from './tenants/root'
 import { registerTenantAssociationRoutes } from './tenants/associations'
+import { registerTenantSelfProvisionRoutes } from './tenants/self'
 import { registerTenantMemberBootstrapRoutes } from './tenants/members'
 import { registerTenantDatabaseRoutes } from './tenants/databases'
 import { registerTenantTableDataRoutes } from './tenants/table-data'
@@ -14,6 +15,7 @@ export const tenantsRouter = Router()
 
 registerTenantsRootRoutes(tenantsRouter)
 registerTenantAssociationRoutes(tenantsRouter)
+registerTenantSelfProvisionRoutes(tenantsRouter)
 registerTenantMemberBootstrapRoutes(tenantsRouter)
 
 // Apply auth + tenant membership checks to any UUID tenant route.

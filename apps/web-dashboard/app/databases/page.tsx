@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import type { DatabaseSection } from '@/components/database/database-layout'
 // Import lightweight editor directly - no lazy loading needed for fast component
 import { SqlEditorPageLight } from '@/components/database/sql-editor-page-light'
+import { CreateFirstProjectDialog } from '@/components/database/create-first-project-dialog'
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
@@ -77,6 +78,8 @@ export default function DatabasePage() {
   const [tenants, setTenants] = useState<any[]>([])
   const [activeTenant, setActiveTenant] = useState<string>('')
   const [tenantsError, setTenantsError] = useState<string | null>(null)
+  const [canCreateProject, setCanCreateProject] = useState(false)
+  const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false)
   const [activeSection, setActiveSection] =
     useState<DatabaseSection>('sql-editor')
   const [showSampleDataBanner, setShowSampleDataBanner] = useState(false)
@@ -109,10 +112,12 @@ SELECT * FROM blog.posts LIMIT 5;
   const loadTenants = useCallback(async () => {
     try {
       setTenantsError(null)
+      setCanCreateProject(false)
       // Prefer membership-based tenants list (works for normal users).
       // Fallback to admin-only /tenants for operator consoles.
       const endpoints = ['/api/v1/tenants/me', '/api/v1/tenants']
       let lastError: { status?: number; message?: string } | null = null
+      let membershipListWasEmpty = false
 
       for (const endpoint of endpoints) {
         const response = await fetch(endpoint, { credentials: 'include' })
@@ -132,6 +137,7 @@ SELECT * FROM blog.posts LIMIT 5;
         // If the membership endpoint returns an empty list, try the admin endpoint next.
         // This helps initial self-host setups where tenant_members isn't populated yet.
         if (endpoint === '/api/v1/tenants/me' && tenantList.length === 0) {
+          membershipListWasEmpty = true
           continue
         }
 
@@ -152,6 +158,17 @@ SELECT * FROM blog.posts LIMIT 5;
       setActiveTenant('')
       const status = lastError?.status
       const details = lastError?.message
+
+      // If we successfully authenticated and got an empty membership list, that's the primary issue.
+      // Avoid surfacing the admin-only fallback's 403 as the root cause for normal users.
+      if (membershipListWasEmpty) {
+        setCanCreateProject(true)
+        setTenantsError(
+          'No projects yet. Create your first project to start using the database editor.',
+        )
+        return
+      }
+
       if (status === 401) {
         setTenantsError('Please sign in to access databases.')
       } else if (status === 403) {
@@ -169,6 +186,10 @@ SELECT * FROM blog.posts LIMIT 5;
       setTenantsError('Unable to reach the API to load tenants.')
     }
   }, [])
+
+  const onProjectCreated = useCallback(async () => {
+    await loadTenants()
+  }, [loadTenants])
 
   // Check for existing data when tenant changes - define before use
   const checkForExistingData = useCallback(async () => {
@@ -693,25 +714,55 @@ SELECT * FROM blog.posts LIMIT 5;
           setActiveSection('sql-editor')
         }}
       >
+        <CreateFirstProjectDialog
+          open={showCreateProjectDialog}
+          onOpenChange={setShowCreateProjectDialog}
+          onCreated={onProjectCreated}
+        />
+
         {tenantsError && (
-          <div className='border border-red-500/20 bg-red-500/10 text-red-200 p-4 m-4 rounded-lg'>
+          <div
+            className={`p-4 m-4 rounded-lg border ${
+              canCreateProject
+                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-50'
+                : 'border-red-500/20 bg-red-500/10 text-red-200'
+            }`}
+          >
             <div className='flex items-start justify-between gap-3'>
               <div>
-                <div className='font-medium'>Database service error</div>
-                <div className='text-sm opacity-90 mt-1'>{tenantsError}</div>
-                <div className='text-xs text-red-200/80 mt-2'>
-                  This usually means the API cannot read the tenant registry (or
-                  you are not authorized).
+                <div className='font-medium'>
+                  {canCreateProject
+                    ? 'Create your first project'
+                    : 'Database service error'}
                 </div>
+                <div className='text-sm opacity-90 mt-1'>{tenantsError}</div>
+                {!canCreateProject && (
+                  <div className='text-xs text-red-200/80 mt-2'>
+                    This usually means the API cannot read the tenant registry
+                    (or you are not authorized).
+                  </div>
+                )}
               </div>
-              <Button
-                variant='outline'
-                size='sm'
-                className='border-red-500/30 text-red-100 hover:bg-red-500/10'
-                onClick={() => loadTenants()}
-              >
-                Retry
-              </Button>
+              <div className='flex items-center gap-2'>
+                {canCreateProject && (
+                  <Button
+                    variant='default'
+                    size='sm'
+                    className='bg-emerald-600 hover:bg-emerald-700 text-white'
+                    onClick={() => setShowCreateProjectDialog(true)}
+                  >
+                    Create project
+                  </Button>
+                )}
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='border-red-500/30 text-red-100 hover:bg-red-500/10'
+                  onClick={() => loadTenants()}
+                >
+                  Retry
+                </Button>
+              </div>
             </div>
           </div>
         )}

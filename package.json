@@ -55,6 +55,7 @@
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
+    "baseline-browser-mapping": "^2.9.19",
     "minimist": "^1.2.8",
     "qrcode-terminal": "^0.12.0",
     "typescript": "~5.9.2"

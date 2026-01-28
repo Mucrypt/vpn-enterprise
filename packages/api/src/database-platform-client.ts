@@ -216,11 +216,26 @@ export class DatabasePlatformClient {
         max: 10,
       }
 
+      const redactSecrets = (value: any) => {
+        if (!value || typeof value !== 'object') return value
+        const out: Record<string, any> = Array.isArray(value)
+          ? {}
+          : { ...value }
+        for (const key of Object.keys(out)) {
+          if (/pass(word)?|secret|token/i.test(key)) out[key] = '[REDACTED]'
+        }
+        return out
+      }
+
+      const { password: _password, ...tenantConfigNoPassword } = tenantConfig
       console.log(
-        '[DatabasePlatformClient] Raw connection_info:',
-        connectionInfo,
+        '[DatabasePlatformClient] connection_info (redacted):',
+        redactSecrets(connectionInfo),
       )
-      console.log('[DatabasePlatformClient] Final tenant config:', tenantConfig)
+      console.log(
+        '[DatabasePlatformClient] Final tenant config (no password):',
+        tenantConfigNoPassword,
+      )
       console.log('[DatabasePlatformClient] Environment fallbacks:', {
         POSTGRES_HOST: process.env.POSTGRES_HOST,
         POSTGRES_PORT: process.env.POSTGRES_PORT,

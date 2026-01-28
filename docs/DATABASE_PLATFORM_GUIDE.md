@@ -163,6 +163,73 @@ REDIS_PORT=6379
 
 ## 📝 Usage Examples
 
+## 🧩 Production Bootstrap (TENANTS_SOURCE=platform)
+
+If you run with `TENANTS_SOURCE=platform`, the API expects tenant registry data in the platform DB (`platform_db`) tables:
+
+- `tenants`
+- `tenant_members`
+
+Normal users should use `GET /api/v1/tenants/me` (membership-based). `GET /api/v1/tenants` is typically admin-only.
+
+### 0) Self-serve project provisioning (Supabase-like)
+
+Normal users can create their first project via the dashboard (Databases page) or directly via:
+
+- `POST /api/v1/tenants/self`
+
+In `TENANTS_SOURCE=platform` mode this endpoint will:
+
+- Create the tenant + membership (`owner`)
+- Provision a dedicated Postgres database + role (database-per-tenant)
+- Store connection details in `platform_db.tenants.connection_info`
+
+**Production requirement:** the API must have a Postgres credential capable of `CREATE ROLE` and `CREATE DATABASE`.
+
+Recommended env vars (API container):
+
+```bash
+# Postgres host/port used for both platform DB and provisioning
+POSTGRES_HOST=postgres-primary
+POSTGRES_PORT=5432
+
+# Platform DB (control plane)
+POSTGRES_DB=platform_db
+POSTGRES_USER=platform_admin
+
+# Provisioning (needs CREATEDB + CREATEROLE)
+POSTGRES_PROVISION_USER=postgres
+POSTGRES_PROVISION_PASSWORD_FILE=/run/secrets/db_password
+
+# Where to connect when issuing CREATE ROLE/CREATE DATABASE
+POSTGRES_MAINTENANCE_DB=postgres
+```
+
+Security note: `connection_info` currently contains the tenant DB password so the API can connect. Protect `platform_db` like a control-plane database (restricted access, backups, at-rest encryption).
+
+### 1) Ensure at least one admin can pass admin gating
+
+Set an allowlist in your production env so you can always access admin-only routes even if Supabase role sync is misconfigured:
+
+```bash
+ADMIN_EMAILS=romeomukulah@gmail.com
+```
+
+Restart/recreate the API container after changing env.
+
+### 2) Seed the first tenant + memberships
+
+Use the helper script:
+
+```bash
+TENANT_ID="11111111-1111-1111-1111-111111111111" \
+ADMIN_USER_ID="<admin-user-uuid>" \
+USER_ID="<normal-user-uuid>" \
+./scripts/bootstrap-platform-tenant.sh
+```
+
+After this, `GET /api/v1/tenants/me` should return at least one tenant for both users, and the SQL editor page should stop showing "No tenants found".
+
 ### Using pgAdmin
 
 1. **Access**: Open http://localhost:8081
