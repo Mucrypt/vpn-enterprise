@@ -8,13 +8,13 @@ import React, {
   lazy,
   useCallback,
 } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQueryStorage } from '@/hooks/use-query-storage'
 import { Database, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { DatabaseSection } from '@/components/database/database-layout'
 // Import lightweight editor directly - no lazy loading needed for fast component
 import { SqlEditorPageLight } from '@/components/database/sql-editor-page-light'
-import { CreateFirstProjectDialog } from '@/components/database/create-first-project-dialog'
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
@@ -71,6 +71,8 @@ const CreateSchemaDialog = lazy(() =>
 )
 
 export default function DatabasePage() {
+  const router = useRouter()
+
   // Query storage hook
   const { addToHistory } = useQueryStorage()
 
@@ -79,7 +81,6 @@ export default function DatabasePage() {
   const [activeTenant, setActiveTenant] = useState<string>('')
   const [tenantsError, setTenantsError] = useState<string | null>(null)
   const [canCreateProject, setCanCreateProject] = useState(false)
-  const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false)
   const [activeSection, setActiveSection] =
     useState<DatabaseSection>('sql-editor')
   const [showSampleDataBanner, setShowSampleDataBanner] = useState(false)
@@ -141,17 +142,24 @@ SELECT * FROM blog.posts LIMIT 5;
           continue
         }
 
+        // If the endpoint succeeds but returns an empty list, treat it as "no projects yet".
+        if (tenantList.length === 0) {
+          setTenants([])
+          setActiveTenant('')
+          setCanCreateProject(true)
+          setTenantsError(
+            'No projects yet. Create your first project to start using the database editor.',
+          )
+          router.replace('/databases/new?returnTo=/databases')
+          return
+        }
+
         setTenants(tenantList)
 
         // Auto-select first tenant
-        if (tenantList.length > 0) {
-          const firstTenant = tenantList[0]
-          const tenantId = firstTenant.tenant_id || firstTenant.id
-          setActiveTenant(tenantId)
-        } else {
-          setActiveTenant('')
-          setTenantsError('No tenants found for your account.')
-        }
+        const firstTenant = tenantList[0]
+        const tenantId = firstTenant.tenant_id || firstTenant.id
+        setActiveTenant(tenantId)
         return
       }
 
@@ -166,6 +174,7 @@ SELECT * FROM blog.posts LIMIT 5;
         setTenantsError(
           'No projects yet. Create your first project to start using the database editor.',
         )
+        router.replace('/databases/new?returnTo=/databases')
         return
       }
 
@@ -186,10 +195,6 @@ SELECT * FROM blog.posts LIMIT 5;
       setTenantsError('Unable to reach the API to load tenants.')
     }
   }, [])
-
-  const onProjectCreated = useCallback(async () => {
-    await loadTenants()
-  }, [loadTenants])
 
   // Check for existing data when tenant changes - define before use
   const checkForExistingData = useCallback(async () => {
@@ -368,7 +373,7 @@ SELECT * FROM blog.posts LIMIT 5;
         abortControllerRef.current.abort()
       }
     }
-  }, [])
+  }, [router])
 
   const createSchema = async (schemaName: string, description: string = '') => {
     console.log(
@@ -714,12 +719,6 @@ SELECT * FROM blog.posts LIMIT 5;
           setActiveSection('sql-editor')
         }}
       >
-        <CreateFirstProjectDialog
-          open={showCreateProjectDialog}
-          onOpenChange={setShowCreateProjectDialog}
-          onCreated={onProjectCreated}
-        />
-
         {tenantsError && (
           <div
             className={`p-4 m-4 rounded-lg border ${
@@ -749,7 +748,9 @@ SELECT * FROM blog.posts LIMIT 5;
                     variant='default'
                     size='sm'
                     className='bg-emerald-600 hover:bg-emerald-700 text-white'
-                    onClick={() => setShowCreateProjectDialog(true)}
+                    onClick={() =>
+                      router.push('/databases/new?returnTo=/databases')
+                    }
                   >
                     Create project
                   </Button>
