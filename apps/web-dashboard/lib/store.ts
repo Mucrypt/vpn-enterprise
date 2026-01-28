@@ -193,7 +193,8 @@ interface DashboardState {
 }
 
 export const useDashboardStore = create<DashboardState>((set) => ({
-  sidebarOpen: true,
+  // Start with sidebar closed on mobile (< 768px), open on desktop
+  sidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 768 : true,
   selectedServerId: null,
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSelectedServer: (id) => set({ selectedServerId: id })

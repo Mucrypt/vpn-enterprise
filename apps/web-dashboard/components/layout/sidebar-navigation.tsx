@@ -101,7 +101,14 @@ export function SidebarNavigation() {
   const navItems = isAdmin ? adminNavItems : userNavItems
   const navScrollbarClass = isAdmin ? 'scrollbar--admin' : 'scrollbar--neutral'
 
-  // Close sidebar on mobile when route changes
+  // Close sidebar on mobile when route changes or on resize
+  useEffect(() => {
+    // Close sidebar on mobile when navigating to a new page
+    if (window.innerWidth < 768 && sidebarOpen) {
+      toggleSidebar()
+    }
+  }, [pathname])
+
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768 && sidebarOpen) {

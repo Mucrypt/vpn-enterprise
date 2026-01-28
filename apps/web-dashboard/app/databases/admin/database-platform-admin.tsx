@@ -517,9 +517,15 @@ export function DatabasePlatformAdmin({
             <div className='flex items-center gap-3'>
               <Database className='h-5 w-5 sm:h-6 sm:w-6 text-emerald-500' />
               <div>
-                <h1 className='text-lg sm:text-xl font-bold'>
-                  Database Platform Admin
-                </h1>
+                <div className='flex items-center gap-2 mb-1'>
+                  <h1 className='text-lg sm:text-xl font-bold'>
+                    Database Platform Admin
+                  </h1>
+                  <Badge className='bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0 px-2 py-0.5 text-xs font-semibold'>
+                    <Shield className='h-3 w-3 mr-1' />
+                    ADMIN
+                  </Badge>
+                </div>
                 <p className='text-xs sm:text-sm text-gray-400'>
                   Manage all database projects and tenants
                 </p>
