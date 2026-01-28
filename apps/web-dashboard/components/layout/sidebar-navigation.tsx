@@ -117,7 +117,7 @@ export function SidebarNavigation() {
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className='fixed inset-0 z-40 bg-black/50 md:hidden'
           onClick={toggleSidebar}
         />
       )}
@@ -137,7 +137,9 @@ export function SidebarNavigation() {
         <div className='flex h-16 shrink-0 items-center justify-between border-b px-4 md:px-6'>
           {sidebarOpen ? (
             <>
-              <h1 className='text-lg sm:text-xl font-bold text-gray-900'>VPN Enterprise</h1>
+              <h1 className='text-lg sm:text-xl font-bold text-gray-900'>
+                VPN Enterprise
+              </h1>
               <button
                 onClick={toggleSidebar}
                 className='md:hidden p-2 hover:bg-gray-200 rounded-lg'

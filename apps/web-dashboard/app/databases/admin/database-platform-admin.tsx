@@ -517,7 +517,9 @@ export function DatabasePlatformAdmin({
             <div className='flex items-center gap-3'>
               <Database className='h-5 w-5 sm:h-6 sm:w-6 text-emerald-500' />
               <div>
-                <h1 className='text-lg sm:text-xl font-bold'>Database Platform Admin</h1>
+                <h1 className='text-lg sm:text-xl font-bold'>
+                  Database Platform Admin
+                </h1>
                 <p className='text-xs sm:text-sm text-gray-400'>
                   Manage all database projects and tenants
                 </p>
@@ -817,14 +819,19 @@ export function DatabasePlatformAdmin({
                     <RefreshCw
                       className={`h-4 w-4 sm:mr-2 ${isRefreshing ? 'animate-spin' : ''}`}
                     />
-                    <span className='hidden sm:inline'>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                    <span className='hidden sm:inline'>
+                      {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                    </span>
                   </Button>
                   <Dialog
                     open={showCreateDialog}
                     onOpenChange={setShowCreateDialog}
                   >
                     <DialogTrigger asChild>
-                      <Button size='sm' className='bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 flex-1 sm:flex-initial'>
+                      <Button
+                        size='sm'
+                        className='bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 flex-1 sm:flex-initial'
+                      >
                         <UserPlus className='h-4 w-4 sm:mr-2' />
                         <span className='hidden sm:inline'>Create User</span>
                         <span className='sm:hidden'>Create</span>

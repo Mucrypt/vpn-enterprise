@@ -105,7 +105,7 @@ export default function AdminPage() {
   return (
     <div className='min-h-screen bg-[#0a0a0a]'>
       {/* Header with gradient */}
-      <div className='border-b border-gray-800 bg-gradient-to-r from-[#1e1e1e] to-[#0a0a0a]'>
+      <div className='border-b border-gray-800 bg-linear-to-r from-[#1e1e1e] to-[#0a0a0a]'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8'>
           <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
             <div>
@@ -241,7 +241,9 @@ export default function AdminPage() {
                 onClick={() => router.push('/databases/admin')}
               >
                 <Database className='h-6 w-6 sm:h-8 sm:w-8 text-emerald-500' />
-                <span className='text-xs sm:text-sm text-center'>Database Platform</span>
+                <span className='text-xs sm:text-sm text-center'>
+                  Database Platform
+                </span>
               </Button>
               <Button
                 className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
@@ -249,7 +251,9 @@ export default function AdminPage() {
                 onClick={() => router.push('/dashboard/admin/organizations')}
               >
                 <Users className='h-6 w-6 sm:h-8 sm:w-8 text-blue-500' />
-                <span className='text-xs sm:text-sm text-center'>Organizations</span>
+                <span className='text-xs sm:text-sm text-center'>
+                  Organizations
+                </span>
               </Button>
               <Button
                 className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
@@ -265,7 +269,9 @@ export default function AdminPage() {
                 onClick={() => router.push('/dashboard/admin/n8n')}
               >
                 <Zap className='h-6 w-6 sm:h-8 sm:w-8 text-orange-500' />
-                <span className='text-xs sm:text-sm text-center'>N8N Workflows</span>
+                <span className='text-xs sm:text-sm text-center'>
+                  N8N Workflows
+                </span>
               </Button>
               <Button
                 className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
@@ -300,7 +306,9 @@ export default function AdminPage() {
                 }}
               >
                 <Server className='h-6 w-6 sm:h-8 sm:w-8 text-green-500' />
-                <span className='text-xs sm:text-sm text-center'>Test Client</span>
+                <span className='text-xs sm:text-sm text-center'>
+                  Test Client
+                </span>
               </Button>
               <Button
                 className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
@@ -328,7 +336,7 @@ export default function AdminPage() {
         </Card>
 
         {/* System Configuration */}
-      <div className='grid gap-4 sm:gap-6 md:grid-cols-2'>
+        <div className='grid gap-4 sm:gap-6 md:grid-cols-2'>
           {/* General Settings */}
           <Card className='bg-[#1e1e1e] border-gray-800'>
             <CardHeader>

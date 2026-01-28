@@ -1,17 +1,17 @@
-import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
-import './globals.css';
-import AuthHydrator from '@/components/auth/auth-hydrator';
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import './globals.css'
+import AuthHydrator from '@/components/auth/auth-hydrator'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
-});
+})
 
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
-});
+})
 
 export const metadata: Metadata = {
   title: 'VPN Enterprise - Dashboard',
@@ -28,15 +28,15 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'VPN Enterprise',
   },
-};
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang='en'>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -70,5 +70,5 @@ export default function RootLayout({
         {children}
       </body>
     </html>
-  );
+  )
 }
