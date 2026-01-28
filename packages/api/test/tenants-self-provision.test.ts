@@ -259,4 +259,20 @@ describe('self-provision first tenant project', () => {
     expect(list.body.tenants.length).toBe(1)
     expect(list.body.tenants[0].name).toBe('My Project')
   })
+
+  it('rejects additional project creation for free plan', async () => {
+    const app = await makeApp()
+
+    await request(app)
+      .post('/api/v1/tenants/self')
+      .set('Authorization', 'Bearer user-2')
+      .send({ name: 'First', plan_type: 'free', db_password: 'secret123' })
+      .expect(201)
+
+    await request(app)
+      .post('/api/v1/tenants/projects')
+      .set('Authorization', 'Bearer user-2')
+      .send({ name: 'Second', plan_type: 'free' })
+      .expect(402)
+  })
 })
