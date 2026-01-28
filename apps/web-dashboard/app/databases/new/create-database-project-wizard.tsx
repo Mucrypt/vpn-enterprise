@@ -121,17 +121,10 @@ export function CreateDatabaseProjectWizard({
         const json = await res.json().catch(() => ({}))
         const tenants = json?.tenants || json?.data || []
 
-        // Only redirect if user has tenants AND they're not coming from returnTo
-        // This prevents redirect loop when server sends them here
+        // If user has tenants, redirect to database page
+        // Server will handle showing them their database editor
         if (Array.isArray(tenants) && tenants.length > 0) {
-          // Check if we came from /databases (returnTo param)
-          const params = new URLSearchParams(window.location.search)
-          const returnTo = params.get('returnTo')
-
-          // If returnTo is /databases, don't redirect (user was sent here intentionally)
-          if (returnTo !== '/databases') {
-            router.replace('/databases')
-          }
+          window.location.href = '/databases'
           return
         }
       } catch {
