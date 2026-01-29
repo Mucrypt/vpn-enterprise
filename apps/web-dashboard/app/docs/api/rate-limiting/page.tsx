@@ -232,7 +232,7 @@ export default function RateLimitingPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Understanding Rate Limits</h2>
           
           <div className="grid md:grid-cols-2 gap-6">
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+            <Card className="bg-linear-to-br from-blue-50 to-indigo-50 border-blue-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                   <Clock className="h-5 w-5 text-blue-600" />
@@ -255,7 +255,7 @@ export default function RateLimitingPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+            <Card className="bg-linear-to-br from-green-50 to-emerald-50 border-green-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                   <BarChart3 className="h-5 w-5 text-green-600" />
@@ -345,7 +345,7 @@ export default function RateLimitingPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Current Usage (Example)</h2>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+            <Card className="bg-linear-to-br from-blue-50 to-indigo-50 border-blue-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -363,7 +363,7 @@ export default function RateLimitingPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+            <Card className="bg-linear-to-br from-green-50 to-emerald-50 border-green-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -381,7 +381,7 @@ export default function RateLimitingPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200">
+            <Card className="bg-linear-to-br from-purple-50 to-violet-50 border-purple-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -399,7 +399,7 @@ export default function RateLimitingPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200">
+            <Card className="bg-linear-to-br from-amber-50 to-yellow-50 border-amber-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -572,7 +572,7 @@ Content-Type: application/json
             <Card className="border-green-200 bg-green-50/50">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <Check className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
                   <div>
                     <h4 className="font-semibold text-green-800 mb-1">Monitor Headers</h4>
                     <p className="text-green-700 text-sm">
@@ -586,7 +586,7 @@ Content-Type: application/json
             <Card className="border-blue-200 bg-blue-50/50">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <Timer className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <Timer className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
                   <div>
                     <h4 className="font-semibold text-blue-800 mb-1">Implement Backoff</h4>
                     <p className="text-blue-700 text-sm">
@@ -600,7 +600,7 @@ Content-Type: application/json
             <Card className="border-amber-200 bg-amber-50/50">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                   <div>
                     <h4 className="font-semibold text-amber-800 mb-1">Plan for Growth</h4>
                     <p className="text-amber-700 text-sm">
@@ -755,7 +755,7 @@ try {
         </div>
 
         {/* Completion */}
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-8 border border-amber-200">
+        <div className="bg-linear-to-r from-amber-50 to-orange-50 rounded-xl p-8 border border-amber-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">API Reference Complete</h2>
           <p className="text-gray-600 mb-6">
             You've reached the end of our comprehensive API documentation. Explore other sections to learn more about VPN Enterprise.

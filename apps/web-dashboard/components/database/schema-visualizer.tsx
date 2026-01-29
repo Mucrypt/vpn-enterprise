@@ -276,7 +276,7 @@ export default function DatabaseSchemaVisualizer({ activeTenant, onClose }: Sche
   return (
     <div className="h-full bg-[#1e1e1e] flex flex-col border-l border-[#2d2d30]">
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e] px-4 py-3">
+      <div className="shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e] px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-semibold text-white flex items-center gap-2">
@@ -353,7 +353,7 @@ export default function DatabaseSchemaVisualizer({ activeTenant, onClose }: Sche
             >
               <ZoomOut className="h-3 w-3" />
             </Button>
-            <span className="text-xs text-gray-400 px-2 min-w-[3rem] text-center">
+            <span className="text-xs text-gray-400 px-2 min-w-12 text-center">
               {Math.round(zoom * 100)}%
             </span>
             <Button

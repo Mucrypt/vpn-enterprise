@@ -263,7 +263,7 @@ export default function HostingEndpointsPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
           <div className="grid md:grid-cols-3 gap-6">
             
-            <Card className="bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200">
+            <Card className="bg-linear-to-br from-emerald-50 to-green-50 border-emerald-200">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <GitBranch className="h-6 w-6 text-emerald-600" />
@@ -276,7 +276,7 @@ export default function HostingEndpointsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+            <Card className="bg-linear-to-br from-blue-50 to-indigo-50 border-blue-200">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <Globe className="h-6 w-6 text-blue-600" />
@@ -289,7 +289,7 @@ export default function HostingEndpointsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-orange-50 to-red-50 border-orange-200">
+            <Card className="bg-linear-to-br from-orange-50 to-red-50 border-orange-200">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <Zap className="h-6 w-6 text-orange-600" />
@@ -542,7 +542,7 @@ export default function HostingEndpointsPage() {
         </div>
 
         {/* Next Steps */}
-        <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-8 border border-emerald-200">
+        <div className="bg-linear-to-r from-emerald-50 to-green-50 rounded-xl p-8 border border-emerald-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Next Steps</h2>
           <p className="text-gray-600 mb-6">
             Ready to deploy your first site? Check out our other API endpoints and integrations.

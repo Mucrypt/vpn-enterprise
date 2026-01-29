@@ -455,7 +455,7 @@ export function TenantDetailsModal({
                   <Card className='bg-[#252525] border-gray-700'>
                     <CardContent className='p-5'>
                       <div className='flex items-center gap-3'>
-                        <div className='w-12 h-12 rounded-lg bg-blue-600/20 flex items-center justify-center flex-shrink-0'>
+                        <div className='w-12 h-12 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0'>
                           <Users className='h-6 w-6 text-blue-400' />
                         </div>
                         <div className='min-w-0'>
@@ -473,7 +473,7 @@ export function TenantDetailsModal({
                   <Card className='bg-[#252525] border-gray-700'>
                     <CardContent className='p-5'>
                       <div className='flex items-center gap-3'>
-                        <div className='w-12 h-12 rounded-lg bg-green-600/20 flex items-center justify-center flex-shrink-0'>
+                        <div className='w-12 h-12 rounded-lg bg-green-600/20 flex items-center justify-center shrink-0'>
                           <Database className='h-6 w-6 text-green-400' />
                         </div>
                         <div className='min-w-0'>
@@ -489,7 +489,7 @@ export function TenantDetailsModal({
                   <Card className='bg-[#252525] border-gray-700'>
                     <CardContent className='p-5'>
                       <div className='flex items-center gap-3'>
-                        <div className='w-12 h-12 rounded-lg bg-purple-600/20 flex items-center justify-center flex-shrink-0'>
+                        <div className='w-12 h-12 rounded-lg bg-purple-600/20 flex items-center justify-center shrink-0'>
                           <HardDrive className='h-6 w-6 text-purple-400' />
                         </div>
                         <div className='min-w-0'>
@@ -505,7 +505,7 @@ export function TenantDetailsModal({
                   <Card className='bg-[#252525] border-gray-700'>
                     <CardContent className='p-5'>
                       <div className='flex items-center gap-3'>
-                        <div className='w-12 h-12 rounded-lg bg-emerald-600/20 flex items-center justify-center flex-shrink-0'>
+                        <div className='w-12 h-12 rounded-lg bg-emerald-600/20 flex items-center justify-center shrink-0'>
                           <Activity className='h-6 w-6 text-emerald-400' />
                         </div>
                         <div className='min-w-0'>
@@ -825,7 +825,7 @@ export function TenantDetailsModal({
                         </div>
                         <div className='border border-red-600/30 bg-red-600/5 rounded-xl p-6 space-y-4'>
                           <div className='flex items-start gap-4'>
-                            <div className='w-12 h-12 bg-red-600/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-1'>
+                            <div className='w-12 h-12 bg-red-600/20 rounded-lg flex items-center justify-center shrink-0 mt-1'>
                               <Trash2 className='h-6 w-6 text-red-400' />
                             </div>
                             <div className='flex-1'>

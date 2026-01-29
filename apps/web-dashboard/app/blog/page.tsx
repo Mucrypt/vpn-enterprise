@@ -178,20 +178,19 @@ export default function BlogPage() {
     <div className="min-h-screen relative overflow-hidden">
       
       {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-white via-green-50 to-yellow-50">
-        <div className="absolute inset-0 bg-gradient-to-tr from-emerald-100/40 via-transparent to-yellow-100/40"></div>
-        <div className="absolute top-20 right-32 w-72 h-72 bg-gradient-to-r from-emerald-300/30 to-green-300/30 rounded-full blur-3xl animate-pulse floating-element"></div>
-        <div className="absolute bottom-40 left-20 w-64 h-64 bg-gradient-to-r from-yellow-300/25 to-amber-300/25 rounded-full blur-3xl animate-pulse floating-element"></div>
+      <div className="fixed inset-0 bg-linear-to-br from-white via-green-50 to-yellow-50">
+        <div className="absolute inset-0 bg-linear-to-tr from-emerald-100/40 via-transparent to-yellow-100/40"></div>
+        <div className="absolute top-20 right-32 w-72 h-72 bg-linear-to-r from-emerald-300/30 to-green-300/30 rounded-full blur-3xl animate-pulse floating-element"></div>
+        <div className="absolute bottom-40 left-20 w-64 h-64 bg-linear-to-r from-yellow-300/25 to-amber-300/25 rounded-full blur-3xl animate-pulse floating-element"></div>
       </div>
-
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 backdrop-blur-lg bg-white/60 border-b border-emerald-200/50">
         <div className="container mx-auto px-4 md:px-6 py-3 md:py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 md:gap-4">
-            <div className="p-2 md:p-3 bg-gradient-to-br from-emerald-50/90 to-green-50/90 rounded-xl border border-emerald-300/30">
+            <div className="p-2 md:p-3 bg-linear-to-br from-emerald-50/90 to-green-50/90 rounded-xl border border-emerald-300/30">
               <Shield className="h-5 w-5 md:h-7 md:w-7 text-emerald-700" />
             </div>
-            <span className="text-lg md:text-2xl font-black bg-gradient-to-r from-gray-800 via-emerald-700 to-yellow-600 bg-clip-text text-transparent">
+            <span className="text-lg md:text-2xl font-black bg-linear-to-r from-gray-800 via-emerald-700 to-yellow-600 bg-clip-text text-transparent">
               VPN Enterprise
             </span>
           </Link>
@@ -241,7 +240,7 @@ export default function BlogPage() {
               <div key={index} className="category-card">
                 <Badge 
                   variant="outline" 
-                  className={`px-4 py-2 bg-gradient-to-r ${category.color} text-white border-0 hover:opacity-80 transition-opacity cursor-pointer`}
+                  className={`px-4 py-2 bg-linear-to-r ${category.color} text-white border-0 hover:opacity-80 transition-opacity cursor-pointer`}
                 >
                   {category.name} ({category.count})
                 </Badge>
@@ -263,7 +262,7 @@ export default function BlogPage() {
               <Card key={post.id} className="blog-post bg-white/70 border-emerald-200 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
                 <div className="md:flex">
                   <div className="md:w-1/2">
-                    <div className="h-64 md:h-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+                    <div className="h-64 md:h-full bg-linear-to-br from-emerald-500 to-green-600 flex items-center justify-center">
                       <BookOpen className="h-16 w-16 text-white" />
                     </div>
                   </div>
@@ -302,7 +301,7 @@ export default function BlogPage() {
       </div>
 
       {/* Recent Posts */}
-      <div ref={postsRef} className="py-20 bg-gradient-to-b from-green-50/50 to-yellow-50/50">
+      <div ref={postsRef} className="py-20 bg-linear-to-b from-green-50/50 to-yellow-50/50">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-800 mb-4">Latest Articles</h2>
@@ -312,7 +311,7 @@ export default function BlogPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
             {blogPosts.filter(post => !post.featured).map((post, index) => (
               <Card key={post.id} className="blog-post bg-white/70 border-emerald-200 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer">
-                <div className="h-48 bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center group-hover:from-emerald-600 group-hover:to-green-700 transition-all duration-300">
+                <div className="h-48 bg-linear-to-br from-emerald-500 to-green-600 flex items-center justify-center group-hover:from-emerald-600 group-hover:to-green-700 transition-all duration-300">
                   {post.category === 'Security' && <Lock className="h-12 w-12 text-white" />}
                   {post.category === 'Infrastructure' && <Globe className="h-12 w-12 text-white" />}
                   {post.category === 'Cloud' && <Zap className="h-12 w-12 text-white" />}
@@ -359,7 +358,7 @@ export default function BlogPage() {
       </div>
 
       {/* Newsletter Signup */}
-      <div className="py-20 bg-gradient-to-r from-emerald-600 to-green-600">
+      <div className="py-20 bg-linear-to-r from-emerald-600 to-green-600">
         <div className="container mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold text-white mb-4">
             Stay Updated
@@ -391,7 +390,7 @@ export default function BlogPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <Link href="/" className="inline-flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg">
+              <div className="p-2 bg-linear-to-br from-emerald-500 to-green-600 rounded-lg">
                 <Shield className="h-5 w-5 text-white" />
               </div>
               <span className="text-lg font-bold text-gray-800">VPN Enterprise</span>

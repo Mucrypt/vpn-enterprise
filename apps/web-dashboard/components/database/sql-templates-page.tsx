@@ -163,7 +163,7 @@ export function SqlTemplatesPage({ onLoadTemplate }: SqlTemplatesPageProps) {
   return (
     <div className="h-full flex flex-col bg-[#1e1e1e]">
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e] px-6 py-4">
+      <div className="shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e] px-6 py-4">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
             <FileText className="h-4 w-4 text-white" />

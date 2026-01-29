@@ -248,7 +248,7 @@ export default function MigrationPage() {
                 {migrationSteps.map((step) => (
                   <div key={step.step} className="relative">
                     <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
+                      <div className="shrink-0">
                         <div className="w-10 h-10 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold">
                           {step.step}
                         </div>

@@ -264,7 +264,7 @@ export default function DocSidebar({ className }: DocSidebarProps) {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-emerald-100 bg-gradient-to-r from-emerald-50 to-green-50">
+      <div className="p-4 border-t border-emerald-100 bg-linear-to-r from-emerald-50 to-green-50">
         <div className="text-center">
           <p className="text-xs text-gray-500 mb-2">Need help?</p>
           <Link href="/contact" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">

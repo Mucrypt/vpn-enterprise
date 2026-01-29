@@ -316,7 +316,7 @@ export default function ApiOverviewPage() {
         </div>
 
         {/* Next Steps */}
-        <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-8 border border-emerald-200">
+        <div className="bg-linear-to-r from-emerald-50 to-green-50 rounded-xl p-8 border border-emerald-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Ready to get started?</h2>
           <p className="text-gray-600 mb-6">
             Explore our API endpoints and start building with VPN Enterprise.

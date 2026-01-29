@@ -38,7 +38,7 @@ export default function DocLayout({ children }: DocLayoutProps) {
               </Button>
               
               <Link href="/" className="flex items-center gap-3">
-                <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg">
+                <div className="p-1.5 bg-linear-to-br from-emerald-500 to-green-600 rounded-lg">
                   <Shield className="h-5 w-5 text-white" />
                 </div>
                 <div>

@@ -95,7 +95,7 @@ export function CreateSchemaDialog({ isOpen, onClose, onCreateSchema }: CreateSc
           {/* Info Box */}
           <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
             <div className="flex items-start gap-3">
-              <Info className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+              <Info className="h-5 w-5 text-blue-400 mt-0.5 shrink-0" />
               <div className="text-sm text-blue-200">
                 <p className="font-medium mb-1">Schema Best Practices</p>
                 <ul className="text-xs space-y-1 text-blue-300">

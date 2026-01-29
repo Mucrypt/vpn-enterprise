@@ -98,20 +98,20 @@ export default function CompanyPage() {
     <div className="min-h-screen relative overflow-hidden">
       
       {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-white via-green-50 to-yellow-50">
-        <div className="absolute inset-0 bg-gradient-to-tr from-emerald-100/40 via-transparent to-yellow-100/40"></div>
-        <div className="absolute top-20 left-20 w-96 h-96 bg-gradient-to-r from-emerald-300/40 to-green-300/40 rounded-full blur-3xl animate-pulse floating-element"></div>
-        <div className="absolute bottom-32 right-32 w-80 h-80 bg-gradient-to-r from-yellow-300/35 to-amber-300/35 rounded-full blur-3xl animate-pulse floating-element"></div>
+      <div className="fixed inset-0 bg-linear-to-br from-white via-green-50 to-yellow-50">
+        <div className="absolute inset-0 bg-linear-to-tr from-emerald-100/40 via-transparent to-yellow-100/40"></div>
+        <div className="absolute top-20 left-20 w-96 h-96 bg-linear-to-r from-emerald-300/40 to-green-300/40 rounded-full blur-3xl animate-pulse floating-element"></div>
+        <div className="absolute bottom-32 right-32 w-80 h-80 bg-linear-to-r from-yellow-300/35 to-amber-300/35 rounded-full blur-3xl animate-pulse floating-element"></div>
       </div>
 
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 backdrop-blur-lg bg-white/60 border-b border-emerald-200/50">
         <div className="container mx-auto px-4 md:px-6 py-3 md:py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 md:gap-4">
-            <div className="p-2 md:p-3 bg-gradient-to-br from-emerald-50/90 to-green-50/90 rounded-xl border border-emerald-300/30">
+            <div className="p-2 md:p-3 bg-linear-to-br from-emerald-50/90 to-green-50/90 rounded-xl border border-emerald-300/30">
               <Shield className="h-5 w-5 md:h-7 md:w-7 text-emerald-700" />
             </div>
-            <span className="text-lg md:text-2xl font-black bg-gradient-to-r from-gray-800 via-emerald-700 to-yellow-600 bg-clip-text text-transparent">
+            <span className="text-lg md:text-2xl font-black bg-linear-to-br from-gray-800 via-emerald-700 to-yellow-600 bg-clip-text text-transparent">
               VPN Enterprise
             </span>
           </Link>
@@ -198,7 +198,7 @@ export default function CompanyPage() {
             ].map((value, index) => (
               <Card key={index} className="value-card bg-white/70 border-emerald-200 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300">
                 <CardHeader className="text-center pb-4">
-                  <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r ${value.color} flex items-center justify-center`}>
+                  <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-linear-to-br ${value.color} flex items-center justify-center`}>
                     <value.icon className="h-8 w-8 text-white" />
                   </div>
                   <CardTitle className="text-xl text-gray-800">{value.title}</CardTitle>
@@ -215,7 +215,7 @@ export default function CompanyPage() {
       </div>
 
       {/* Company Stats */}
-      <div ref={statsRef} className="py-20 bg-gradient-to-b from-green-50/50 to-yellow-50/50">
+      <div ref={statsRef} className="py-20 bg-linear-to-b from-green-50/50 to-yellow-50/50">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-800 mb-4">By the Numbers</h2>
@@ -245,13 +245,13 @@ export default function CompanyPage() {
         <div className="container mx-auto px-6">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-4xl font-bold text-gray-800 mb-8">Our Mission</h2>
-            <div className="bg-gradient-to-br from-white/70 to-green-50/70 backdrop-blur-sm rounded-2xl p-12 border border-emerald-200 shadow-xl">
+            <div className="bg-linear-to-br from-white/70 to-green-50/70 backdrop-blur-sm rounded-2xl p-12 border border-emerald-200 shadow-xl">
               <blockquote className="text-2xl md:text-3xl text-gray-700 leading-relaxed italic mb-8">
                 "To democratize enterprise-grade security and infrastructure, making it accessible 
                 to businesses of all sizes while maintaining the highest standards of performance and reliability."
               </blockquote>
               <div className="flex items-center justify-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 bg-linear-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center">
                   <Building className="h-8 w-8 text-white" />
                 </div>
                 <div className="text-left">
@@ -265,7 +265,7 @@ export default function CompanyPage() {
       </div>
 
       {/* Awards & Recognition */}
-      <div className="py-20 bg-gradient-to-b from-white via-green-50/30 to-yellow-50/30">
+      <div className="py-20 bg-linear-to-b from-white via-green-50/30 to-yellow-50/30">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-800 mb-4">Recognition</h2>
@@ -295,7 +295,7 @@ export default function CompanyPage() {
             ].map((recognition, index) => (
               <Card key={index} className="bg-white/70 border-emerald-200 backdrop-blur-sm shadow-lg text-center">
                 <CardHeader>
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full flex items-center justify-center">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-linear-to-br from-yellow-400 to-amber-500 rounded-full flex items-center justify-center">
                     <recognition.icon className="h-8 w-8 text-white" />
                   </div>
                   <CardTitle className="text-lg text-gray-800">{recognition.award}</CardTitle>
@@ -311,7 +311,7 @@ export default function CompanyPage() {
       </div>
 
       {/* CTA */}
-      <div className="py-20 bg-gradient-to-r from-emerald-600 to-green-600">
+      <div className="py-20 bg-linear-to-br from-emerald-600 to-green-600">
         <div className="container mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold text-white mb-4">
             Join Our Journey
@@ -341,7 +341,7 @@ export default function CompanyPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <Link href="/" className="inline-flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg">
+              <div className="p-2 bg-linear-to-br from-emerald-500 to-green-600 rounded-lg">
                 <Shield className="h-5 w-5 text-white" />
               </div>
               <span className="text-lg font-bold text-gray-800">VPN Enterprise</span>

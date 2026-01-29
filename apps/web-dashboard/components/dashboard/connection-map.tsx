@@ -37,7 +37,7 @@ export function ConnectionMap({ connections = [] }: ConnectionMapProps) {
       </CardHeader>
       <CardContent>
         {/* SVG World Map */}
-        <div className="relative w-full bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-gray-200 overflow-hidden">
+        <div className="relative w-full bg-linear-to-br from-blue-50 to-indigo-50 rounded-lg border border-gray-200 overflow-hidden">
           <svg
             viewBox="0 0 800 400"
             className="w-full h-auto"

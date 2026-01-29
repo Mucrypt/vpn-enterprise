@@ -235,7 +235,7 @@ export default function VpnEndpointsPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
           <div className="grid md:grid-cols-3 gap-6">
             
-            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+            <Card className="bg-linear-to-br from-green-50 to-emerald-50 border-green-200">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <Play className="h-6 w-6 text-green-600" />
@@ -248,7 +248,7 @@ export default function VpnEndpointsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+            <Card className="bg-linear-to-br from-blue-50 to-indigo-50 border-blue-200">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <MapPin className="h-6 w-6 text-blue-600" />
@@ -261,7 +261,7 @@ export default function VpnEndpointsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200">
+            <Card className="bg-linear-to-br from-purple-50 to-violet-50 border-purple-200">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <Server className="h-6 w-6 text-purple-600" />
@@ -519,7 +519,7 @@ export default function VpnEndpointsPage() {
         </div>
 
         {/* Next Steps */}
-        <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-8 border border-emerald-200">
+        <div className="bg-linear-to-r from-emerald-50 to-green-50 rounded-xl p-8 border border-emerald-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Next Steps</h2>
           <p className="text-gray-600 mb-6">
             Explore other API endpoints to build a comprehensive VPN management solution.

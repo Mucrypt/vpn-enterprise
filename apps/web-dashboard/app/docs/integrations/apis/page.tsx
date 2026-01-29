@@ -231,7 +231,7 @@ export default function ThirdPartyAPIsPage() {
 
   return (
     <DocLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/20 to-blue-50/30">
+      <div className="min-h-screen bg-linear-to-br from-slate-50 via-green-50/20 to-blue-50/30">
         <div className="container mx-auto px-6 py-12">
           {/* Hero Section */}
           <div ref={heroRef} className="text-center mb-16">
@@ -240,7 +240,7 @@ export default function ThirdPartyAPIsPage() {
               <span className="text-green-700 dark:text-green-300 font-medium">API Integration</span>
             </div>
             
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-900 via-green-800 to-blue-800 bg-clip-text text-transparent mb-6">
+            <h1 className="text-5xl font-bold bg-linear-to-r from-gray-900 via-green-800 to-blue-800 bg-clip-text text-transparent mb-6">
               Third-party APIs
             </h1>
             
@@ -250,7 +250,7 @@ export default function ThirdPartyAPIsPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-gradient-to-r from-green-600 to-blue-600">
+              <Button size="lg" className="bg-linear-to-r from-green-600 to-blue-600">
                 Explore API Documentation
               </Button>
               <Button size="lg" variant="outline">
@@ -269,9 +269,9 @@ export default function ThirdPartyAPIsPage() {
                   className="group hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm overflow-hidden"
                 >
                   <CardHeader className="relative">
-                    <div className={`absolute inset-0 bg-gradient-to-r ${category.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                    <div className={`absolute inset-0 bg-linear-to-r ${category.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
                     <div className="relative flex items-center gap-4">
-                      <div className={`p-3 rounded-lg bg-gradient-to-r ${category.color} text-white`}>
+                      <div className={`p-3 rounded-lg bg-linear-to-r ${category.color} text-white`}>
                         <category.icon className="h-6 w-6" />
                       </div>
                       <div>
@@ -630,7 +630,7 @@ Content-Type: application/json
           </div>
 
           {/* Call to Action */}
-          <Card className="bg-gradient-to-r from-green-500 to-blue-600 text-white">
+          <Card className="bg-linear-to-r from-green-500 to-blue-600 text-white">
             <CardContent className="p-8 text-center">
               <Code className="h-16 w-16 mx-auto mb-6 opacity-90" />
               <h2 className="text-3xl font-bold mb-4">Build Custom Integrations</h2>

@@ -129,7 +129,7 @@ export default function IntegrationsOverviewPage() {
 
   return (
     <DocLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
+      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
         <div className="container mx-auto px-6 py-12">
           {/* Hero Section */}
           <div ref={heroRef} className="text-center mb-16">
@@ -138,7 +138,7 @@ export default function IntegrationsOverviewPage() {
               <span className="text-blue-700 dark:text-blue-300 font-medium">Enterprise Integrations</span>
             </div>
             
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-800 bg-clip-text text-transparent mb-6">
+            <h1 className="text-5xl font-bold bg-linear-to-r from-gray-900 via-blue-800 to-indigo-800 bg-clip-text text-transparent mb-6">
               Connect Everything
             </h1>
             
@@ -166,9 +166,9 @@ export default function IntegrationsOverviewPage() {
                 className="group hover:shadow-xl transition-all duration-300 border-0 bg-white/70 backdrop-blur-sm overflow-hidden"
               >
                 <CardHeader className="relative">
-                  <div className={`absolute inset-0 bg-gradient-to-r ${integration.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                  <div className={`absolute inset-0 bg-linear-to-r ${integration.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
                   <div className="relative flex items-center gap-4">
-                    <div className={`p-3 rounded-lg bg-gradient-to-r ${integration.color} text-white`}>
+                    <div className={`p-3 rounded-lg bg-linear-to-r ${integration.color} text-white`}>
                       <integration.icon className="h-6 w-6" />
                     </div>
                     <div>
@@ -214,7 +214,7 @@ export default function IntegrationsOverviewPage() {
               {benefits.map((benefit, index) => (
                 <Card key={index} className="text-center hover:shadow-lg transition-shadow duration-300">
                   <CardContent className="pt-6">
-                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <div className="w-12 h-12 bg-linear-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mx-auto mb-4">
                       <benefit.icon className="h-6 w-6 text-white" />
                     </div>
                     <h3 className="font-semibold text-gray-900 mb-2">{benefit.title}</h3>
@@ -226,7 +226,7 @@ export default function IntegrationsOverviewPage() {
           </div>
 
           {/* Quick Start Section */}
-          <Card className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+          <Card className="bg-linear-to-r from-indigo-500 to-purple-600 text-white">
             <CardContent className="p-8 text-center">
               <Globe className="h-12 w-12 mx-auto mb-4 opacity-90" />
               <h2 className="text-2xl font-bold mb-4">Ready to Connect?</h2>

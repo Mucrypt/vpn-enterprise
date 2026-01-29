@@ -364,7 +364,7 @@ export default function DocsPage() {
           <div className="text-center max-w-3xl mx-auto">
             <h1 className="hero-title text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
               VPN Enterprise
-              <span className="block bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+              <span className="block bg-linear-to-br  from-emerald-600 to-green-600 bg-clip-text text-transparent">
                 Documentation
               </span>
             </h1>
@@ -424,7 +424,7 @@ export default function DocsPage() {
                 <Card className="service-card group h-full bg-white/70 backdrop-blur-sm border-emerald-200 hover:border-emerald-400 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer">
                   <CardHeader>
                     <div className="flex items-start justify-between">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${service.color} flex items-center justify-center mb-4`}>
+                      <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${service.color} flex items-center justify-center mb-4`}>
                         <service.icon className="h-6 w-6 text-white" />
                       </div>
                       <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-emerald-600 transition-colors" />
@@ -453,7 +453,7 @@ export default function DocsPage() {
 
         {/* Quick Start */}
         <div ref={quickStartRef} className="mb-16">
-          <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-8 border border-emerald-200">
+          <div className="bg-linear-to-br from-emerald-50 to-green-50 rounded-2xl p-8 border border-emerald-200">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
                 Quick Start
@@ -466,7 +466,7 @@ export default function DocsPage() {
             <div className="space-y-6 max-w-2xl mx-auto">
               {quickStartSteps.map((step, index) => (
                 <div key={index} className="quick-step flex gap-4 items-start">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
                     {step.step}
                   </div>
                   <div className="flex-1">

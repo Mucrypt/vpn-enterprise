@@ -411,7 +411,7 @@ export default function EnhancedTableDataViewer({ activeTenant, schemaName, tabl
   return (
     <div className="h-full bg-[#1e1e1e] flex flex-col border-l border-[#2d2d30]">
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e] px-4 py-3">
+      <div className="shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e] px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-semibold text-white">
@@ -769,7 +769,7 @@ export default function EnhancedTableDataViewer({ activeTenant, schemaName, tabl
       </div>
 
       {/* Footer with pagination */}
-      <div className="flex-shrink-0 border-t border-[#2d2d30] bg-[#1e1e1e] px-6 py-4">
+      <div className="shrink-0 border-t border-[#2d2d30] bg-[#1e1e1e] px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-400">
             Showing {Math.min((currentPage - 1) * pageSize + 1, totalRows)}-{Math.min(currentPage * pageSize, totalRows)} of {totalRows} rows

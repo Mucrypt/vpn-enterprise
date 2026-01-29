@@ -383,7 +383,7 @@ export default function BillingPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
           <div className="grid md:grid-cols-3 gap-6">
             
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+            <Card className="bg-linear-to-br from-blue-50 to-indigo-50 border-blue-200">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <TrendingUp className="h-6 w-6 text-blue-600" />
@@ -396,7 +396,7 @@ export default function BillingPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+            <Card className="bg-linear-to-br from-green-50 to-emerald-50 border-green-200">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <Receipt className="h-6 w-6 text-green-600" />
@@ -409,7 +409,7 @@ export default function BillingPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200">
+            <Card className="bg-linear-to-br from-purple-50 to-violet-50 border-purple-200">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <CreditCard className="h-6 w-6 text-purple-600" />
@@ -486,7 +486,7 @@ export default function BillingPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Usage Metrics</h2>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200">
+            <Card className="bg-linear-to-br from-emerald-50 to-green-50 border-emerald-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -504,7 +504,7 @@ export default function BillingPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+            <Card className="bg-linear-to-br from-blue-50 to-indigo-50 border-blue-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -522,7 +522,7 @@ export default function BillingPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200">
+            <Card className="bg-linear-to-br from-purple-50 to-violet-50 border-purple-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -540,7 +540,7 @@ export default function BillingPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-orange-50 to-red-50 border-orange-200">
+            <Card className="bg-linear-to-br from-orange-50 to-red-50 border-orange-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -652,7 +652,7 @@ export default function BillingPage() {
             <Card className="border-emerald-200 bg-emerald-50/50">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <TrendingUp className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                  <TrendingUp className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
                   <div>
                     <h4 className="font-semibold text-emerald-800 mb-1">Monitor Usage Regularly</h4>
                     <p className="text-emerald-700 text-sm">
@@ -666,7 +666,7 @@ export default function BillingPage() {
             <Card className="border-blue-200 bg-blue-50/50">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <Calendar className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
                   <div>
                     <h4 className="font-semibold text-blue-800 mb-1">Plan Changes & Prorations</h4>
                     <p className="text-blue-700 text-sm">
@@ -680,7 +680,7 @@ export default function BillingPage() {
             <Card className="border-amber-200 bg-amber-50/50">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                   <div>
                     <h4 className="font-semibold text-amber-800 mb-1">Payment Method Backup</h4>
                     <p className="text-amber-700 text-sm">
@@ -694,7 +694,7 @@ export default function BillingPage() {
         </div>
 
         {/* Next Steps */}
-        <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-8 border border-emerald-200">
+        <div className="bg-linear-to-r from-emerald-50 to-green-50 rounded-xl p-8 border border-emerald-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Next Steps</h2>
           <p className="text-gray-600 mb-6">
             Set up webhooks to receive billing events and implement rate limiting for your API usage.

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function ForgotPasswordPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-white p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-gray-50 to-white p-4">
       <div className="w-full max-w-md">
         <Card>
           <CardHeader>

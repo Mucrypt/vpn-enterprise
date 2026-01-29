@@ -199,24 +199,24 @@ export default function DocsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen relative overflow-hidden bg-linear-to-br  from-slate-50 via-white to-blue-50">
       
       {/* Background Elements */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-20 right-20 w-64 h-64 bg-gradient-to-r from-blue-200/30 to-purple-200/30 rounded-full blur-3xl floating-element"></div>
-        <div className="absolute bottom-32 left-32 w-80 h-80 bg-gradient-to-r from-emerald-200/20 to-green-200/20 rounded-full blur-3xl floating-element"></div>
-        <div className="absolute top-1/2 right-1/3 w-32 h-32 bg-gradient-to-r from-yellow-200/25 to-orange-200/25 rounded-full blur-2xl floating-element"></div>
+        <div className="absolute top-20 right-20 w-64 h-64 bg-linear-to-r from-blue-200/30 to-purple-200/30 rounded-full blur-3xl floating-element"></div>
+        <div className="absolute bottom-32 left-32 w-80 h-80 bg-linear-to-r from-emerald-200/20 to-green-200/20 rounded-full blur-3xl floating-element"></div>
+        <div className="absolute top-1/2 right-1/3 w-32 h-32 bg-linear-to-br from-yellow-200/25 to-orange-200/25 rounded-full blur-2xl floating-element"></div>
       </div>
 
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 backdrop-blur-md bg-white/80 border-b border-slate-200 shadow-sm">
         <div className="container mx-auto px-4 md:px-6 py-3 md:py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 md:gap-4">
-            <div className="p-2 md:p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
+            <div className="p-2 md:p-3 bg-linear-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
               <Shield className="h-5 w-5 md:h-6 md:w-6 text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="text-lg md:text-xl font-black bg-gradient-to-r from-slate-800 via-blue-700 to-purple-700 bg-clip-text text-transparent">
+              <span className="text-lg md:text-xl font-black bg-linear-to-br from-slate-800 via-blue-700 to-purple-700 bg-clip-text text-transparent">
                 VPN Enterprise
               </span>
               <span className="text-xs text-slate-600 hidden sm:block">Documentation</span>
@@ -386,7 +386,7 @@ export default function DocsPage() {
                 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-800 mb-6 leading-tight"
               >
                 VPN Enterprise
-                <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <span className="block bg-linear-to-br from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   Documentation
                 </span>
               </h1>
@@ -402,7 +402,7 @@ export default function DocsPage() {
                   <Card key={index} className="quick-link bg-white/60 border-slate-200 hover:border-blue-300 transition-all duration-300 hover:shadow-lg group cursor-pointer">
                     <CardHeader className="pb-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                        <div className="p-2 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
                           <link.icon className="h-4 w-4 text-white" />
                         </div>
                         <CardTitle className="text-sm font-semibold text-slate-800 group-hover:text-blue-600 transition-colors">
@@ -430,7 +430,7 @@ export default function DocsPage() {
 
               <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-lg mb-8">
                 <div className="flex items-start">
-                  <Zap className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <Zap className="h-5 w-5 text-blue-600 mt-0.5 mr-3 shrink-0" />
                   <div>
                     <h4 className="font-semibold text-blue-800 mb-2">Quick Start</h4>
                     <p className="text-blue-700 text-sm">
@@ -468,7 +468,7 @@ export default function DocsPage() {
                   <Card key={index} className="bg-white/60 border-slate-200 hover:shadow-lg transition-all duration-300">
                     <CardHeader>
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+                        <div className="p-2 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg">
                           <service.icon className="h-5 w-5 text-white" />
                         </div>
                         <CardTitle className="text-lg">{service.title}</CardTitle>
@@ -481,7 +481,7 @@ export default function DocsPage() {
                       <ul className="space-y-1">
                         {service.features.map((feature, i) => (
                           <li key={i} className="flex items-center text-sm text-slate-600">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2 flex-shrink-0"></div>
+                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2 shrink-0"></div>
                             {feature}
                           </li>
                         ))}
@@ -496,7 +496,7 @@ export default function DocsPage() {
               
               <div className="space-y-6 mb-8">
                 <div className="flex items-start gap-4 p-4 bg-white/60 rounded-lg border border-slate-200">
-                  <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  <div className="w-8 h-8 bg-linear-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                     1
                   </div>
                   <div>
@@ -506,7 +506,7 @@ export default function DocsPage() {
                 </div>
                 
                 <div className="flex items-start gap-4 p-4 bg-white/60 rounded-lg border border-slate-200">
-                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  <div className="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                     2
                   </div>
                   <div>
@@ -516,7 +516,7 @@ export default function DocsPage() {
                 </div>
                 
                 <div className="flex items-start gap-4 p-4 bg-white/60 rounded-lg border border-slate-200">
-                  <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  <div className="w-8 h-8 bg-linear-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                     3
                   </div>
                   <div>
@@ -571,7 +571,7 @@ export default function DocsPage() {
                     <Card className="bg-white/60 border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all duration-300 cursor-pointer group">
                       <CardHeader className="pb-3">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                          <div className="p-2 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
                             <resource.icon className="h-4 w-4 text-white" />
                           </div>
                           <div>
@@ -591,9 +591,9 @@ export default function DocsPage() {
               </div>
 
               {/* Support */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
+              <div className="bg-linear-to-br from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
                 <div className="flex items-start gap-4">
-                  <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+                  <div className="p-2 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg">
                     <Heart className="h-5 w-5 text-white" />
                   </div>
                   <div>

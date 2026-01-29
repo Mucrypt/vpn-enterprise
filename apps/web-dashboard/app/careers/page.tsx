@@ -223,20 +223,20 @@ export default function CareersPage() {
     <div className="min-h-screen relative overflow-hidden">
       
       {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-white via-green-50 to-yellow-50">
-        <div className="absolute inset-0 bg-gradient-to-tr from-emerald-100/40 via-transparent to-yellow-100/40"></div>
-        <div className="absolute top-32 left-20 w-80 h-80 bg-gradient-to-r from-emerald-300/30 to-green-300/30 rounded-full blur-3xl animate-pulse floating-element"></div>
-        <div className="absolute bottom-20 right-32 w-72 h-72 bg-gradient-to-r from-yellow-300/25 to-amber-300/25 rounded-full blur-3xl animate-pulse floating-element"></div>
+      <div className="fixed inset-0 bg-linear-to-br  from-white via-green-50 to-yellow-50">
+        <div className="absolute inset-0 bg-linear-to-tr from-emerald-100/40 via-transparent to-yellow-100/40"></div>
+        <div className="absolute top-32 left-20 w-80 h-80 bg-linear-to-r from-emerald-300/30 to-green-300/30 rounded-full blur-3xl animate-pulse floating-element"></div>
+        <div className="absolute bottom-20 right-32 w-72 h-72 bg-linear-to-r from-yellow-300/25 to-amber-300/25 rounded-full blur-3xl animate-pulse floating-element"></div>
       </div>
 
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 backdrop-blur-lg bg-white/60 border-b border-emerald-200/50">
         <div className="container mx-auto px-4 md:px-6 py-3 md:py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 md:gap-4">
-            <div className="p-2 md:p-3 bg-gradient-to-br from-emerald-50/90 to-green-50/90 rounded-xl border border-emerald-300/30">
+            <div className="p-2 md:p-3 bg-linear-to-br from-emerald-50/90 to-green-50/90 rounded-xl border border-emerald-300/30">
               <Shield className="h-5 w-5 md:h-7 md:w-7 text-emerald-700" />
             </div>
-            <span className="text-lg md:text-2xl font-black bg-gradient-to-r from-gray-800 via-emerald-700 to-yellow-600 bg-clip-text text-transparent">
+            <span className="text-lg md:text-2xl font-black bg-linear-to-r from-gray-800 via-emerald-700 to-yellow-600 bg-clip-text text-transparent">
               VPN Enterprise
             </span>
           </Link>
@@ -285,7 +285,7 @@ export default function CareersPage() {
               { number: "100%", label: "Remote Friendly", icon: Laptop }
             ].map((stat, index) => (
               <div key={index} className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-linear-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center">
                   <stat.icon className="h-8 w-8 text-white" />
                 </div>
                 <div className="text-2xl font-bold text-emerald-600">{stat.number}</div>
@@ -297,7 +297,7 @@ export default function CareersPage() {
       </div>
 
       {/* Benefits */}
-      <div ref={benefitsRef} className="py-20 bg-gradient-to-b from-green-50/50 to-yellow-50/50">
+      <div ref={benefitsRef} className="py-20 bg-linear-to-b from-green-50/50 to-yellow-50/50">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-800 mb-4">Why Work With Us</h2>
@@ -308,7 +308,7 @@ export default function CareersPage() {
             {benefits.map((benefit, index) => (
               <Card key={index} className="benefit-card bg-white/70 border-emerald-200 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300">
                 <CardHeader className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 flex items-center justify-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-linear-to-r from-emerald-500 to-green-600 flex items-center justify-center">
                     <benefit.icon className="h-8 w-8 text-white" />
                   </div>
                   <CardTitle className="text-xl text-gray-800">{benefit.title}</CardTitle>
@@ -335,13 +335,13 @@ export default function CareersPage() {
           {/* Featured Job */}
           <div className="max-w-6xl mx-auto mb-12">
             {jobOpenings.filter(job => job.featured).map((job) => (
-              <Card key={job.id} className="job-card bg-gradient-to-br from-white/80 to-emerald-50/80 border-emerald-300 backdrop-blur-sm shadow-xl overflow-hidden">
+              <Card key={job.id} className="job-card bg-linear-to-br from-white/80 to-emerald-50/80 border-emerald-300 backdrop-blur-sm shadow-xl overflow-hidden">
                 <div className="absolute top-4 right-4">
                   <Badge className="bg-emerald-500">Featured</Badge>
                 </div>
                 <div className="p-8">
                   <div className="flex items-start gap-6">
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${getDepartmentColor(job.department)} flex items-center justify-center flex-shrink-0`}>
+                    <div className={`w-16 h-16 rounded-2xl bg-linear-to-r ${getDepartmentColor(job.department)} flex items-center justify-center shrink-0`}>
                       {(() => {
                         const Icon = getDepartmentIcon(job.department);
                         return <Icon className="h-8 w-8 text-white" />;
@@ -388,7 +388,7 @@ export default function CareersPage() {
               <Card key={job.id} className="job-card bg-white/70 border-emerald-200 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300">
                 <CardHeader>
                   <div className="flex items-start gap-4">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${getDepartmentColor(job.department)} flex items-center justify-center flex-shrink-0`}>
+                    <div className={`w-12 h-12 rounded-xl bg-linear-to-r ${getDepartmentColor(job.department)} flex items-center justify-center shrink-0`}>
                       {(() => {
                         const Icon = getDepartmentIcon(job.department);
                         return <Icon className="h-6 w-6 text-white" />;
@@ -437,7 +437,7 @@ export default function CareersPage() {
 
           {/* No Perfect Match */}
           <div className="text-center mt-16">
-            <Card className="bg-gradient-to-br from-white/70 to-green-50/70 backdrop-blur-sm border-emerald-200 max-w-2xl mx-auto p-8">
+            <Card className="bg-linear-to-br from-white/70 to-green-50/70 backdrop-blur-sm border-emerald-200 max-w-2xl mx-auto p-8">
               <h3 className="text-2xl font-bold text-gray-800 mb-4">Don't See a Perfect Match?</h3>
               <p className="text-gray-600 mb-6 leading-relaxed">
                 We're always looking for exceptional talent. Send us your resume and tell us 
@@ -452,7 +452,7 @@ export default function CareersPage() {
       </div>
 
       {/* CTA */}
-      <div className="py-20 bg-gradient-to-r from-emerald-600 to-green-600">
+      <div className="py-20 bg-linear-to-r from-emerald-600 to-green-600">
         <div className="container mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold text-white mb-4">
             Ready to Make an Impact?
@@ -480,7 +480,7 @@ export default function CareersPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <Link href="/" className="inline-flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg">
+              <div className="p-2 bg-linear-to-br from-emerald-500 to-green-600 rounded-lg">
                 <Shield className="h-5 w-5 text-white" />
               </div>
               <span className="text-lg font-bold text-gray-800">VPN Enterprise</span>

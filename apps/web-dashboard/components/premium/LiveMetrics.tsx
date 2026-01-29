@@ -160,100 +160,125 @@ export default function LiveMetrics() {
   }, [metrics]);
 
   return (
-    <div ref={containerRef} className="py-16 bg-gradient-to-br from-white via-green-50/30 to-yellow-50/20">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-100/60 rounded-full border border-emerald-200 mb-4">
-            <TrendingUp className="w-4 h-4 text-emerald-600" />
-            <span className="text-emerald-700 font-medium text-sm">Live Performance Metrics</span>
+    <div
+      ref={containerRef}
+      className='py-16 bg-linear-to-br from-white via-green-50/30 to-yellow-50/20'
+    >
+      <div className='container mx-auto px-4'>
+        <div className='text-center mb-12'>
+          <div className='inline-flex items-center gap-2 px-4 py-2 bg-emerald-100/60 rounded-full border border-emerald-200 mb-4'>
+            <TrendingUp className='w-4 h-4 text-emerald-600' />
+            <span className='text-emerald-700 font-medium text-sm'>
+              Live Performance Metrics
+            </span>
           </div>
-          <h2 className="text-4xl font-bold text-gray-800 mb-4">
+          <h2 className='text-4xl font-bold text-gray-800 mb-4'>
             Real-Time Business{' '}
-            <span className="bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+            <span className='bg-linear-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent'>
               Intelligence
             </span>
           </h2>
-          <p className="text-gray-600 max-w-2xl mx-auto text-lg">
-            Watch our platform's performance in real-time. These metrics update live to show our commitment to excellence.
+          <p className='text-gray-600 max-w-2xl mx-auto text-lg'>
+            Watch our platform's performance in real-time. These metrics update
+            live to show our commitment to excellence.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
           {metrics.map((metric, index) => {
-            const Icon = metric.icon;
+            const Icon = metric.icon
             return (
               <div
                 key={index}
                 className={`metric-card relative p-6 bg-white/80 backdrop-blur-sm rounded-2xl border ${metric.borderColor} shadow-lg hover:shadow-xl transition-all duration-500 group overflow-hidden`}
               >
                 {/* Animated background gradient */}
-                <div className={`absolute inset-0 ${metric.bgColor} opacity-0 group-hover:opacity-50 transition-opacity duration-500`}></div>
-                
+                <div
+                  className={`absolute inset-0 ${metric.bgColor} opacity-0 group-hover:opacity-50 transition-opacity duration-500`}
+                ></div>
+
                 {/* Shimmer effect */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 animate-shimmer"></div>
+                <div className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500'>
+                  <div className='absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent -skew-x-12 animate-shimmer'></div>
                 </div>
 
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 ${metric.bgColor} rounded-xl border ${metric.borderColor} group-hover:scale-110 transition-transform duration-300`}>
+                <div className='relative z-10'>
+                  <div className='flex items-center justify-between mb-4'>
+                    <div
+                      className={`p-3 ${metric.bgColor} rounded-xl border ${metric.borderColor} group-hover:scale-110 transition-transform duration-300`}
+                    >
                       <Icon className={`w-6 h-6 ${metric.color}`} />
                     </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-green-600 text-xs font-medium">LIVE</span>
+                    <div className='flex items-center gap-1'>
+                      <div className='w-2 h-2 bg-green-400 rounded-full animate-pulse'></div>
+                      <span className='text-green-600 text-xs font-medium'>
+                        LIVE
+                      </span>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-baseline gap-1">
-                      <span className={`metric-number text-3xl font-bold ${metric.color}`}>
+                  <div className='space-y-2'>
+                    <div className='flex items-baseline gap-1'>
+                      <span
+                        className={`metric-number text-3xl font-bold ${metric.color}`}
+                      >
                         {metric.value.toLocaleString()}
                       </span>
-                      <span className="text-gray-500 text-sm">{metric.suffix}</span>
+                      <span className='text-gray-500 text-sm'>
+                        {metric.suffix}
+                      </span>
                     </div>
-                    <p className="text-gray-600 font-medium">{metric.label}</p>
+                    <p className='text-gray-600 font-medium'>{metric.label}</p>
                   </div>
 
                   {/* Growth indicator */}
-                  <div className="mt-4 flex items-center gap-2">
-                    <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full">
-                      <TrendingUp className="w-3 h-3 text-green-600" />
-                      <span className="text-green-700 text-xs font-medium">
+                  <div className='mt-4 flex items-center gap-2'>
+                    <div className='flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full'>
+                      <TrendingUp className='w-3 h-3 text-green-600' />
+                      <span className='text-green-700 text-xs font-medium'>
                         +{[12, 8, 15, 7, 11, 9][index] || 10}%
                       </span>
                     </div>
-                    <span className="text-gray-500 text-xs">vs last month</span>
+                    <span className='text-gray-500 text-xs'>vs last month</span>
                   </div>
                 </div>
               </div>
-            );
+            )
           })}
         </div>
 
         {/* Real-time activity feed */}
-        <div className="mt-12 max-w-4xl mx-auto">
-          <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-emerald-200 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Activity className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-lg font-semibold text-gray-800">Live Activity Feed</h3>
-              <div className="flex items-center gap-1 ml-auto">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-green-600 text-sm font-medium">Real-time</span>
+        <div className='mt-12 max-w-4xl mx-auto'>
+          <div className='bg-white/60 backdrop-blur-sm rounded-2xl border border-emerald-200 p-6'>
+            <div className='flex items-center gap-2 mb-4'>
+              <Activity className='w-5 h-5 text-emerald-600' />
+              <h3 className='text-lg font-semibold text-gray-800'>
+                Live Activity Feed
+              </h3>
+              <div className='flex items-center gap-1 ml-auto'>
+                <div className='w-2 h-2 bg-green-400 rounded-full animate-pulse'></div>
+                <span className='text-green-600 text-sm font-medium'>
+                  Real-time
+                </span>
               </div>
             </div>
-            <div className="space-y-3 max-h-48 overflow-y-auto">
+            <div className='space-y-3 max-h-48 overflow-y-auto'>
               {[
-                "New user connected from Tokyo, Japan",
-                "Server cluster expanded in Frankfurt, Germany", 
-                "99.99% uptime maintained for 247 days",
-                "1.2TB of data encrypted in the last hour",
-                "Security scan completed: All systems secure"
+                'New user connected from Tokyo, Japan',
+                'Server cluster expanded in Frankfurt, Germany',
+                '99.99% uptime maintained for 247 days',
+                '1.2TB of data encrypted in the last hour',
+                'Security scan completed: All systems secure',
               ].map((activity, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50/50 to-transparent rounded-lg border-l-2 border-emerald-300">
-                  <Clock className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  <span className="text-gray-700 text-sm">{activity}</span>
-                  <span className="text-gray-500 text-xs ml-auto">just now</span>
+                <div
+                  key={index}
+                  className='flex items-center gap-3 p-3 bg-linear-to-r from-emerald-50/50 to-transparent rounded-lg border-l-2 border-emerald-300'
+                >
+                  <Clock className='w-4 h-4 text-emerald-600 shrink-0' />
+                  <span className='text-gray-700 text-sm'>{activity}</span>
+                  <span className='text-gray-500 text-xs ml-auto'>
+                    just now
+                  </span>
                 </div>
               ))}
             </div>
@@ -261,5 +286,5 @@ export default function LiveMetrics() {
         </div>
       </div>
     </div>
-  );
+  )
 }

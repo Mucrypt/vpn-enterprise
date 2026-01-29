@@ -132,7 +132,7 @@ export function ServiceTemplatesGrid({ onSelectTemplate }: ServiceTemplatesGridP
 
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between mb-2">
-                <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-lg bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                   <IconComponent className="h-6 w-6 text-white" />
                 </div>
                 <Badge className={getCategoryColor(template.category)}>
@@ -162,7 +162,7 @@ export function ServiceTemplatesGrid({ onSelectTemplate }: ServiceTemplatesGridP
                 <ul className="space-y-1">
                   {template.features.map((feature: string, index: number) => (
                     <li key={index} className="flex items-center text-sm text-gray-600">
-                      <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                      <Check className="h-4 w-4 text-green-500 mr-2 shrink-0" />
                       {feature}
                     </li>
                   ))}

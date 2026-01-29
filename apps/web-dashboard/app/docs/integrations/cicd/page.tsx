@@ -308,7 +308,7 @@ deploy_production:
 
   return (
     <DocLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-purple-50/30">
+      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50/20 to-purple-50/30">
         <div className="container mx-auto px-6 py-12">
           {/* Hero Section */}
           <div ref={heroRef} className="text-center mb-16">
@@ -317,7 +317,7 @@ deploy_production:
               <span className="text-blue-700 dark:text-blue-300 font-medium">DevOps Integration</span>
             </div>
             
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-6">
+            <h1 className="text-5xl font-bold bg-linear-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-6">
               CI/CD Platforms
             </h1>
             
@@ -327,7 +327,7 @@ deploy_production:
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600">
+              <Button size="lg" className="bg-linear-to-r from-blue-600 to-purple-600">
                 Setup CI/CD Pipeline
               </Button>
               <Button size="lg" variant="outline">
@@ -346,7 +346,7 @@ deploy_production:
                   className="group hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm overflow-hidden"
                 >
                   <CardHeader className="relative">
-                    <div className={`absolute inset-0 bg-gradient-to-r ${platform.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                    <div className={`absolute inset-0 bg-linear-to-r ${platform.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
                     <div className="relative flex items-center gap-4">
                       <div className="text-3xl">{platform.logo}</div>
                       <div>
@@ -395,8 +395,8 @@ deploy_production:
                 <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
                   <CardContent className="p-6">
                     <div className="flex items-start gap-6">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                      <div className="shrink-0">
+                        <div className="w-12 h-12 bg-linear-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold text-lg">
                           {step.step}
                         </div>
                       </div>
@@ -470,7 +470,7 @@ deploy_production:
                 <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
                   <CardHeader>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                      <div className="w-10 h-10 bg-linear-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
                         <feature.icon className="h-5 w-5 text-white" />
                       </div>
                       <div>
@@ -495,7 +495,7 @@ deploy_production:
           </div>
 
           {/* Security & Compliance */}
-          <Card className="mb-16 bg-gradient-to-r from-indigo-50 to-purple-50 border-0">
+          <Card className="mb-16 bg-linear-to-r from-indigo-50 to-purple-50 border-0">
             <CardContent className="p-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                 <div>
@@ -536,7 +536,7 @@ deploy_production:
           </Card>
 
           {/* Call to Action */}
-          <Card className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+          <Card className="bg-linear-to-r from-blue-500 to-purple-600 text-white">
             <CardContent className="p-8 text-center">
               <Rocket className="h-16 w-16 mx-auto mb-6 opacity-90" />
               <h2 className="text-3xl font-bold mb-4">Accelerate Your Deployments</h2>

@@ -94,20 +94,20 @@ export default function AboutPage() {
     <div className="min-h-screen relative overflow-hidden">
       
       {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-white via-green-50 to-yellow-50">
-        <div className="absolute inset-0 bg-gradient-to-tr from-emerald-100/40 via-transparent to-yellow-100/40"></div>
-        <div className="absolute top-32 right-20 w-64 h-64 bg-gradient-to-r from-emerald-300/30 to-green-300/30 rounded-full blur-3xl animate-pulse floating-element"></div>
-        <div className="absolute bottom-40 left-32 w-80 h-80 bg-gradient-to-r from-yellow-300/25 to-amber-300/25 rounded-full blur-3xl animate-pulse floating-element"></div>
+      <div className="fixed inset-0 bg-linear-to-br from-white via-green-50 to-yellow-50">
+        <div className="absolute inset-0 bg-linear-to-tr from-emerald-100/40 via-transparent to-yellow-100/40"></div>
+        <div className="absolute top-32 right-20 w-64 h-64 bg-linear-to-r from-emerald-300/30 to-green-300/30 rounded-full blur-3xl animate-pulse floating-element"></div>
+        <div className="absolute bottom-40 left-32 w-80 h-80 bg-linear-to-r from-yellow-300/25 to-amber-300/25 rounded-full blur-3xl animate-pulse floating-element"></div>
       </div>
 
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 backdrop-blur-lg bg-white/60 border-b border-emerald-200/50">
         <div className="container mx-auto px-4 md:px-6 py-3 md:py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 md:gap-4">
-            <div className="p-2 md:p-3 bg-gradient-to-br from-emerald-50/90 to-green-50/90 rounded-xl border border-emerald-300/30">
+            <div className="p-2 md:p-3 bg-linear-to-br from-emerald-50/90 to-green-50/90 rounded-xl border border-emerald-300/30">
               <Shield className="h-5 w-5 md:h-7 md:w-7 text-emerald-700" />
             </div>
-            <span className="text-lg md:text-2xl font-black bg-gradient-to-r from-gray-800 via-emerald-700 to-yellow-600 bg-clip-text text-transparent">
+            <span className="text-lg md:text-2xl font-black bg-linear-to-r from-gray-800 via-emerald-700 to-yellow-600 bg-clip-text text-transparent">
               VPN Enterprise
             </span>
           </Link>
@@ -154,7 +154,7 @@ export default function AboutPage() {
               <p className="text-xl text-gray-600">From a small idea to global impact</p>
             </div>
 
-            <div className="story-content bg-gradient-to-br from-white/70 to-green-50/70 backdrop-blur-sm rounded-2xl p-8 md:p-12 border border-emerald-200 shadow-xl">
+            <div className="story-content bg-linear-to-br from-white/70 to-green-50/70 backdrop-blur-sm rounded-2xl p-8 md:p-12 border border-emerald-200 shadow-xl">
               <div className="prose prose-lg max-w-none text-gray-700">
                 <p className="text-xl leading-relaxed mb-6">
                   It all started in 2020 when our founders, a group of cybersecurity experts and infrastructure engineers, 
@@ -183,7 +183,7 @@ export default function AboutPage() {
       </div>
 
       {/* Timeline */}
-      <div ref={timelineRef} className="py-20 bg-gradient-to-b from-green-50/50 to-yellow-50/50">
+      <div ref={timelineRef} className="py-20 bg-linear-to-b from-green-50/50 to-yellow-50/50">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-800 mb-4">Our Journey</h2>
@@ -193,7 +193,7 @@ export default function AboutPage() {
           <div className="max-w-4xl mx-auto">
             <div className="relative">
               {/* Timeline line */}
-              <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-500 to-green-500"></div>
+              <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-linear-to-b from-emerald-500 to-green-500"></div>
               
               {[
                 {
@@ -234,7 +234,7 @@ export default function AboutPage() {
                 }
               ].map((milestone, index) => (
                 <div key={index} className="timeline-item relative flex items-start mb-12">
-                  <div className="absolute left-0 w-16 h-16 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
+                  <div className="absolute left-0 w-16 h-16 bg-linear-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
                     <milestone.icon className="h-8 w-8 text-white" />
                   </div>
                   <div className="ml-24">
@@ -281,7 +281,7 @@ export default function AboutPage() {
             ].map((philosophy, index) => (
               <Card key={index} className="bg-white/70 border-emerald-200 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300">
                 <CardHeader className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 flex items-center justify-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-linear-to-r from-emerald-500 to-green-600 flex items-center justify-center">
                     <philosophy.icon className="h-8 w-8 text-white" />
                   </div>
                   <CardTitle className="text-xl text-gray-800">{philosophy.title}</CardTitle>
@@ -298,7 +298,7 @@ export default function AboutPage() {
       </div>
 
       {/* CTA */}
-      <div className="py-20 bg-gradient-to-r from-emerald-600 to-green-600">
+      <div className="py-20 bg-linear-to-r from-emerald-600 to-green-600">
         <div className="container mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold text-white mb-4">
             Ready to Experience the Difference?
@@ -328,7 +328,7 @@ export default function AboutPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <Link href="/" className="inline-flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg">
+              <div className="p-2 bg-linear-to-br from-emerald-500 to-green-600 rounded-lg">
                 <Shield className="h-5 w-5 text-white" />
               </div>
               <span className="text-lg font-bold text-gray-800">VPN Enterprise</span>

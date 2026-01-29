@@ -114,7 +114,7 @@ export default function VPNConnectionSimulator() {
   }, []);
 
   return (
-    <div ref={containerRef} className="py-16 bg-gradient-to-br from-white via-blue-50/30 to-cyan-50/20">
+    <div ref={containerRef} className="py-16 bg-linear-to-br from-white via-blue-50/30 to-cyan-50/20">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100/60 rounded-full border border-blue-200 mb-4">
@@ -123,7 +123,7 @@ export default function VPNConnectionSimulator() {
           </div>
           <h2 className="text-4xl font-bold text-gray-800 mb-4">
             VPN Connection{' '}
-            <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
               Simulator
             </span>
           </h2>
@@ -140,7 +140,7 @@ export default function VPNConnectionSimulator() {
               <div className="flex items-center justify-between mb-8">
                 {/* User device */}
                 <div className="text-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl border border-gray-300 flex items-center justify-center mb-3 shadow-lg">
+                  <div className="w-20 h-20 bg-linear-to-br from-gray-100 to-gray-200 rounded-2xl border border-gray-300 flex items-center justify-center mb-3 shadow-lg">
                     <div className="w-12 h-8 bg-gray-800 rounded-sm flex items-center justify-center">
                       <div className="w-8 h-5 bg-blue-500 rounded-sm"></div>
                     </div>
@@ -153,7 +153,7 @@ export default function VPNConnectionSimulator() {
                 <div ref={tunnelRef} className="flex-1 mx-8 relative opacity-30">
                   <div className="relative">
                     {/* Tunnel visualization */}
-                    <div className="h-16 bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 rounded-full relative overflow-hidden border-2 border-blue-400">
+                    <div className="h-16 bg-linear-to-r from-blue-200 via-blue-300 to-blue-200 rounded-full relative overflow-hidden border-2 border-blue-400">
                       {/* Animated data flow */}
                       <div className="absolute inset-0">
                         {Array.from({ length: 5 }, (_, i) => (
@@ -190,7 +190,7 @@ export default function VPNConnectionSimulator() {
 
                 {/* Server */}
                 <div className="text-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-emerald-200 rounded-2xl border border-green-300 flex items-center justify-center mb-3 shadow-lg">
+                  <div className="w-20 h-20 bg-linear-to-br from-green-100 to-emerald-200 rounded-2xl border border-green-300 flex items-center justify-center mb-3 shadow-lg">
                     <Shield className="w-10 h-10 text-green-600" />
                   </div>
                   <p className="text-gray-700 font-medium">VPN Server</p>
@@ -282,7 +282,7 @@ export default function VPNConnectionSimulator() {
                   className={`px-8 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
                     isConnecting
                       ? 'bg-yellow-100 text-yellow-700 border border-yellow-300 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg hover:shadow-xl hover:scale-105'
+                      : 'bg-linear-to-r from-blue-500 to-cyan-600 text-white shadow-lg hover:shadow-xl hover:scale-105'
                   }`}
                   data-magnetic
                 >
@@ -292,7 +292,7 @@ export default function VPNConnectionSimulator() {
               ) : (
                 <button
                   onClick={disconnect}
-                  className="px-8 py-3 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center gap-2"
+                  className="px-8 py-3 bg-linear-to-r from-red-500 to-pink-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center gap-2"
                   data-magnetic
                 >
                   <Pause className="w-5 h-5" />

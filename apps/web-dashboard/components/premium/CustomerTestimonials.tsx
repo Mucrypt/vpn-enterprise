@@ -40,7 +40,7 @@ export default function CustomerTestimonials() {
       rating: 5,
       quote: "VPN Enterprise transformed our remote work infrastructure. The speed and security improvements have been remarkable, and our team productivity increased by 40%.",
       companyLogo: (
-        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+        <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
           <Building className="w-6 h-6 text-white" />
         </div>
       ),
@@ -59,7 +59,7 @@ export default function CustomerTestimonials() {
       rating: 5,
       quote: "The enterprise-grade security features are outstanding. We've had zero security incidents since implementing VPN Enterprise, and compliance audits are now a breeze.",
       companyLogo: (
-        <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
+        <div className="w-12 h-12 bg-linear-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
           <Building className="w-6 h-6 text-white" />
         </div>
       ),
@@ -78,7 +78,7 @@ export default function CustomerTestimonials() {
       rating: 5,
       quote: "Scalability and reliability are exactly what we needed. Our infrastructure costs decreased by 35% while performance improved dramatically across all global offices.",
       companyLogo: (
-        <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+        <div className="w-12 h-12 bg-linear-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
           <Building className="w-6 h-6 text-white" />
         </div>
       ),
@@ -97,7 +97,7 @@ export default function CustomerTestimonials() {
       rating: 5,
       quote: "The deployment was seamless, and the ongoing support has been exceptional. Our network latency improved by 60%, making our global collaboration effortless.",
       companyLogo: (
-        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+        <div className="w-12 h-12 bg-linear-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
           <Building className="w-6 h-6 text-white" />
         </div>
       ),
@@ -162,7 +162,7 @@ export default function CustomerTestimonials() {
   const currentTestimonial = testimonials[currentIndex];
 
   return (
-    <div ref={containerRef} className="py-16 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/20">
+    <div ref={containerRef} className="py-16 bg-linear-to-br from-white via-purple-50/30 to-pink-50/20">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100/60 rounded-full border border-purple-200 mb-4">
@@ -171,7 +171,7 @@ export default function CustomerTestimonials() {
           </div>
           <h2 className="text-4xl font-bold text-gray-800 mb-4">
             What Our{' '}
-            <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               Customers Say
             </span>
           </h2>
@@ -213,7 +213,7 @@ export default function CustomerTestimonials() {
 
                 {/* Author info */}
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                  <div className="w-16 h-16 bg-linear-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
                     {currentTestimonial.avatar}
                   </div>
                   <div>
@@ -232,7 +232,7 @@ export default function CustomerTestimonials() {
 
               {/* Metrics showcase */}
               <div className="space-y-6">
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-200 p-6">
+                <div className="bg-linear-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-200 p-6">
                   <h4 className="text-lg font-bold text-gray-800 mb-4 text-center">
                     Business Impact
                   </h4>

@@ -196,7 +196,7 @@ export function TableStructureEditor({
   return (
     <div className="h-full bg-[#1e1e1e] flex flex-col border-l border-[#2d2d30]">
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e] px-4 py-3">
+      <div className="shrink-0 border-b border-[#2d2d30] bg-[#1e1e1e] px-4 py-3">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Settings className="h-4 w-4 text-emerald-400" />
@@ -488,7 +488,7 @@ export function TableStructureEditor({
 
       {/* Changes Summary */}
       {changes.length > 0 && (
-        <div className="flex-shrink-0 border-t border-[#2d2d30] bg-[#2d2d30] px-6 py-3">
+        <div className="shrink-0 border-t border-[#2d2d30] bg-[#2d2d30] px-6 py-3">
           <div className="flex items-center gap-2 text-sm">
             <AlertTriangle className="h-4 w-4 text-yellow-400" />
             <span className="text-yellow-400 font-medium">Pending Changes:</span>
