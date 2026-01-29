@@ -159,6 +159,19 @@ SELECT * FROM blog.posts LIMIT 5;
     'idle' | 'running' | 'cancelled'
   >('idle')
 
+  // Schema refresh trigger
+  const [schemaRefreshKey, setSchemaRefreshKey] = useState(0)
+  
+  const refreshSchema = () => {
+    setSchemaRefreshKey(prev => prev + 1)
+  }
+
+  // Check if SQL contains DDL statements that modify schema
+  const isDDLStatement = (sql: string): boolean => {
+    const ddlKeywords = /\b(CREATE|ALTER|DROP|TRUNCATE|RENAME)\s+(TABLE|INDEX|VIEW|FUNCTION|TRIGGER|SCHEMA|DATABASE)/i
+    return ddlKeywords.test(sql)
+  }
+
   const cancelQuery = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -219,6 +232,12 @@ SELECT * FROM blog.posts LIMIT 5;
         rowCount: data.data?.length,
         duration: endTime - startTime,
       })
+      
+      // Auto-refresh schema if DDL statement was executed
+      if (isDDLStatement(sql)) {
+        console.log('DDL statement detected, refreshing schema...')
+        setTimeout(() => refreshSchema(), 500)
+      }
     } catch (error: any) {
       if (error.name === 'AbortError') {
         setQueryError('Query cancelled by user')
@@ -314,6 +333,7 @@ SELECT * FROM blog.posts LIMIT 5;
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         onLoadQuery={loadQueryTemplate}
+        onRefreshSchema={refreshSchema}
       >
         {activeSection === 'sql-editor' && (
           <SqlEditorPageLight
@@ -335,6 +355,7 @@ SELECT * FROM blog.posts LIMIT 5;
         {activeSection === 'tables' && (
           <Suspense fallback={<LoadingSpinner />}>
             <TablesPage
+              key={schemaRefreshKey}
               activeTenant={activeTenant}
               onCreateTable={handleCreateTable}
             />

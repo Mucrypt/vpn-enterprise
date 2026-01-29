@@ -43,6 +43,7 @@ interface DatabaseLayoutProps {
   activeSection: DatabaseSection;
   onSectionChange: (section: DatabaseSection) => void;
   onLoadQuery?: (sql: string, name: string) => void;
+  onRefreshSchema?: () => void; // Callback to refresh schema after DDL operations
 }
 
 export type DatabaseSection = 
@@ -156,48 +157,53 @@ const NAVIGATION_ITEMS = [
   }
 ];
 
-export function DatabaseLayout({ children, activeTenant, tenants, onTenantChange, activeSection, onSectionChange, onLoadQuery }: DatabaseLayoutProps) {
+export function DatabaseLayout({ children, activeTenant, tenants, onTenantChange, activeSection, onSectionChange, onLoadQuery, onRefreshSchema }: DatabaseLayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [queryHistory, setQueryHistory] = useState<any[]>([]);
   const [tableCount, setTableCount] = useState<number>(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Load table count
-  useEffect(() => {
-    const loadTableCount = async () => {
-      if (!activeTenant) return;
-      
-      try {
-        // Get all schemas first
-        const schemasResponse = await fetch(`/api/v1/tenants/${activeTenant}/schemas`);
-        if (!schemasResponse.ok) return;
-        
-        const schemasData = await schemasResponse.json();
-        const schemas = schemasData.data || schemasData.schemas || [];
-        
-        let totalCount = 0;
-        
-        // Count tables from all schemas
-        for (const schema of schemas) {
-          const schemaName = schema.schema_name || schema.name;
-          const tablesResponse = await fetch(`/api/v1/tenants/${activeTenant}/schemas/${schemaName}/tables`);
-          
-          if (tablesResponse.ok) {
-            const tablesData = await tablesResponse.json();
-            const tables = tablesData.data || tablesData.tables || [];
-            // Only count BASE TABLEs, not VIEWs
-            const baseTables = tables.filter((t: any) => (t.table_type || t.type) === 'BASE TABLE');
-            totalCount += baseTables.length;
-          }
-        }
-        
-        setTableCount(totalCount);
-      } catch (error) {
-        console.warn('Failed to load table count:', error);
-      }
-    };
+  const loadTableCount = async () => {
+    if (!activeTenant) return;
     
-    if (activeTenant) {
+    setIsRefreshing(true);
+    try {
+      // Get all schemas first
+      const schemasResponse = await fetch(`/api/v1/tenants/${activeTenant}/schemas`);
+      if (!schemasResponse.ok) return;
+      
+      const schemasData = await schemasResponse.json();
+      const schemas = schemasData.data || schemasData.schemas || [];
+      
+      let totalCount = 0;
+      
+      // Count tables from all schemas
+      for (const schema of schemas) {
+        const schemaName = schema.schema_name || schema.name;
+        const tablesResponse = await fetch(`/api/v1/tenants/${activeTenant}/schemas/${schemaName}/tables`);
+        
+        if (tablesResponse.ok) {
+          const tablesData = await tablesResponse.json();
+          const tables = tablesData.data || tablesData.tables || [];
+          // Only count BASE TABLEs, not VIEWs
+          const baseTables = tables.filter((t: any) => (t.table_type || t.type) === 'BASE TABLE');
+          totalCount += baseTables.length;
+        }
+      }
+      
+      setTableCount(totalCount);
+    } catch (error) {
+      console.warn('Failed to load table count:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTableCount();
+  }, [activeTenant]);
       loadTableCount();
     }
   }, [activeTenant]);
@@ -363,9 +369,35 @@ export function DatabaseLayout({ children, activeTenant, tenants, onTenantChange
                                 </span>
                               )}
                               {item.id === 'tables' && (
-                                <span className="ml-auto text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full">
-                                  {tableCount}
-                                </span>
+                                <div className="ml-auto flex items-center gap-1">
+                                  <span className="text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full">
+                                    {tableCount}
+                                  </span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      loadTableCount();
+                                      if (onRefreshSchema) onRefreshSchema();
+                                    }}
+                                    disabled={isRefreshing}
+                                    className="p-0.5 hover:bg-[#3e3e42] rounded transition-colors"
+                                    title="Refresh table list"
+                                  >
+                                    <svg 
+                                      className={cn("h-3 w-3 text-gray-400", isRefreshing && "animate-spin")} 
+                                      fill="none" 
+                                      viewBox="0 0 24 24" 
+                                      stroke="currentColor"
+                                    >
+                                      <path 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round" 
+                                        strokeWidth={2} 
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                                      />
+                                    </svg>
+                                  </button>
+                                </div>
                               )}
                               {item.id === 'functions' && (
                                 <span className="ml-auto text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full">
