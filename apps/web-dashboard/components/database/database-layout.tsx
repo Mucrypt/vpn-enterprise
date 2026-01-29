@@ -204,9 +204,6 @@ export function DatabaseLayout({ children, activeTenant, tenants, onTenantChange
   useEffect(() => {
     loadTableCount();
   }, [activeTenant]);
-      loadTableCount();
-    }
-  }, [activeTenant]);
 
   // Load query history when tenant changes
   useEffect(() => {
