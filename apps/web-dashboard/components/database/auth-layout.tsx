@@ -187,7 +187,7 @@ export function AuthLayout({
 
         {/* Upgrade Badge */}
         <div className='mx-2 mb-4'>
-          <Card className='p-3 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border-emerald-500/20'>
+          <Card className='p-3 bg-linear-to-br from-emerald-500/10 to-cyan-500/10 border-emerald-500/20'>
             <div className='flex items-center gap-2 mb-2'>
               <Shield className='h-4 w-4 text-emerald-400' />
               <span className='text-sm font-medium text-emerald-400'>

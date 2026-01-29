@@ -182,10 +182,12 @@ export function DatabasePageClient({
   const [showSampleDataBanner, setShowSampleDataBanner] = useState(false)
 
   // Settings state
-  const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>('general')
+  const [activeSettingsSection, setActiveSettingsSection] =
+    useState<SettingsSection>('general')
 
   // Authentication state
-  const [activeAuthSection, setActiveAuthSection] = useState<AuthSection>('users')
+  const [activeAuthSection, setActiveAuthSection] =
+    useState<AuthSection>('users')
 
   // SQL Editor state
   const [sql, setSql] = useState<string>(`-- Welcome to the SQL Editor!
