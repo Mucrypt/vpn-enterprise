@@ -188,8 +188,8 @@ export function DatabaseLayout({
   const [queryHistory, setQueryHistory] = useState<any[]>([])
   const [tableCount, setTableCount] = useState<number>(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [tables, setTables] = useState<any[]>([]);
-  const [isTablesExpanded, setIsTablesExpanded] = useState(true);
+  const [tables, setTables] = useState<any[]>([])
+  const [isTablesExpanded, setIsTablesExpanded] = useState(true)
 
   // Load tables from all schemas
   const loadTables = async () => {
@@ -224,13 +224,16 @@ export function DatabaseLayout({
             (t: any) => (t.table_type || t.type) === 'BASE TABLE',
           )
           totalCount += baseTables.length
-          
+
           // Add tables to the list with schema info
           baseTables.forEach((t: any) => {
             allTables.push({
               name: t.table_name || t.name,
               schema: schemaName,
-              fullName: schemaName === 'public' ? (t.table_name || t.name) : `${schemaName}.${t.table_name || t.name}`
+              fullName:
+                schemaName === 'public'
+                  ? t.table_name || t.name
+                  : `${schemaName}.${t.table_name || t.name}`,
             })
           })
         }
@@ -246,7 +249,7 @@ export function DatabaseLayout({
   }
 
   useEffect(() => {
-    loadTableCount()
+    loadTables()
   }, [activeTenant])
 
   // Load query history when tenant changes
@@ -339,7 +342,9 @@ export function DatabaseLayout({
                 <div className='mt-2 flex items-center justify-between px-2 py-1.5 bg-emerald-600/10 border border-emerald-500/20 rounded text-xs'>
                   <span className='text-gray-300'>Free Plan</span>
                   <button
-                    onClick={() => window.location.href = '/dashboard/billing'}
+                    onClick={() =>
+                      (window.location.href = '/dashboard/billing')
+                    }
                     className='text-emerald-400 hover:text-emerald-300 font-medium'
                   >
                     Upgrade
@@ -368,31 +373,39 @@ export function DatabaseLayout({
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    loadTableCount()
+                    loadTables()
                     if (onRefreshSchema) onRefreshSchema()
                   }}
                   disabled={isRefreshing}
                   className='p-0.5 hover:bg-[#3e3e42] rounded transition-colors'
                   title='Refresh tables'
                 >
-                  <svg 
-                    className={cn("h-3 w-3 text-gray-400", isRefreshing && "animate-spin")} 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
+                  <svg
+                    className={cn(
+                      'h-3 w-3 text-gray-400',
+                      isRefreshing && 'animate-spin',
+                    )}
+                    fill='none'
+                    viewBox='0 0 24 24'
+                    stroke='currentColor'
                   >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
                     />
                   </svg>
                 </button>
-                <ChevronRight className={cn('h-3 w-3 transition-transform', isTablesExpanded && 'rotate-90')} />
+                <ChevronRight
+                  className={cn(
+                    'h-3 w-3 transition-transform',
+                    isTablesExpanded && 'rotate-90',
+                  )}
+                />
               </div>
             </button>
-            
+
             {/* Tables List */}
             {isTablesExpanded && (
               <div className='mt-1 ml-6 max-h-80 overflow-y-auto scrollbar scrollbar--neutral'>
@@ -425,198 +438,204 @@ export function DatabaseLayout({
           <div className={cn('p-2', isCollapsed && 'px-1')}>
             {NAVIGATION_ITEMS.map((category) => {
               // Filter out the Tables item from Essential Tools since we show it separately
-              const filteredItems = category.items.filter(item => item.id !== 'tables')
+              const filteredItems = category.items.filter(
+                (item) => item.id !== 'tables',
+              )
               if (filteredItems.length === 0) return null
-              
-              return (
-              <div
-                key={category.category}
-                className={cn('mb-6', isCollapsed && 'mb-4')}
-              >
-                {!isCollapsed && (
-                  <h3 className='text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 px-2'>
-                    {category.category}
-                  </h3>
-                )}
-                <nav className='space-y-1'>
-                  {filteredItems.map((item: any) => {
-                    const Icon = item.icon
-                    const isActive = activeSection === item.id
-                    const isExpanded = expandedSections.has(item.id)
-                    const isExpandable = item.expandable && !isCollapsed
 
-                    return (
-                      <div key={item.id}>
-                        <button
-                          onClick={() => {
-                            if (isExpandable) {
-                              toggleSection(item.id)
-                            } else {
-                              onSectionChange(item.id as DatabaseSection)
-                            }
-                          }}
-                          className={cn(
-                            'w-full flex items-center rounded-md text-sm transition-colors text-left relative',
-                            isCollapsed
-                              ? 'gap-0 px-2 py-3 justify-center'
-                              : 'gap-3 px-3 py-2',
-                            isActive && !isExpandable
-                              ? 'bg-emerald-600 text-white'
-                              : 'text-gray-300 hover:text-white hover:bg-[#2d2d30]',
-                          )}
-                          title={isCollapsed ? item.label : undefined}
-                        >
-                          <Icon className='h-4 w-4' />
-                          {!isCollapsed && (
-                            <>
-                              <span>{item.label}</span>
-                              {item.id === 'query-history' && (
-                                <span className='ml-auto text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full'>
-                                  {queryHistory.length}
-                                </span>
-                              )}
-                              {item.id === 'sql-templates' && (
-                                <span className='ml-auto text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full'>
-                                  {SQL_TEMPLATES.length}
-                                </span>
-                              )}
-                              {item.id === 'tables' && (
-                                <div className='ml-auto flex items-center gap-1'>
-                                  <span className='text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full'>
-                                    {tableCount}
+              return (
+                <div
+                  key={category.category}
+                  className={cn('mb-6', isCollapsed && 'mb-4')}
+                >
+                  {!isCollapsed && (
+                    <h3 className='text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 px-2'>
+                      {category.category}
+                    </h3>
+                  )}
+                  <nav className='space-y-1'>
+                    {filteredItems.map((item: any) => {
+                      const Icon = item.icon
+                      const isActive = activeSection === item.id
+                      const isExpanded = expandedSections.has(item.id)
+                      const isExpandable = item.expandable && !isCollapsed
+
+                      return (
+                        <div key={item.id}>
+                          <button
+                            onClick={() => {
+                              if (isExpandable) {
+                                toggleSection(item.id)
+                              } else {
+                                onSectionChange(item.id as DatabaseSection)
+                              }
+                            }}
+                            className={cn(
+                              'w-full flex items-center rounded-md text-sm transition-colors text-left relative',
+                              isCollapsed
+                                ? 'gap-0 px-2 py-3 justify-center'
+                                : 'gap-3 px-3 py-2',
+                              isActive && !isExpandable
+                                ? 'bg-emerald-600 text-white'
+                                : 'text-gray-300 hover:text-white hover:bg-[#2d2d30]',
+                            )}
+                            title={isCollapsed ? item.label : undefined}
+                          >
+                            <Icon className='h-4 w-4' />
+                            {!isCollapsed && (
+                              <>
+                                <span>{item.label}</span>
+                                {item.id === 'query-history' && (
+                                  <span className='ml-auto text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full'>
+                                    {queryHistory.length}
                                   </span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      loadTableCount()
-                                      if (onRefreshSchema) onRefreshSchema()
-                                    }}
-                                    disabled={isRefreshing}
-                                    className='p-0.5 hover:bg-[#3e3e42] rounded transition-colors'
-                                    title='Refresh table list'
-                                  >
-                                    <svg
-                                      className={cn(
-                                        'h-3 w-3 text-gray-400',
-                                        isRefreshing && 'animate-spin',
-                                      )}
-                                      fill='none'
-                                      viewBox='0 0 24 24'
-                                      stroke='currentColor'
+                                )}
+                                {item.id === 'sql-templates' && (
+                                  <span className='ml-auto text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full'>
+                                    {SQL_TEMPLATES.length}
+                                  </span>
+                                )}
+                                {item.id === 'tables' && (
+                                  <div className='ml-auto flex items-center gap-1'>
+                                    <span className='text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full'>
+                                      {tableCount}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        loadTables()
+                                        if (onRefreshSchema) onRefreshSchema()
+                                      }}
+                                      disabled={isRefreshing}
+                                      className='p-0.5 hover:bg-[#3e3e42] rounded transition-colors'
+                                      title='Refresh table list'
                                     >
-                                      <path
-                                        strokeLinecap='round'
-                                        strokeLinejoin='round'
-                                        strokeWidth={2}
-                                        d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
-                                      />
-                                    </svg>
-                                  </button>
+                                      <svg
+                                        className={cn(
+                                          'h-3 w-3 text-gray-400',
+                                          isRefreshing && 'animate-spin',
+                                        )}
+                                        fill='none'
+                                        viewBox='0 0 24 24'
+                                        stroke='currentColor'
+                                      >
+                                        <path
+                                          strokeLinecap='round'
+                                          strokeLinejoin='round'
+                                          strokeWidth={2}
+                                          d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                )}
+                                {item.id === 'functions' && (
+                                  <span className='ml-auto text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full'>
+                                    3
+                                  </span>
+                                )}
+                                {isExpandable && (
+                                  <span className='ml-auto text-gray-400'>
+                                    {isExpanded ? '−' : '+'}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                            {isCollapsed &&
+                              (item.id === 'tables' ||
+                                item.id === 'functions' ||
+                                item.id === 'query-history') && (
+                                <span className='absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full'></span>
+                              )}
+                          </button>
+
+                          {/* Expandable Content */}
+                          {isExpandable && isExpanded && (
+                            <div className='ml-6 mt-1 space-y-1'>
+                              {item.id === 'query-history' && (
+                                <div className='max-h-48 overflow-y-auto'>
+                                  {queryHistory.length === 0 ? (
+                                    <div className='px-3 py-2 text-xs text-gray-500'>
+                                      No queries yet
+                                    </div>
+                                  ) : (
+                                    queryHistory
+                                      .slice(0, 10)
+                                      .map((query, index) => (
+                                        <button
+                                          key={query.id}
+                                          onClick={() => {
+                                            if (onLoadQuery) {
+                                              onLoadQuery(query.sql, query.name)
+                                              onSectionChange('sql-editor')
+                                            }
+                                          }}
+                                          className='w-full text-left px-3 py-2 text-xs rounded hover:bg-[#2d2d30] text-gray-300 hover:text-white group'
+                                        >
+                                          <div className='truncate font-medium mb-1'>
+                                            {query.name}
+                                          </div>
+                                          <div className='text-gray-500 truncate'>
+                                            {new Date(
+                                              query.created_at,
+                                            ).toLocaleTimeString()}
+                                          </div>
+                                        </button>
+                                      ))
+                                  )}
+                                  {queryHistory.length > 10 && (
+                                    <button
+                                      onClick={() =>
+                                        onSectionChange('query-history')
+                                      }
+                                      className='w-full text-left px-3 py-2 text-xs text-emerald-400 hover:text-emerald-300'
+                                    >
+                                      View all {queryHistory.length} queries →
+                                    </button>
+                                  )}
                                 </div>
                               )}
-                              {item.id === 'functions' && (
-                                <span className='ml-auto text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full'>
-                                  3
-                                </span>
-                              )}
-                              {isExpandable && (
-                                <span className='ml-auto text-gray-400'>
-                                  {isExpanded ? '−' : '+'}
-                                </span>
-                              )}
-                            </>
-                          )}
-                          {isCollapsed &&
-                            (item.id === 'tables' ||
-                              item.id === 'functions' ||
-                              item.id === 'query-history') && (
-                              <span className='absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full'></span>
-                            )}
-                        </button>
 
-                        {/* Expandable Content */}
-                        {isExpandable && isExpanded && (
-                          <div className='ml-6 mt-1 space-y-1'>
-                            {item.id === 'query-history' && (
-                              <div className='max-h-48 overflow-y-auto'>
-                                {queryHistory.length === 0 ? (
-                                  <div className='px-3 py-2 text-xs text-gray-500'>
-                                    No queries yet
-                                  </div>
-                                ) : (
-                                  queryHistory
-                                    .slice(0, 10)
-                                    .map((query, index) => (
-                                      <button
-                                        key={query.id}
-                                        onClick={() => {
-                                          if (onLoadQuery) {
-                                            onLoadQuery(query.sql, query.name)
-                                            onSectionChange('sql-editor')
-                                          }
-                                        }}
-                                        className='w-full text-left px-3 py-2 text-xs rounded hover:bg-[#2d2d30] text-gray-300 hover:text-white group'
-                                      >
-                                        <div className='truncate font-medium mb-1'>
-                                          {query.name}
-                                        </div>
-                                        <div className='text-gray-500 truncate'>
-                                          {new Date(
-                                            query.created_at,
-                                          ).toLocaleTimeString()}
-                                        </div>
-                                      </button>
-                                    ))
-                                )}
-                                {queryHistory.length > 10 && (
+                              {item.id === 'sql-templates' && (
+                                <div className='space-y-1'>
+                                  {SQL_TEMPLATES.map((template, index) => (
+                                    <button
+                                      key={index}
+                                      onClick={() => {
+                                        if (onLoadQuery) {
+                                          onLoadQuery(
+                                            template.sql,
+                                            template.name,
+                                          )
+                                          onSectionChange('sql-editor')
+                                        }
+                                      }}
+                                      className='w-full text-left px-3 py-2 text-xs rounded hover:bg-[#2d2d30] text-gray-300 hover:text-white'
+                                    >
+                                      <div className='truncate font-medium'>
+                                        {template.name}
+                                      </div>
+                                    </button>
+                                  ))}
                                   <button
                                     onClick={() =>
-                                      onSectionChange('query-history')
+                                      onSectionChange('sql-templates')
                                     }
                                     className='w-full text-left px-3 py-2 text-xs text-emerald-400 hover:text-emerald-300'
                                   >
-                                    View all {queryHistory.length} queries →
+                                    View all templates →
                                   </button>
-                                )}
-                              </div>
-                            )}
-
-                            {item.id === 'sql-templates' && (
-                              <div className='space-y-1'>
-                                {SQL_TEMPLATES.map((template, index) => (
-                                  <button
-                                    key={index}
-                                    onClick={() => {
-                                      if (onLoadQuery) {
-                                        onLoadQuery(template.sql, template.name)
-                                        onSectionChange('sql-editor')
-                                      }
-                                    }}
-                                    className='w-full text-left px-3 py-2 text-xs rounded hover:bg-[#2d2d30] text-gray-300 hover:text-white'
-                                  >
-                                    <div className='truncate font-medium'>
-                                      {template.name}
-                                    </div>
-                                  </button>
-                                ))}
-                                <button
-                                  onClick={() =>
-                                    onSectionChange('sql-templates')
-                                  }
-                                  className='w-full text-left px-3 py-2 text-xs text-emerald-400 hover:text-emerald-300'
-                                >
-                                  View all templates →
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </nav>
-              </div>
-            )})}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </nav>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
