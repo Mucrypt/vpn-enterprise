@@ -13,6 +13,8 @@ import { useQueryStorage } from '@/hooks/use-query-storage'
 import { Database, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { DatabaseSection } from '@/components/database/database-layout'
+import type { SettingsSection } from '@/components/database/settings/settings-layout'
+import type { AuthSection } from '@/components/database/auth-layout'
 // Import lightweight editor directly - no lazy loading needed for fast component
 import { SqlEditorPageLight } from '@/components/database/sql-editor-page-light'
 
@@ -180,35 +182,10 @@ export function DatabasePageClient({
   const [showSampleDataBanner, setShowSampleDataBanner] = useState(false)
 
   // Settings state
-  const [activeSettingsSection, setActiveSettingsSection] = useState<
-    | 'general'
-    | 'api'
-    | 'api-keys'
-    | 'jwt-keys'
-    | 'compute-disk'
-    | 'infrastructure'
-    | 'integrations'
-    | 'data-api'
-    | 'security'
-  >('general')
+  const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>('general')
 
   // Authentication state
-  const [activeAuthSection, setActiveAuthSection] = useState<
-    | 'users'
-    | 'oauth-apps'
-    | 'email'
-    | 'policies'
-    | 'providers'
-    | 'oauth-server'
-    | 'sessions'
-    | 'rate-limits'
-    | 'multi-factor'
-    | 'url-config'
-    | 'attack-protection'
-    | 'auth-hooks'
-    | 'audit-logs'
-    | 'performance'
-  >('users')
+  const [activeAuthSection, setActiveAuthSection] = useState<AuthSection>('users')
 
   // SQL Editor state
   const [sql, setSql] = useState<string>(`-- Welcome to the SQL Editor!
