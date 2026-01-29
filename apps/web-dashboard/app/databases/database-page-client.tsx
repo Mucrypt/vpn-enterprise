@@ -37,6 +37,92 @@ const TablesPage = lazy(() =>
     default: module.TablesPage,
   })),
 )
+const AiSqlAssistant = lazy(() =>
+  import('@/components/database/ai-sql-assistant').then((module) => ({
+    default: module.AiSqlAssistant,
+  })),
+)
+const SmartMonitoringPanel = lazy(() =>
+  import('@/components/database/smart-monitoring-panel').then((module) => ({
+    default: module.SmartMonitoringPanel,
+  })),
+)
+const LiveSchemaVisualizer = lazy(() =>
+  import('@/components/database/live-schema-visualizer').then((module) => ({
+    default: module.LiveSchemaVisualizer,
+  })),
+)
+const AuthLayout = lazy(() =>
+  import('@/components/database/auth-layout').then((module) => ({
+    default: module.AuthLayout,
+  })),
+)
+const AuthUsersPage = lazy(() =>
+  import('@/components/database/auth-users-page').then((module) => ({
+    default: module.AuthUsersPage,
+  })),
+)
+const AuthProvidersPage = lazy(() =>
+  import('@/components/database/auth-providers-page').then((module) => ({
+    default: module.AuthProvidersPage,
+  })),
+)
+const AuthSessionsPage = lazy(() =>
+  import('@/components/database/auth-sessions-page').then((module) => ({
+    default: module.AuthSessionsPage,
+  })),
+)
+const AuthRateLimitsPage = lazy(() =>
+  import('@/components/database/auth-rate-limits-page').then((module) => ({
+    default: module.AuthRateLimitsPage,
+  })),
+)
+const SettingsLayout = lazy(() =>
+  import('@/components/database/settings/settings-layout').then((module) => ({
+    default: module.SettingsLayout,
+  })),
+)
+const GeneralSettings = lazy(() =>
+  import('@/components/database/settings/general-settings').then((module) => ({
+    default: module.GeneralSettings,
+  })),
+)
+const ApiKeysSettings = lazy(() =>
+  import('@/components/database/settings/api-keys-settings').then((module) => ({
+    default: module.ApiKeysSettings,
+  })),
+)
+const JwtKeysSettings = lazy(() =>
+  import('@/components/database/settings/jwt-keys-settings').then((module) => ({
+    default: module.JwtKeysSettings,
+  })),
+)
+const ComputeDiskSettings = lazy(() =>
+  import('@/components/database/settings/compute-disk-settings').then(
+    (module) => ({
+      default: module.ComputeDiskSettings,
+    }),
+  ),
+)
+const InfrastructureSettings = lazy(() =>
+  import('@/components/database/settings/infrastructure-settings').then(
+    (module) => ({
+      default: module.InfrastructureSettings,
+    }),
+  ),
+)
+const IntegrationsSettings = lazy(() =>
+  import('@/components/database/settings/integrations-settings').then(
+    (module) => ({
+      default: module.IntegrationsSettings,
+    }),
+  ),
+)
+const DataApiSettings = lazy(() =>
+  import('@/components/database/settings/data-api-settings').then((module) => ({
+    default: module.DataApiSettings,
+  })),
+)
 const QueryHistoryPage = lazy(() =>
   import('@/components/database/query-history-page').then((module) => ({
     default: module.QueryHistoryPage,
@@ -92,6 +178,37 @@ export function DatabasePageClient({
   const [activeSection, setActiveSection] =
     useState<DatabaseSection>('sql-editor')
   const [showSampleDataBanner, setShowSampleDataBanner] = useState(false)
+
+  // Settings state
+  const [activeSettingsSection, setActiveSettingsSection] = useState<
+    | 'general'
+    | 'api'
+    | 'api-keys'
+    | 'jwt-keys'
+    | 'compute-disk'
+    | 'infrastructure'
+    | 'integrations'
+    | 'data-api'
+    | 'security'
+  >('general')
+
+  // Authentication state
+  const [activeAuthSection, setActiveAuthSection] = useState<
+    | 'users'
+    | 'oauth-apps'
+    | 'email'
+    | 'policies'
+    | 'providers'
+    | 'oauth-server'
+    | 'sessions'
+    | 'rate-limits'
+    | 'multi-factor'
+    | 'url-config'
+    | 'attack-protection'
+    | 'auth-hooks'
+    | 'audit-logs'
+    | 'performance'
+  >('users')
 
   // SQL Editor state
   const [sql, setSql] = useState<string>(`-- Welcome to the SQL Editor!
@@ -363,6 +480,30 @@ SELECT * FROM blog.posts LIMIT 5;
           </Suspense>
         )}
 
+        {activeSection === 'ai-assistant' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <AiSqlAssistant
+              activeTenant={activeTenant}
+              onQueryGenerated={(sql) => {
+                setSql(sql)
+                setActiveSection('sql-editor')
+              }}
+            />
+          </Suspense>
+        )}
+
+        {activeSection === 'monitoring' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <SmartMonitoringPanel activeTenant={activeTenant} />
+          </Suspense>
+        )}
+
+        {activeSection === 'schema-visualizer' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <LiveSchemaVisualizer activeTenant={activeTenant} tables={[]} />
+          </Suspense>
+        )}
+
         {activeSection === 'visual-query-builder' && (
           <Suspense fallback={<LoadingSpinner />}>
             <VisualQueryBuilder
@@ -397,6 +538,62 @@ SELECT * FROM blog.posts LIMIT 5;
               activeTenant={activeTenant}
               onLoadQuery={loadSavedQuery}
             />
+          </Suspense>
+        )}
+
+        {activeSection === 'settings' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <SettingsLayout
+              activeSection={activeSettingsSection}
+              onSectionChange={setActiveSettingsSection}
+              activeTenant={activeTenant}
+            >
+              {activeSettingsSection === 'general' && (
+                <GeneralSettings activeTenant={activeTenant} />
+              )}
+              {activeSettingsSection === 'api-keys' && (
+                <ApiKeysSettings activeTenant={activeTenant} />
+              )}
+              {activeSettingsSection === 'jwt-keys' && (
+                <JwtKeysSettings activeTenant={activeTenant} />
+              )}
+              {activeSettingsSection === 'compute-disk' && (
+                <ComputeDiskSettings activeTenant={activeTenant} />
+              )}
+              {activeSettingsSection === 'infrastructure' && (
+                <InfrastructureSettings activeTenant={activeTenant} />
+              )}
+              {activeSettingsSection === 'integrations' && (
+                <IntegrationsSettings activeTenant={activeTenant} />
+              )}
+              {activeSettingsSection === 'data-api' && (
+                <DataApiSettings activeTenant={activeTenant} />
+              )}
+            </SettingsLayout>
+          </Suspense>
+        )}
+
+        {activeSection === 'authentication' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <AuthLayout
+              activeSection={activeAuthSection}
+              onSectionChange={setActiveAuthSection}
+              activeTenant={activeTenant}
+            >
+              {activeAuthSection === 'users' && (
+                <AuthUsersPage activeTenant={activeTenant} />
+              )}
+              {activeAuthSection === 'providers' && (
+                <AuthProvidersPage activeTenant={activeTenant} />
+              )}
+              {activeAuthSection === 'sessions' && (
+                <AuthSessionsPage activeTenant={activeTenant} />
+              )}
+              {activeAuthSection === 'rate-limits' && (
+                <AuthRateLimitsPage activeTenant={activeTenant} />
+              )}
+              {/* Add more auth sections as needed */}
+            </AuthLayout>
           </Suspense>
         )}
       </DatabaseLayout>

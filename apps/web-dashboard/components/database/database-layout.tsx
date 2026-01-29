@@ -33,6 +33,7 @@ import {
   Menu,
   Clock,
   Bookmark,
+  Sparkles,
 } from 'lucide-react'
 
 interface DatabaseLayoutProps {
@@ -47,6 +48,8 @@ interface DatabaseLayoutProps {
 }
 
 export type DatabaseSection =
+  | 'ai-assistant'
+  | 'monitoring'
   | 'schema-visualizer'
   | 'tables'
   | 'functions'
@@ -58,6 +61,7 @@ export type DatabaseSection =
   | 'roles'
   | 'policies'
   | 'settings'
+  | 'authentication'
   | 'replication'
   | 'backups'
   | 'migrations'
@@ -108,6 +112,32 @@ WHERE email = 'user@example.com';`,
 
 const NAVIGATION_ITEMS = [
   {
+    category: 'AI & Automation',
+    items: [
+      {
+        id: 'ai-assistant',
+        label: 'AI SQL Assistant',
+        icon: Sparkles,
+        badge: 'NEW',
+        badgeColor: 'bg-purple-500',
+      },
+      {
+        id: 'schema-visualizer',
+        label: 'Schema Visualizer',
+        icon: GitBranch,
+        badge: 'NEW',
+        badgeColor: 'bg-cyan-500',
+      },
+      {
+        id: 'monitoring',
+        label: 'Live Monitoring',
+        icon: Activity,
+        badge: 'NEW',
+        badgeColor: 'bg-emerald-500',
+      },
+    ],
+  },
+  {
     category: 'Essential Tools',
     items: [
       { id: 'sql-editor', label: 'SQL Editor', icon: FileText },
@@ -130,7 +160,6 @@ const NAVIGATION_ITEMS = [
   {
     category: 'Database Management',
     items: [
-      { id: 'schema-visualizer', label: 'Schema Visualizer', icon: Eye },
       { id: 'functions', label: 'Functions', icon: Zap },
       { id: 'triggers', label: 'Triggers', icon: Layers },
       { id: 'enumerated-types', label: 'Enumerated Types', icon: Hash },
@@ -144,6 +173,7 @@ const NAVIGATION_ITEMS = [
     items: [
       { id: 'roles', label: 'Roles', icon: Users },
       { id: 'policies', label: 'Policies', icon: Shield },
+      { id: 'authentication', label: 'Authentication', icon: Lock },
       { id: 'settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -485,6 +515,17 @@ export function DatabaseLayout({
                             {!isCollapsed && (
                               <>
                                 <span>{item.label}</span>
+                                {item.badge && (
+                                  <span
+                                    className={cn(
+                                      'ml-auto text-xs px-2 py-0.5 rounded-full font-medium',
+                                      item.badgeColor || 'bg-emerald-500',
+                                      'text-white',
+                                    )}
+                                  >
+                                    {item.badge}
+                                  </span>
+                                )}
                                 {item.id === 'query-history' && (
                                   <span className='ml-auto text-xs bg-[#3e3e42] text-gray-300 px-1.5 py-0.5 rounded-full'>
                                     {queryHistory.length}
