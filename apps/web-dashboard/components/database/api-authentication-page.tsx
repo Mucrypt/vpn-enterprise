@@ -53,12 +53,9 @@ export function ApiAuthenticationPage({
     setIsLoading(true)
     setError(null)
     try {
-      const response = await fetch(
-        `/api/v1/tenants/${activeTenant}/api-keys`,
-        {
-          credentials: 'include',
-        }
-      )
+      const response = await fetch(`/api/v1/tenants/${activeTenant}/api-keys`, {
+        credentials: 'include',
+      })
 
       if (!response.ok) {
         throw new Error('Failed to fetch API keys')
@@ -90,7 +87,7 @@ export function ApiAuthenticationPage({
         {
           method: 'POST',
           credentials: 'include',
-        }
+        },
       )
 
       if (!response.ok) {

@@ -3,8 +3,7 @@ import jwt from 'jsonwebtoken'
 import { DatabasePlatformClient } from '../../database-platform-client'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this'
-const API_BASE_URL =
-  process.env.API_BASE_URL || 'https://api.vpnenterprise.com'
+const API_BASE_URL = process.env.API_BASE_URL || 'https://api.vpnenterprise.com'
 
 interface TenantApiKeys {
   apiUrl: string
