@@ -195,11 +195,45 @@ export function DatabasePageClient({
   // Query storage hook
   const { addToHistory } = useQueryStorage()
 
-  // Database connection state
-  const [tenants, setTenants] = useState<any[]>(initialTenants)
-  const [activeTenant, setActiveTenant] = useState<string>(
-    initialTenants[0]?.tenant_id || initialTenants[0]?.id || '',
-  )
+  // Database connection state - with localStorage persistence
+  const [tenants, setTenants] = useState<any[]>(() => {
+    // Try to restore from localStorage first, fallback to initialTenants
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('database_tenants')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          // Use stored tenants if they exist, otherwise use initial
+          return parsed.length > 0 ? parsed : initialTenants
+        }
+      } catch (error) {
+        console.error(
+          '[DatabasePageClient] Error loading stored tenants:',
+          error,
+        )
+      }
+    }
+    return initialTenants
+  })
+
+  const [activeTenant, setActiveTenant] = useState<string>(() => {
+    // Try to restore from localStorage first
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('active_tenant')
+        if (stored) {
+          return stored
+        }
+      } catch (error) {
+        console.error(
+          '[DatabasePageClient] Error loading stored tenant:',
+          error,
+        )
+      }
+    }
+    return initialTenants[0]?.tenant_id || initialTenants[0]?.id || ''
+  })
+
   const [tenantsError, setTenantsError] = useState<string | null>(null)
   const [canCreateProject, setCanCreateProject] = useState(false)
   const [activeSection, setActiveSection] =
@@ -237,6 +271,55 @@ SELECT * FROM blog.posts LIMIT 5;
   const [showCreateTableDialog, setShowCreateTableDialog] = useState(false)
   const [showCreateSchemaDialog, setShowCreateSchemaDialog] = useState(false)
   const [selectedSchemaForTable, setSelectedSchemaForTable] = useState('')
+
+  // Persist tenants to localStorage when they change
+  useEffect(() => {
+    if (tenants.length > 0) {
+      try {
+        localStorage.setItem('database_tenants', JSON.stringify(tenants))
+        console.log(
+          '[DatabasePageClient] Persisted',
+          tenants.length,
+          'tenants to localStorage',
+        )
+      } catch (error) {
+        console.error('[DatabasePageClient] Error saving tenants:', error)
+      }
+    }
+  }, [tenants])
+
+  // Persist activeTenant to localStorage when it changes
+  useEffect(() => {
+    if (activeTenant) {
+      try {
+        localStorage.setItem('active_tenant', activeTenant)
+        console.log(
+          '[DatabasePageClient] Persisted activeTenant to localStorage:',
+          activeTenant,
+        )
+      } catch (error) {
+        console.error('[DatabasePageClient] Error saving activeTenant:', error)
+      }
+    }
+  }, [activeTenant])
+
+  // Sync with initialTenants when they change (after successful API fetch)
+  useEffect(() => {
+    if (initialTenants.length > 0) {
+      setTenants(initialTenants)
+
+      // If we don't have an activeTenant yet, set the first one
+      if (!activeTenant && initialTenants[0]) {
+        const firstTenantId =
+          initialTenants[0].tenant_id || initialTenants[0].id
+        setActiveTenant(firstTenantId)
+        console.log(
+          '[DatabasePageClient] Set initial activeTenant:',
+          firstTenantId,
+        )
+      }
+    }
+  }, [initialTenants])
 
   // Check for existing data when tenant changes - define before use
   const checkForExistingData = useCallback(async () => {
