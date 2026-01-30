@@ -40,35 +40,33 @@ async function getOrGenerateTenantApiKeys(
   tenantId: string,
 ): Promise<TenantApiKeys> {
   const dbClient = new DatabasePlatformClient()
+  const platformPool = dbClient.platformPool
 
   // Check if keys already exist in database
-  const existingKeys = await dbClient.executeQuery(
-    'platform_db',
+  const existingKeys = await platformPool.query(
     `SELECT anon_key, service_role_key FROM tenants WHERE id = $1`,
     [tenantId],
-    'ro',
   )
 
   let anonKey: string
   let serviceKey: string
 
   if (
-    existingKeys.data &&
-    existingKeys.data.length > 0 &&
-    existingKeys.data[0].anon_key &&
-    existingKeys.data[0].service_role_key
+    existingKeys.rows &&
+    existingKeys.rows.length > 0 &&
+    existingKeys.rows[0].anon_key &&
+    existingKeys.rows[0].service_role_key
   ) {
     // Use existing keys
-    anonKey = existingKeys.data[0].anon_key
-    serviceKey = existingKeys.data[0].service_role_key
+    anonKey = existingKeys.rows[0].anon_key
+    serviceKey = existingKeys.rows[0].service_role_key
   } else {
     // Generate new keys
     anonKey = generateTenantJWT(tenantId, 'anon')
     serviceKey = generateTenantJWT(tenantId, 'service_role')
 
     // Store keys in database
-    await dbClient.executeQuery(
-      'platform_db',
+    await platformPool.query(
       `UPDATE tenants 
        SET anon_key = $1, 
            service_role_key = $2,
@@ -76,7 +74,6 @@ async function getOrGenerateTenantApiKeys(
            updated_at = NOW()
        WHERE id = $3`,
       [anonKey, serviceKey, tenantId],
-      'rw',
     )
   }
 
@@ -95,14 +92,14 @@ async function regenerateTenantApiKeys(
   tenantId: string,
 ): Promise<TenantApiKeys> {
   const dbClient = new DatabasePlatformClient()
+  const platformPool = dbClient.platformPool
 
   // Always generate new keys
   const anonKey = generateTenantJWT(tenantId, 'anon')
   const serviceKey = generateTenantJWT(tenantId, 'service_role')
 
   // Store keys in database
-  await dbClient.executeQuery(
-    'platform_db',
+  await platformPool.query(
     `UPDATE tenants 
      SET anon_key = $1, 
          service_role_key = $2,
@@ -110,7 +107,6 @@ async function regenerateTenantApiKeys(
          updated_at = NOW()
      WHERE id = $3`,
     [anonKey, serviceKey, tenantId],
-    'rw',
   )
 
   return {
