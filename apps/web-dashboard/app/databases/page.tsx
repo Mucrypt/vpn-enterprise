@@ -10,9 +10,9 @@ async function isAdminUser() {
 
 async function isUserAuthenticated() {
   const cookieStore = await cookies()
-  const token = cookieStore.get('token')?.value
-  const userId = cookieStore.get('user_id')?.value
-  return !!(token && userId)
+  const token = cookieStore.get('access_token')?.value // Fixed: was 'token'
+  const userRole = cookieStore.get('user_role')?.value // Check for user_role instead
+  return !!(token && userRole)
 }
 
 async function getTenants(retryCount = 0): Promise<any[]> {
