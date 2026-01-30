@@ -1,3 +1,5 @@
+
+//packages/api/src/routes/tenants/api-keys.ts
 import { Router } from 'express'
 import jwt from 'jsonwebtoken'
 import { DatabasePlatformClient } from '../../database-platform-client'
@@ -42,7 +44,7 @@ async function getOrGenerateTenantApiKeys(
   // Check if keys already exist in database
   const existingKeys = await dbClient.executeQuery(
     'platform_db',
-    `SELECT anon_key, service_role_key FROM tenants WHERE tenant_id = $1`,
+    `SELECT anon_key, service_role_key FROM tenants WHERE id = $1`,
     [tenantId],
     'ro',
   )
@@ -72,7 +74,7 @@ async function getOrGenerateTenantApiKeys(
            service_role_key = $2,
            api_keys_generated_at = NOW(),
            updated_at = NOW()
-       WHERE tenant_id = $3`,
+       WHERE id = $3`,
       [anonKey, serviceKey, tenantId],
       'rw',
     )
@@ -106,7 +108,7 @@ async function regenerateTenantApiKeys(
          service_role_key = $2,
          api_keys_generated_at = NOW(),
          updated_at = NOW()
-     WHERE tenant_id = $3`,
+     WHERE id = $3`,
     [anonKey, serviceKey, tenantId],
     'rw',
   )
