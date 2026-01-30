@@ -125,6 +125,31 @@ const DataApiSettings = lazy(() =>
     default: module.DataApiSettings,
   })),
 )
+const FunctionsPage = lazy(() =>
+  import('@/components/database/functions-page').then((module) => ({
+    default: module.FunctionsPage,
+  })),
+)
+const TriggersPage = lazy(() =>
+  import('@/components/database/triggers-page').then((module) => ({
+    default: module.TriggersPage,
+  })),
+)
+const ExtensionsPage = lazy(() =>
+  import('@/components/database/extensions-page').then((module) => ({
+    default: module.ExtensionsPage,
+  })),
+)
+const IndexesPage = lazy(() =>
+  import('@/components/database/indexes-page').then((module) => ({
+    default: module.IndexesPage,
+  })),
+)
+const PublicationsPage = lazy(() =>
+  import('@/components/database/publications-page').then((module) => ({
+    default: module.PublicationsPage,
+  })),
+)
 const QueryHistoryPage = lazy(() =>
   import('@/components/database/query-history-page').then((module) => ({
     default: module.QueryHistoryPage,
@@ -517,6 +542,36 @@ SELECT * FROM blog.posts LIMIT 5;
               activeTenant={activeTenant}
               onLoadQuery={loadSavedQuery}
             />
+          </Suspense>
+        )}
+
+        {activeSection === 'functions' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <FunctionsPage activeTenant={activeTenant} />
+          </Suspense>
+        )}
+
+        {activeSection === 'triggers' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <TriggersPage activeTenant={activeTenant} />
+          </Suspense>
+        )}
+
+        {activeSection === 'extensions' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <ExtensionsPage activeTenant={activeTenant} />
+          </Suspense>
+        )}
+
+        {activeSection === 'indexes' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <IndexesPage activeTenant={activeTenant} />
+          </Suspense>
+        )}
+
+        {activeSection === 'publications' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <PublicationsPage activeTenant={activeTenant} />
           </Suspense>
         )}
 
