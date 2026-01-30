@@ -10,6 +10,7 @@ import { registerTenantTableStructureRoutes } from './tenants/table-structure'
 import { registerTenantColumnsRoutes } from './tenants/columns'
 import { registerTenantSchemaRoutes } from './tenants/schemas'
 import { registerTenantQueryRoutes } from './tenants/query'
+import { registerTenantApiKeyRoutes } from './tenants/api-keys'
 
 export const tenantsRouter = Router()
 
@@ -30,3 +31,4 @@ registerTenantTableStructureRoutes(tenantsRouter)
 registerTenantColumnsRoutes(tenantsRouter)
 registerTenantSchemaRoutes(tenantsRouter)
 registerTenantQueryRoutes(tenantsRouter)
+registerTenantApiKeyRoutes(tenantsRouter)

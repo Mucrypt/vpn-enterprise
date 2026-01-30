@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import type { DatabaseSection } from '@/components/database/database-layout'
 import type { SettingsSection } from '@/components/database/settings/settings-layout'
 import type { AuthSection } from '@/components/database/auth-layout'
+import type { ApiDocsSection } from '@/components/database/api-docs-layout'
 // Import lightweight editor directly - no lazy loading needed for fast component
 import { SqlEditorPageLight } from '@/components/database/sql-editor-page-light'
 
@@ -171,6 +172,28 @@ const VisualQueryBuilder = lazy(() =>
   })),
 )
 
+// API Docs - lazy load
+const ApiDocsLayout = lazy(() =>
+  import('@/components/database/api-docs-layout').then((module) => ({
+    default: module.ApiDocsLayout,
+  })),
+)
+const ApiIntroductionPage = lazy(() =>
+  import('@/components/database/api-introduction-page').then((module) => ({
+    default: module.ApiIntroductionPage,
+  })),
+)
+const ApiAuthenticationPage = lazy(() =>
+  import('@/components/database/api-authentication-page').then((module) => ({
+    default: module.ApiAuthenticationPage,
+  })),
+)
+const ApiTablesViewsPage = lazy(() =>
+  import('@/components/database/api-tables-views-page').then((module) => ({
+    default: module.ApiTablesViewsPage,
+  })),
+)
+
 // Lazy load dialogs only when needed
 const CreateTableDialog = lazy(() =>
   import('@/components/database/create-table-dialog').then((module) => ({
@@ -247,6 +270,10 @@ export function DatabasePageClient({
   // Authentication state
   const [activeAuthSection, setActiveAuthSection] =
     useState<AuthSection>('users')
+
+  // API Docs state
+  const [activeApiDocsSection, setActiveApiDocsSection] =
+    useState<ApiDocsSection>('introduction')
 
   // SQL Editor state
   const [sql, setSql] = useState<string>(`-- Welcome to the SQL Editor!
@@ -711,6 +738,27 @@ SELECT * FROM blog.posts LIMIT 5;
               )}
               {/* Add more auth sections as needed */}
             </AuthLayout>
+          </Suspense>
+        )}
+
+        {activeSection === 'api-docs' && (
+          <Suspense fallback={<LoadingSpinner />}>
+            <ApiDocsLayout
+              activeSection={activeApiDocsSection}
+              onSectionChange={setActiveApiDocsSection}
+              activeTenant={activeTenant}
+            >
+              {activeApiDocsSection === 'introduction' && (
+                <ApiIntroductionPage activeTenant={activeTenant} />
+              )}
+              {activeApiDocsSection === 'authentication' && (
+                <ApiAuthenticationPage activeTenant={activeTenant} />
+              )}
+              {activeApiDocsSection === 'tables-views' && (
+                <ApiTablesViewsPage activeTenant={activeTenant} />
+              )}
+              {/* Add more API docs sections as they are created */}
+            </ApiDocsLayout>
           </Suspense>
         )}
       </DatabaseLayout>

@@ -13,6 +13,7 @@ import {
   Key,
   Layers,
   FileText,
+  FileCode,
   Share,
   Shield,
   Users,
@@ -62,6 +63,7 @@ export type DatabaseSection =
   | 'policies'
   | 'settings'
   | 'authentication'
+  | 'api-docs'
   | 'replication'
   | 'backups'
   | 'migrations'
@@ -174,6 +176,7 @@ const NAVIGATION_ITEMS = [
       { id: 'roles', label: 'Roles', icon: Users },
       { id: 'policies', label: 'Policies', icon: Shield },
       { id: 'authentication', label: 'Authentication', icon: Lock },
+      { id: 'api-docs', label: 'API Docs', icon: FileCode },
       { id: 'settings', label: 'Settings', icon: Settings },
     ],
   },
