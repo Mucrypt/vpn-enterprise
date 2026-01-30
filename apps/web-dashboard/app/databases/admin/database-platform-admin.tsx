@@ -604,6 +604,92 @@ export function DatabasePlatformAdmin({
           </Card>
         </div>
 
+        {/* Quick Actions / Tools */}
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 sm:mb-8'>
+          <Card className='bg-gradient-to-br from-emerald-900/30 to-emerald-800/20 border-emerald-700/50 hover:border-emerald-600 transition-all cursor-pointer group'>
+            <CardHeader className='pb-3'>
+              <CardTitle className='text-base font-semibold text-white flex items-center gap-2'>
+                <Server className='h-5 w-5 text-emerald-400' />
+                pgAdmin 4
+              </CardTitle>
+              <CardDescription className='text-gray-300 text-sm'>
+                Advanced PostgreSQL administration tool
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => {
+                  window.open('/pgadmin', '_blank')
+                }}
+                className='w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white'
+              >
+                <Database className='h-4 w-4 mr-2' />
+                Open pgAdmin
+              </Button>
+              <div className='mt-3 text-xs text-gray-400'>
+                <div className='flex items-center gap-1'>
+                  <Shield className='h-3 w-3' />
+                  Manage databases, run queries, view schemas
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className='bg-gradient-to-br from-blue-900/30 to-blue-800/20 border-blue-700/50 hover:border-blue-600 transition-all cursor-pointer group'>
+            <CardHeader className='pb-3'>
+              <CardTitle className='text-base font-semibold text-white flex items-center gap-2'>
+                <BarChart3 className='h-5 w-5 text-blue-400' />
+                Platform Metrics
+              </CardTitle>
+              <CardDescription className='text-gray-300 text-sm'>
+                Real-time monitoring and analytics
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                disabled
+                className='w-full bg-blue-600/50 hover:bg-blue-700/50 text-white cursor-not-allowed'
+              >
+                <Activity className='h-4 w-4 mr-2' />
+                Coming Soon
+              </Button>
+              <div className='mt-3 text-xs text-gray-400'>
+                <div className='flex items-center gap-1'>
+                  <Activity className='h-3 w-3' />
+                  Database performance, query stats, connections
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className='bg-gradient-to-br from-purple-900/30 to-purple-800/20 border-purple-700/50 hover:border-purple-600 transition-all cursor-pointer group'>
+            <CardHeader className='pb-3'>
+              <CardTitle className='text-base font-semibold text-white flex items-center gap-2'>
+                <Globe className='h-5 w-5 text-purple-400' />
+                Backup Manager
+              </CardTitle>
+              <CardDescription className='text-gray-300 text-sm'>
+                Database backups and recovery
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                disabled
+                className='w-full bg-purple-600/50 hover:bg-purple-700/50 text-white cursor-not-allowed'
+              >
+                <Server className='h-4 w-4 mr-2' />
+                Coming Soon
+              </Button>
+              <div className='mt-3 text-xs text-gray-400'>
+                <div className='flex items-center gap-1'>
+                  <Shield className='h-3 w-3' />
+                  Automated backups, point-in-time recovery
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Tabs */}
         <div className='flex gap-2 mb-6 overflow-x-auto'>
           <Button
