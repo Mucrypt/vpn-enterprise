@@ -41,16 +41,40 @@ export function AiSqlAssistant({
     setIsLoading(true)
 
     try {
-      // TODO: Replace with actual AI API call (OpenAI, Anthropic, etc.)
-      // For now, simulate with basic pattern matching
-      const response = await simulateAiResponse(userMessage, activeTenant)
-      setMessages((prev) => [...prev, response])
+      // Call Flask AI API
+      const response = await fetch('https://python-api.chatbuilds.com/ai/sql/assist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: userMessage,
+          schema: activeTenant,
+          action: detectAction(userMessage),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('AI service error')
+      }
+
+      const data = await response.json()
+      
+      // Build assistant message
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.explanation || 'Here\'s what I generated:',
+        sql: data.sql || undefined,
+      }
+      
+      setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
+      console.error('AI error:', error)
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: 'Sorry, I encountered an error. Please try again.',
+          content: 'Sorry, the AI service is currently unavailable. Please try again later.',
         },
       ])
     } finally {
@@ -181,74 +205,22 @@ export function AiSqlAssistant({
   )
 }
 
-// Simulate AI response (replace with actual AI API)
-async function simulateAiResponse(
-  userInput: string,
-  tenantId: string,
-): Promise<Message> {
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-
+// Detect what action the user wants based on their input
+function detectAction(userInput: string): 'generate' | 'explain' | 'optimize' | 'fix' {
   const input = userInput.toLowerCase()
-
-  // Create table patterns
-  if (input.includes('create') && input.includes('table')) {
-    const tableName = input.match(/table\s+(\w+)/)?.[1] || 'my_table'
-    return {
-      role: 'assistant',
-      content: `I'll help you create the "${tableName}" table. Here's a well-structured SQL statement with common columns:`,
-      sql: `CREATE TABLE ${tableName} (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Add indexes for better performance
-CREATE INDEX idx_${tableName}_created_at ON ${tableName}(created_at);`,
-    }
+  
+  if (input.includes('explain') || input.includes('what does') || input.includes('how does')) {
+    return 'explain'
   }
-
-  // Select patterns
-  if (
-    input.includes('show') ||
-    input.includes('select') ||
-    input.includes('get')
-  ) {
-    return {
-      role: 'assistant',
-      content: "Here's an optimized SELECT query with common best practices:",
-      sql: `SELECT 
-  id,
-  email,
-  name,
-  created_at
-FROM users
-WHERE created_at > NOW() - INTERVAL '30 days'
-ORDER BY created_at DESC
-LIMIT 100;`,
-    }
+  
+  if (input.includes('optimize') || input.includes('improve') || input.includes('faster') || input.includes('performance')) {
+    return 'optimize'
   }
-
-  // Optimization
-  if (input.includes('optimize') || input.includes('performance')) {
-    return {
-      role: 'assistant',
-      content:
-        "Here are some optimization suggestions:\n\n1. Add indexes on frequently queried columns\n2. Use LIMIT clauses to reduce result sets\n3. Avoid SELECT * - specify needed columns\n4. Use JOIN instead of subqueries when possible\n\nHere's an example of an optimized query:",
-      sql: `-- Add index first
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-
--- Optimized query
-SELECT id, email, name 
-FROM users 
-WHERE email = $1
-LIMIT 1;`,
-    }
+  
+  if (input.includes('fix') || input.includes('error') || input.includes('broken') || input.includes('not working')) {
+    return 'fix'
   }
-
-  // Default response
-  return {
-    role: 'assistant',
-    content:
-      'I can help you with:\n\n• Writing SQL queries\n• Creating tables with best practices\n• Optimizing existing queries\n• Explaining complex SQL\n• Generating test data\n\nWhat would you like me to help with?',
-  }
+  
+  // Default to generate
+  return 'generate'
 }

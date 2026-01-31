@@ -49,37 +49,34 @@ export class DatabasePlatformClient {
 
   private async ensurePlatformSchema(): Promise<void> {
     if (this.platformSchemaEnsured) return
+    this.platformSchemaEnsured = true
 
     const client = await this.pgPool.connect()
     try {
-      // Enable UUID generation when available (best-effort).
-      // If permissions disallow this, table creation below still works without defaults.
+      // Use pgcrypto for gen_random_uuid() when available.
+      // platform_admin (created via POSTGRES_USER) is typically a superuser in self-hosted compose.
       try {
         await client.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;')
       } catch (e) {
         console.warn(
-          '[DatabasePlatformClient] Could not create pgcrypto extension (continuing):',
-          (e as any)?.message || e,
+          '[DatabasePlatformClient] Could not ensure pgcrypto extension (continuing):',
+          e,
         )
       }
 
-      // Tenants registry used by /api/v1/tenants, /api/v1/tenants/me, and tenant DB connections.
+      // Minimal tenants registry used by /api/v1/tenants and /api/v1/tenants/me.
       // init scripts may not re-run on existing volumes, so keep this idempotent.
       await client.query(`
         CREATE TABLE IF NOT EXISTS tenants (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           name text NOT NULL,
-          subdomain text,
           status text NOT NULL DEFAULT 'active',
-          plan_type text,
-          region text DEFAULT 'us-east-1',
           connection_info jsonb NOT NULL DEFAULT '{}'::jsonb,
-          created_at timestamptz NOT NULL DEFAULT NOW(),
-          updated_at timestamptz NOT NULL DEFAULT NOW()
+          created_at timestamptz NOT NULL DEFAULT NOW()
         );
       `)
       await client.query(
-        'CREATE INDEX IF NOT EXISTS tenants_created_at_idx ON tenants (created_at DESC);',
+        "CREATE INDEX IF NOT EXISTS tenants_created_at_idx ON tenants (created_at DESC);",
       )
 
       await client.query(`
@@ -94,8 +91,6 @@ export class DatabasePlatformClient {
       await client.query(
         'CREATE INDEX IF NOT EXISTS tenant_members_user_idx ON tenant_members (user_id);',
       )
-
-      this.platformSchemaEnsured = true
     } finally {
       client.release()
     }
@@ -217,26 +212,11 @@ export class DatabasePlatformClient {
         max: 10,
       }
 
-      const redactSecrets = (value: any) => {
-        if (!value || typeof value !== 'object') return value
-        const out: Record<string, any> = Array.isArray(value)
-          ? {}
-          : { ...value }
-        for (const key of Object.keys(out)) {
-          if (/pass(word)?|secret|token/i.test(key)) out[key] = '[REDACTED]'
-        }
-        return out
-      }
-
-      const { password: _password, ...tenantConfigNoPassword } = tenantConfig
       console.log(
-        '[DatabasePlatformClient] connection_info (redacted):',
-        redactSecrets(connectionInfo),
+        '[DatabasePlatformClient] Raw connection_info:',
+        connectionInfo,
       )
-      console.log(
-        '[DatabasePlatformClient] Final tenant config (no password):',
-        tenantConfigNoPassword,
-      )
+      console.log('[DatabasePlatformClient] Final tenant config:', tenantConfig)
       console.log('[DatabasePlatformClient] Environment fallbacks:', {
         POSTGRES_HOST: process.env.POSTGRES_HOST,
         POSTGRES_PORT: process.env.POSTGRES_PORT,

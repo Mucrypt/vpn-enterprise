@@ -113,12 +113,33 @@ class AIRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=2000)
     model: str = Field(default="llama3.2:1b")
     stream: bool = Field(default=False)
+    context: Optional[str] = None
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
 
 class AIResponse(BaseModel):
     response: str
     model: str
     eval_count: Optional[int] = None
     total_duration_ms: Optional[float] = None
+
+class SQLAssistRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=1000)
+    schema: Optional[str] = None
+    action: str = Field(default="generate", pattern="^(generate|explain|optimize|fix)$")
+
+class SQLAssistResponse(BaseModel):
+    sql: Optional[str] = None
+    explanation: Optional[str] = None
+    suggestions: Optional[List[str]] = None
+
+class CodeCompleteRequest(BaseModel):
+    code: str = Field(..., min_length=1)
+    language: str = Field(default="javascript")
+    cursor_position: Optional[int] = None
+
+class CodeCompleteResponse(BaseModel):
+    completions: List[str]
+    confidence: float
 
 class VPNConfig(BaseModel):
     user_id: str
@@ -209,13 +230,21 @@ async def check_services():
 async def generate_ai_response(request: AIRequest):
     """Generate AI response using Ollama service"""
     try:
+        # Build prompt with context if provided
+        full_prompt = request.prompt
+        if request.context:
+            full_prompt = f"Context: {request.context}\n\nQuestion: {request.prompt}"
+        
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{SERVICES['ollama']}/api/generate",
                 json={
                     "model": request.model,
-                    "prompt": request.prompt,
-                    "stream": request.stream
+                    "prompt": full_prompt,
+                    "stream": request.stream,
+                    "options": {
+                        "temperature": request.temperature
+                    }
                 }
             )
             
@@ -251,6 +280,154 @@ async def list_ai_models():
     except Exception as e:
         logger.error(f"Failed to list models: {str(e)}")
         raise HTTPException(status_code=503, detail="Ollama service unavailable")
+
+# ============================================
+# AI SQL ASSISTANT
+# ============================================
+
+@app.post("/ai/sql/assist", response_model=SQLAssistResponse)
+async def sql_assistant(request: SQLAssistRequest):
+    """AI-powered SQL assistance - generate, explain, optimize, or fix SQL queries"""
+    try:
+        prompts = {
+            "generate": f"""You are a PostgreSQL expert. Generate a SQL query for this request:
+
+User Request: {request.query}
+{f'Database Schema: {request.schema}' if request.schema else ''}
+
+Generate ONLY the SQL query without explanations. Use PostgreSQL syntax.""",
+            
+            "explain": f"""You are a PostgreSQL expert. Explain this SQL query in simple terms:
+
+SQL Query: {request.query}
+
+Provide a clear, concise explanation of what this query does.""",
+            
+            "optimize": f"""You are a PostgreSQL performance expert. Analyze and optimize this query:
+
+SQL Query: {request.query}
+{f'Database Schema: {request.schema}' if request.schema else ''}
+
+Provide the optimized query and explain the improvements.""",
+            
+            "fix": f"""You are a PostgreSQL expert. Fix the errors in this SQL query:
+
+SQL Query: {request.query}
+{f'Database Schema: {request.schema}' if request.schema else ''}
+
+Provide the corrected query and explain what was wrong."""
+        }
+        
+        prompt = prompts.get(request.action, prompts["generate"])
+        
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{SERVICES['ollama']}/api/generate",
+                json={
+                    "model": "llama3.2:1b",
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.3}  # Lower temperature for more precise SQL
+                }
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail="AI service error"
+                )
+            
+            data = response.json()
+            ai_response = data.get("response", "")
+            
+            # Parse response based on action
+            if request.action == "generate":
+                # Extract SQL from response
+                sql = ai_response.strip()
+                # Remove markdown code blocks if present
+                sql = sql.replace("```sql", "").replace("```", "").strip()
+                return {"sql": sql, "explanation": None, "suggestions": None}
+            
+            elif request.action == "explain":
+                return {"sql": None, "explanation": ai_response.strip(), "suggestions": None}
+            
+            elif request.action in ["optimize", "fix"]:
+                # Try to extract SQL and explanation
+                lines = ai_response.split("\n")
+                sql_part = []
+                explanation_part = []
+                in_sql = False
+                
+                for line in lines:
+                    if "```sql" in line.lower() or line.strip().upper().startswith(("SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "ALTER")):
+                        in_sql = True
+                    elif "```" in line and in_sql:
+                        in_sql = False
+                    elif in_sql:
+                        sql_part.append(line)
+                    else:
+                        explanation_part.append(line)
+                
+                return {
+                    "sql": "\n".join(sql_part).strip() if sql_part else None,
+                    "explanation": "\n".join(explanation_part).strip() if explanation_part else ai_response,
+                    "suggestions": None
+                }
+            
+    except httpx.RequestError as e:
+        logger.error(f"SQL assist request failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service is unavailable"
+        )
+
+# ============================================
+# AI CODE COMPLETION
+# ============================================
+
+@app.post("/ai/code/complete", response_model=CodeCompleteResponse)
+async def code_completion(request: CodeCompleteRequest):
+    """AI-powered code completion"""
+    try:
+        prompt = f"""You are an expert {request.language} programmer. Complete this code:
+
+```{request.language}
+{request.code}
+```
+
+Provide 2-3 different completion suggestions. Be concise and practical."""
+        
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            response = await client.post(
+                f"{SERVICES['ollama']}/api/generate",
+                json={
+                    "model": "llama3.2:1b",
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.5}
+                }
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail="AI service error")
+            
+            data = response.json()
+            ai_response = data.get("response", "")
+            
+            # Parse completions (simplified - you might want more sophisticated parsing)
+            completions = [line.strip() for line in ai_response.split("\n") if line.strip() and not line.strip().startswith("#")]
+            
+            return {
+                "completions": completions[:3] if completions else ["// No suggestions available"],
+                "confidence": 0.85 if completions else 0.0
+            }
+            
+    except httpx.RequestError as e:
+        logger.error(f"Code completion failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service is unavailable"
+        )
 
 # ============================================
 # VPN OPERATIONS
