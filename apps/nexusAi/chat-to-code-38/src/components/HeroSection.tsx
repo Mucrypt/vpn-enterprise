@@ -1,10 +1,63 @@
-import { useState } from "react";
-import { ArrowRight, Plus, Paperclip, Palette, MessageSquare, Mic, Send } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowRight, Plus, Paperclip, Palette, MessageSquare, Mic, Send, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AIService } from "@/services/aiService";
 
 const HeroSection = () => {
   const [inputValue, setInputValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [showAPIKeyDialog, setShowAPIKeyDialog] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [aiService] = useState(() => new AIService());
+  const [hasApiKey, setHasApiKey] = useState(false);
+
+  useEffect(() => {
+    // Check if API key exists
+    const stored = localStorage.getItem('nexusai_api_key');
+    setHasApiKey(!!stored);
+    if (!stored) {
+      // Show dialog after a short delay
+      setTimeout(() => setShowAPIKeyDialog(true), 2000);
+    }
+  }, []);
+
+  const handleSaveApiKey = () => {
+    if (apiKey.trim()) {
+      aiService.setAPIKey(apiKey);
+      setHasApiKey(true);
+      setShowAPIKeyDialog(false);
+    }
+  };
+
+  const handleSend = async () => {
+    if (!inputValue.trim()) return;
+    
+    if (!hasApiKey) {
+      setShowAPIKeyDialog(true);
+      return;
+    }
+
+    try {
+      const response = await aiService.generate({
+        prompt: inputValue,
+        model: 'llama3.2:1b'
+      });
+      console.log('AI Response:', response);
+      // TODO: Display response in chat UI
+    } catch (error) {
+      console.error('Failed to generate:', error);
+    }
+  };
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-16">
@@ -77,6 +130,15 @@ const HeroSection = () => {
 
               {/* Right Actions */}
               <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  onClick={() => setShowAPIKeyDialog(true)}
+                  title="API Settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
                 <Button variant="ghost" size="sm" className="h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary gap-2">
                   <MessageSquare className="w-4 h-4" />
                   Chat
@@ -92,6 +154,7 @@ const HeroSection = () => {
                   <Mic className="w-5 h-5" />
                 </button>
                 <Button 
+                  onClick={handleSend}
                   size="icon" 
                   className="h-9 w-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
                   disabled={!inputValue.trim()}
@@ -103,6 +166,46 @@ const HeroSection = () => {
           </div>
         </div>
       </div>
+
+      {/* API Key Dialog */}
+      <Dialog open={showAPIKeyDialog} onOpenChange={setShowAPIKeyDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Configure AI API Key</DialogTitle>
+            <DialogDescription>
+              Enter your VPN Enterprise API key to start building with AI.
+              Get your key at: <a href="https://chatbuilds.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-primary underline">chatbuilds.com/dashboard</a>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="apikey">API Key</Label>
+              <Input
+                id="apikey"
+                placeholder="vpn_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                type="password"
+              />
+              <p className="text-sm text-muted-foreground">
+                {hasApiKey ? "✓ API key is configured" : "No API key configured"}
+              </p>
+            </div>
+            <div className="rounded-lg bg-muted p-3">
+              <p className="text-sm font-medium mb-1">Demo API Key:</p>
+              <code className="text-xs">vpn_2hrUOubvcBqlrysKkGOe4CBv5_sTi7QEgNLhp7S2WrI</code>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAPIKeyDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveApiKey} disabled={!apiKey.trim()}>
+              Save API Key
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };
