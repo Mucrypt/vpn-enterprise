@@ -606,7 +606,7 @@ export function DatabasePlatformAdmin({
 
         {/* Quick Actions / Tools */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 sm:mb-8'>
-          <Card className='bg-gradient-to-br from-emerald-900/30 to-emerald-800/20 border-emerald-700/50 hover:border-emerald-600 transition-all cursor-pointer group'>
+          <Card className='bg-lineart-to-br from-emerald-900/30 to-emerald-800/20 border-emerald-700/50 hover:border-emerald-600 transition-all cursor-pointer group'>
             <CardHeader className='pb-3'>
               <CardTitle className='text-base font-semibold text-white flex items-center gap-2'>
                 <Server className='h-5 w-5 text-emerald-400' />
@@ -635,7 +635,7 @@ export function DatabasePlatformAdmin({
             </CardContent>
           </Card>
 
-          <Card className='bg-gradient-to-br from-blue-900/30 to-blue-800/20 border-blue-700/50 hover:border-blue-600 transition-all cursor-pointer group'>
+          <Card className='bg-linear-to-br from-blue-900/30 to-blue-800/20 border-blue-700/50 hover:border-blue-600 transition-all cursor-pointer group'>
             <CardHeader className='pb-3'>
               <CardTitle className='text-base font-semibold text-white flex items-center gap-2'>
                 <BarChart3 className='h-5 w-5 text-blue-400' />
@@ -662,7 +662,7 @@ export function DatabasePlatformAdmin({
             </CardContent>
           </Card>
 
-          <Card className='bg-gradient-to-br from-purple-900/30 to-purple-800/20 border-purple-700/50 hover:border-purple-600 transition-all cursor-pointer group'>
+          <Card className='bg-linear-to-br from-purple-900/30 to-purple-800/20 border-purple-700/50 hover:border-purple-600 transition-all cursor-pointer group'>
             <CardHeader className='pb-3'>
               <CardTitle className='text-base font-semibold text-white flex items-center gap-2'>
                 <Globe className='h-5 w-5 text-purple-400' />
