@@ -93,7 +93,7 @@ export class AIService {
 
   // Generate AI text/code
   async generate(request: AIGenerateRequest): Promise<AIGenerateResponse> {
-    const response = await fetch(`${this.baseURL}/ai/generate`, {
+    const response = await fetch(`${this.baseURL}/generate`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify({
@@ -116,7 +116,7 @@ export class AIService {
 
   // SQL assistance (generate, explain, optimize, fix)
   async sqlAssist(request: SQLAssistRequest): Promise<SQLAssistResponse> {
-    const response = await fetch(`${this.baseURL}/ai/sql/assist`, {
+    const response = await fetch(`${this.baseURL}/sql/assist`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(request),
@@ -145,7 +145,7 @@ export class AIService {
 
   // List available AI models
   async listModels(): Promise<string[]> {
-    const response = await fetch(`${this.baseURL}/ai/models`, {
+    const response = await fetch(`${this.baseURL}/models`, {
       method: 'GET',
       headers: this.getHeaders(),
     })

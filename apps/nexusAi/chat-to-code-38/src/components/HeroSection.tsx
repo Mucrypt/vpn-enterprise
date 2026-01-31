@@ -58,13 +58,16 @@ const HeroSection = () => {
     if (!stored) {
       setTimeout(() => setShowAPIKeyDialog(true), 2000)
     }
-    
+
     // Welcome message
-    setMessages([{
-      role: 'system',
-      content: '👋 Welcome to NexusAI! I can help you:\n\n• Generate React components\n• Build complete applications\n• Create database schemas\n• Generate APIs\n• Fix and optimize code\n\nTry: "Create a todo app with React" or "Generate a user database schema"',
-      type: 'text'
-    }])
+    setMessages([
+      {
+        role: 'system',
+        content:
+          '👋 Welcome to NexusAI! I can help you:\n\n• Generate React components\n• Build complete applications\n• Create database schemas\n• Generate APIs\n• Fix and optimize code\n\nTry: "Create a todo app with React" or "Generate a user database schema"',
+        type: 'text',
+      },
+    ])
   }, [])
 
   useEffect(() => {
@@ -81,15 +84,34 @@ const HeroSection = () => {
 
   const detectIntentAndGenerate = async (userMessage: string) => {
     const lowerMsg = userMessage.toLowerCase()
-    
+
     // Detect intent
-    if (lowerMsg.includes('component') || lowerMsg.includes('button') || lowerMsg.includes('form') || lowerMsg.includes('navbar') || lowerMsg.includes('card')) {
+    if (
+      lowerMsg.includes('component') ||
+      lowerMsg.includes('button') ||
+      lowerMsg.includes('form') ||
+      lowerMsg.includes('navbar') ||
+      lowerMsg.includes('card')
+    ) {
       return await generateComponent(userMessage)
-    } else if (lowerMsg.includes('app') || lowerMsg.includes('application') || lowerMsg.includes('project')) {
+    } else if (
+      lowerMsg.includes('app') ||
+      lowerMsg.includes('application') ||
+      lowerMsg.includes('project')
+    ) {
       return await generateApp(userMessage)
-    } else if (lowerMsg.includes('database') || lowerMsg.includes('schema') || lowerMsg.includes('table') || lowerMsg.includes('sql')) {
+    } else if (
+      lowerMsg.includes('database') ||
+      lowerMsg.includes('schema') ||
+      lowerMsg.includes('table') ||
+      lowerMsg.includes('sql')
+    ) {
       return await generateDatabase(userMessage)
-    } else if (lowerMsg.includes('api') || lowerMsg.includes('endpoint') || lowerMsg.includes('route')) {
+    } else if (
+      lowerMsg.includes('api') ||
+      lowerMsg.includes('endpoint') ||
+      lowerMsg.includes('route')
+    ) {
       return await generateAPI(userMessage)
     } else {
       // General AI response
@@ -120,7 +142,8 @@ const HeroSection = () => {
 
   const generateApp = async (description: string) => {
     const app = await aiService.generateApp(description)
-    const componentsList = app.components?.map(c => `- ${c.name}`).join('\n') || 'N/A'
+    const componentsList =
+      app.components?.map((c) => `- ${c.name}`).join('\n') || 'N/A'
     return {
       role: 'assistant' as const,
       content: `🚀 Generated application structure:\n\n**Components:**\n${componentsList}\n\n**Routes:**\n${app.routes?.join(', ') || 'N/A'}\n\n**Description:**\n${app.description}`,
@@ -165,12 +188,15 @@ const HeroSection = () => {
     setInputValue('')
     setIsGenerating(true)
 
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage, type: 'text' }])
+    setMessages((prev) => [
+      ...prev,
+      { role: 'user', content: userMessage, type: 'text' },
+    ])
 
     try {
       const aiMessage = await detectIntentAndGenerate(userMessage)
       setMessages((prev) => [...prev, aiMessage])
-      
+
       // Generate preview for components
       if (aiMessage.code && aiMessage.type === 'component') {
         generatePreview(aiMessage.code)
@@ -290,7 +316,9 @@ const HeroSection = () => {
                   >
                     {/* Text content */}
                     {msg.content && (
-                      <p className='text-sm whitespace-pre-wrap mb-3'>{msg.content}</p>
+                      <p className='text-sm whitespace-pre-wrap mb-3'>
+                        {msg.content}
+                      </p>
                     )}
 
                     {/* Code block with actions */}
@@ -358,7 +386,9 @@ const HeroSection = () => {
                 <div className='flex justify-start'>
                   <div className='bg-muted rounded-lg p-4 flex items-center gap-3'>
                     <Sparkles className='w-4 h-4 animate-pulse text-primary' />
-                    <p className='text-sm text-muted-foreground'>Generating your code...</p>
+                    <p className='text-sm text-muted-foreground'>
+                      Generating your code...
+                    </p>
                   </div>
                 </div>
               )}
@@ -378,7 +408,9 @@ const HeroSection = () => {
               <Button
                 variant='outline'
                 size='sm'
-                onClick={() => setInputValue('Create a todo app with React and TypeScript')}
+                onClick={() =>
+                  setInputValue('Create a todo app with React and TypeScript')
+                }
                 className='text-xs'
               >
                 <Sparkles className='w-3 h-3 mr-1' />
@@ -387,7 +419,9 @@ const HeroSection = () => {
               <Button
                 variant='outline'
                 size='sm'
-                onClick={() => setInputValue('Generate a responsive navbar component')}
+                onClick={() =>
+                  setInputValue('Generate a responsive navbar component')
+                }
                 className='text-xs'
               >
                 <Code className='w-3 h-3 mr-1' />
@@ -396,7 +430,11 @@ const HeroSection = () => {
               <Button
                 variant='outline'
                 size='sm'
-                onClick={() => setInputValue('Create a database schema for an e-commerce store')}
+                onClick={() =>
+                  setInputValue(
+                    'Create a database schema for an e-commerce store',
+                  )
+                }
                 className='text-xs'
               >
                 <Database className='w-3 h-3 mr-1' />
@@ -405,7 +443,9 @@ const HeroSection = () => {
               <Button
                 variant='outline'
                 size='sm'
-                onClick={() => setInputValue('Generate REST API for blog posts')}
+                onClick={() =>
+                  setInputValue('Generate REST API for blog posts')
+                }
                 className='text-xs'
               >
                 <Code className='w-3 h-3 mr-1' />
