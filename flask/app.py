@@ -38,15 +38,18 @@ Endpoints:
 Author: VPN Enterprise Team
 Version: 1.0.0
 """
-from fastapi import FastAPI, HTTPException, Depends, status # pyright: ignore[reportMissingImports]
+from fastapi import FastAPI, HTTPException, Depends, status, Header # pyright: ignore[reportMissingImports]
 from fastapi.middleware.cors import CORSMiddleware # type: ignore
 from pydantic import BaseModel, Field # type: ignore
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import logging
 import httpx #type: ignore
 from contextlib import asynccontextmanager
+import hashlib
+import json
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -65,15 +68,44 @@ SERVICES = {
     "postgres": os.getenv("POSTGRES_URL", "postgresql://postgres:postgres@vpn-postgres-dev:5432/postgres")
 }
 
+# Redis connection
+redis_client: Optional[redis.Redis] = None
+
+# JWT Configuration
+JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
+JWT_ALGORITHM = "HS256"
+
+# Rate limiting configuration
+RATE_LIMITS = {
+    "free": {"requests": 100, "window": 3600},  # 100 req/hour
+    "pro": {"requests": 1000, "window": 3600},   # 1000 req/hour
+    "enterprise": {"requests": 10000, "window": 3600}  # 10k req/hour
+}
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    global redis_client
     logger.info("🚀 FastAPI Python Service Starting...")
     logger.info(f"📡 Service Discovery: {len(SERVICES)} services configured")
     for name, url in SERVICES.items():
         logger.info(f"   • {name}: {url}")
+    
+    # Initialize Redis connection
+    try:
+        redis_url = SERVICES["redis"]
+        redis_client = await redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
+        await redis_client.ping()
+        logger.info("✅ Redis connected successfully")
+    except Exception as e:
+        logger.error(f"❌ Redis connection failed: {e}")
+        redis_client = None
+    
     yield
+    
     # Shutdown
+    if redis_client:
+        await redis_client.close()
     logger.info("🛑 FastAPI Python Service Shutting Down...")
 
 app = FastAPI(
@@ -140,6 +172,19 @@ class CodeCompleteRequest(BaseModel):
 class CodeCompleteResponse(BaseModel):
     completions: List[str]
     confidence: float
+
+class TokenValidationResponse(BaseModel):
+    valid: bool
+    user_id: Optional[str] = None
+    tenant_id: Optional[str] = None
+    tier: str = "free"
+    email: Optional[str] = None
+
+class UsageStats(BaseModel):
+    requests_used: int
+    requests_limit: int
+    requests_remaining: int
+    window_reset: datetime
 
 class VPNConfig(BaseModel):
     user_id: str

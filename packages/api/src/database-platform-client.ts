@@ -76,7 +76,7 @@ export class DatabasePlatformClient {
         );
       `)
       await client.query(
-        "CREATE INDEX IF NOT EXISTS tenants_created_at_idx ON tenants (created_at DESC);",
+        'CREATE INDEX IF NOT EXISTS tenants_created_at_idx ON tenants (created_at DESC);',
       )
 
       await client.query(`

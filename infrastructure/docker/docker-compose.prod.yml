@@ -298,7 +298,8 @@ services:
         max-file: '3'
 
   # ============================================
-  # PYTHON API - FastAPI Service (Production)
+  # PYTHON API - FastAPI AI Service (Production)
+  # Multiple workers for high concurrency
   # ============================================
   python-api:
     build:
@@ -313,6 +314,17 @@ services:
       - DB_PASSWORD_FILE=/run/secrets/db_password
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - API_KEY_FILE=/run/secrets/api_key
+      - ENVIRONMENT=production
+      - API_URL=http://vpn-api:5000
+      - WEB_URL=http://vpn-web:3000
+      - REDIS_URL=redis://vpn-redis:6379
+      - REDIS_HOST=vpn-redis
+      - REDIS_PORT=6379
+      - N8N_URL=http://vpn-n8n:5678
+      - OLLAMA_URL=http://vpn-ollama:11434
+      - POSTGRES_URL=postgresql://postgres:postgres@vpn-postgres:5432/postgres
+      - CACHE_TTL=3600
+      - WORKERS=4
     secrets:
       - db_password
       - redis_password
@@ -326,14 +338,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ollama:
+        condition: service_healthy
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 2G
+          cpus: '4.0'
+          memory: 4G
         reservations:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '1.0'
+          memory: 1G
+      replicas: 1
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5001/health']
       interval: 30s
@@ -356,8 +371,8 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
-      # If you need browser access cross-origin, set an explicit value in ../../.env.production
-      # and add it to this service's environment.
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_MAX_LOADED_MODELS=2
     networks:
       - vpn-network
     deploy:
@@ -380,18 +395,45 @@ services:
         max-file: '3'
 
   # ============================================
-  # NEXUSAI (Production)
+  # NEXUSAI - Chat-to-Code AI Builder (Production)
+  # App generation like Lovable/Cursor
   # ============================================
   nexusai:
-    profiles:
-      - nexusai
     build:
       context: ../../apps/nexusAi/chat-to-code-38
       dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
     container_name: vpn-nexusai
     restart: always
+    environment:
+      - NODE_ENV=production
+      - VITE_AI_API_URL=https://python-api.chatbuilds.com
+      - VITE_MAIN_API_URL=https://chatbuilds.com/api
     networks:
       - vpn-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:80/',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: 'json-file'
       options:
