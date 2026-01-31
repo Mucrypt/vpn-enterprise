@@ -50,7 +50,8 @@ export class AIService {
   private apiKey: string | null = null
   private baseURL: string
 
-  constructor(apiKey?: string, usePublicAPI = false) {
+  constructor(apiKey?: string, usePublicAPI = true) {
+    // Default to public API for browser usage
     this.apiKey = apiKey || this.getStoredAPIKey()
     this.baseURL = usePublicAPI ? PUBLIC_API_URL : AI_API_URL
   }
@@ -131,22 +132,15 @@ export class AIService {
     return response.json()
   }
 
-  // Get usage statistics
+  // Get usage statistics (not implemented in FastAPI yet)
   async getUsage(): Promise<UsageStats> {
-    if (!this.apiKey) {
-      throw new Error('API key required for usage stats')
+    // Placeholder - FastAPI doesn't have /usage endpoint yet
+    return {
+      requests_used: 0,
+      requests_limit: 100,
+      requests_remaining: 100,
+      window_reset: new Date(Date.now() + 3600000).toISOString(),
     }
-
-    const response = await fetch(`${this.baseURL}/usage`, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch usage: ${response.status}`)
-    }
-
-    return response.json()
   }
 
   // List available AI models
@@ -169,7 +163,7 @@ export class AIService {
     if (!this.apiKey) return false
 
     try {
-      await this.getUsage()
+      await this.listModels()
       return true
     } catch {
       return false
