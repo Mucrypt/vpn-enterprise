@@ -18,8 +18,10 @@ const HeroSection = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [showAPIKeyDialog, setShowAPIKeyDialog] = useState(false);
   const [apiKey, setApiKey] = useState("");
-  const [aiService] = useState(() => new AIService());
+  const [aiService] = useState(() => new AIService(undefined, true)); // Use public API for browser access
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [messages, setMessages] = useState<Array<{role: string, content: string}>>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     // Check if API key exists
@@ -47,15 +49,38 @@ const HeroSection = () => {
       return;
     }
 
+    const userMessage = inputValue;
+    setInputValue("");
+    setIsGenerating(true);
+    
+    // Add user message to chat
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+
     try {
       const response = await aiService.generate({
-        prompt: inputValue,
-        model: 'llama3.2:1b'
+        prompt: userMessage,
+        model: 'llama3.2:1b',
+        temperature: 0.7,
+        max_tokens: 2000
       });
-      console.log('AI Response:', response);
-      // TODO: Display response in chat UI
-    } catch (error) {
-      console.error('Failed to generate:', error);
+      
+      // Add AI response to chat
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: response.response 
+      }]);
+      
+      console.log('✅ AI Response:', response);
+      console.log('📊 Duration:', response.total_duration_ms, 'ms');
+      console.log('🔄 Cached:', response.cached);
+    } catch (error: any) {
+      console.error('❌ Failed to generate:', error);
+      setMessages(prev => [...prev, { 
+        role: 'error', 
+        content: `Error: ${error.message || 'Failed to connect to AI service'}` 
+      }]);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -94,6 +119,34 @@ const HeroSection = () => {
           Create apps and websites by chatting with AI
         </p>
 
+        {/* Messages Display */}
+        {messages.length > 0 && (
+          <div className="w-full max-w-2xl mb-6 animate-fade-up" style={{ animationDelay: '0.25s' }}>
+            <div className="bg-card rounded-2xl border border-border shadow-lg p-4 max-h-96 overflow-y-auto space-y-4">
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-lg p-3 ${
+                    msg.role === 'user' 
+                      ? 'bg-primary text-primary-foreground' 
+                      : msg.role === 'error'
+                      ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                      : 'bg-muted'
+                  }`}>
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+              {isGenerating && (
+                <div className="flex justify-start">
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-sm text-muted-foreground">Thinking...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Chat Input Box */}
         <div 
           className="w-full max-w-2xl animate-scale-in" 
@@ -105,9 +158,16 @@ const HeroSection = () => {
               <textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
                 placeholder="Ask NexusAI to create a landing page for my..."
                 className="w-full bg-transparent text-foreground placeholder:text-muted-foreground text-base resize-none focus:outline-none min-h-[60px]"
                 rows={2}
+                disabled={isGenerating}
               />
             </div>
 
@@ -157,9 +217,13 @@ const HeroSection = () => {
                   onClick={handleSend}
                   size="icon" 
                   className="h-9 w-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
-                  disabled={!inputValue.trim()}
+                  disabled={!inputValue.trim() || isGenerating}
                 >
-                  <Send className="w-4 h-4" />
+                  {isGenerating ? (
+                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
             </div>

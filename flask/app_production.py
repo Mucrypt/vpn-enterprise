@@ -155,28 +155,52 @@ async def check_rate_limit(identifier: str, tier: str = "free") -> Dict[str, Any
         "window_reset": datetime.fromtimestamp(current_time + window)
     }
 
-async def verify_token(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
-    """Verify JWT token or API key"""
+async def verify_token(
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key")
+) -> Dict[str, Any]:
+    """Verify JWT token or API key (supports both Authorization and X-API-Key headers)"""
+    
+    # Try X-API-Key header first (preferred by NexusAI)
+    if x_api_key:
+        if x_api_key.startswith("vpn_"):
+            return {
+                "tier": "pro",
+                "user_id": hashlib.md5(x_api_key.encode()).hexdigest()[:8],
+                "tenant_id": "nexusai"
+            }
+        else:
+            raise HTTPException(status_code=401, detail="Invalid API key format")
+    
+    # Fall back to Authorization header
     if not authorization:
         return {"tier": "free", "user_id": "anonymous"}
     
     try:
         if authorization.startswith("Bearer "):
             token = authorization.replace("Bearer ", "")
-            # In production, validate JWT properly
-            # For now, extract user info from token
+            # Check if it's an API key
+            if token.startswith("vpn_"):
+                return {
+                    "tier": "pro",
+                    "user_id": hashlib.md5(token.encode()).hexdigest()[:8],
+                    "tenant_id": "nexusai"
+                }
+            # Otherwise it's a JWT token
             return {
                 "tier": "pro",
                 "user_id": token[:8],
                 "tenant_id": "default"
             }
         else:
-            # API key
-            return {
-                "tier": "enterprise",
-                "user_id": authorization[:8],
-                "tenant_id": "default"
-            }
+            # Legacy: direct API key without Bearer
+            if authorization.startswith("vpn_"):
+                return {
+                    "tier": "pro",
+                    "user_id": hashlib.md5(authorization.encode()).hexdigest()[:8],
+                    "tenant_id": "nexusai"
+                }
+            return {"tier": "free", "user_id": "anonymous"}
     except Exception as e:
         logger.error(f"Token verification failed: {e}")
         return {"tier": "free", "user_id": "anonymous"}
