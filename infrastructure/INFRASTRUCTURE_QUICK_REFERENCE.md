@@ -7,6 +7,7 @@
 ## ⚡ Essential Commands
 
 ### Service Management
+
 ```bash
 # Start all services
 cd infrastructure/docker
@@ -30,6 +31,7 @@ docker compose ps
 ```
 
 ### Logs
+
 ```bash
 # View logs
 docker logs vpn-api
@@ -51,6 +53,7 @@ docker logs vpn-api 2>&1 | grep ERROR
 ```
 
 ### Container Access
+
 ```bash
 # Enter container shell
 docker exec -it vpn-api sh
@@ -67,6 +70,7 @@ docker exec vpn-api env
 ## 📋 Stack Overview
 
 ### Production Stack
+
 ```
 Port   Service           Container Name
 ----   -------           --------------
@@ -82,6 +86,7 @@ Port   Service           Container Name
 ```
 
 ### Network Architecture
+
 ```
 Internet (443/80)
   ↓
@@ -102,6 +107,7 @@ Nginx (Reverse Proxy)
 ## 🐳 Docker Compose Files
 
 ### Available Compose Files
+
 ```bash
 # Production (full stack)
 docker-compose.yml
@@ -120,6 +126,7 @@ docker-compose.database-platform.yml
 ```
 
 ### Using Specific Compose Files
+
 ```bash
 # Development
 docker compose -f docker-compose.dev.yml up -d
@@ -136,6 +143,7 @@ docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
 ## 🔍 Health Checks
 
 ### Check Service Health
+
 ```bash
 # All containers
 docker ps
@@ -151,6 +159,7 @@ curl http://localhost:5001/health         # Python AI
 ```
 
 ### Service Status Indicators
+
 ```
 healthy      ✅ Service running normally
 unhealthy    ❌ Health check failing
@@ -162,6 +171,7 @@ starting     ⏳ Still starting up
 ## 📊 Monitoring
 
 ### Resource Usage
+
 ```bash
 # Real-time stats
 docker stats
@@ -178,6 +188,7 @@ docker system prune -a --volumes  # More aggressive
 ```
 
 ### Container Information
+
 ```bash
 # Detailed info
 docker inspect vpn-api
@@ -194,6 +205,7 @@ docker network inspect vpn-network
 ## 🔧 Development Workflow
 
 ### Start Development Environment
+
 ```bash
 cd infrastructure/docker
 
@@ -210,6 +222,7 @@ docker compose -f docker-compose.dev.yml logs -f
 ```
 
 ### Hot Reload Development
+
 ```bash
 # Code changes auto-reload (volumes mounted)
 # Edit files in:
@@ -221,6 +234,7 @@ docker logs -f vpn-api-dev
 ```
 
 ### Rebuild After Package Changes
+
 ```bash
 # If package.json changed
 docker compose -f docker-compose.dev.yml down
@@ -233,6 +247,7 @@ docker compose -f docker-compose.dev.yml up -d
 ## 🚢 Deployment
 
 ### Production Deployment
+
 ```bash
 cd infrastructure/docker
 
@@ -251,6 +266,7 @@ curl https://chatbuilds.com/health
 ```
 
 ### Rolling Update
+
 ```bash
 # Update one service at a time
 docker compose up -d --no-deps --build api
@@ -259,6 +275,7 @@ docker compose up -d --no-deps --build python-api
 ```
 
 ### Rollback
+
 ```bash
 # Use previous image
 docker compose down
@@ -270,6 +287,7 @@ docker compose up -d --force-recreate
 ## 🔐 Security & Secrets
 
 ### Create Secrets
+
 ```bash
 # Create secrets directory
 mkdir -p infrastructure/docker/secrets
@@ -284,6 +302,7 @@ echo "secrets/*.txt" >> .gitignore
 ```
 
 ### View Secrets in Container
+
 ```bash
 # Secrets mounted at /run/secrets/
 docker exec vpn-postgres ls -la /run/secrets/
@@ -291,6 +310,7 @@ docker exec vpn-postgres cat /run/secrets/postgres_password
 ```
 
 ### Rotate Secrets
+
 ```bash
 # 1. Update secret file
 echo "new-password" > secrets/postgres_password.txt
@@ -307,6 +327,7 @@ docker logs vpn-postgres
 ## 🌐 Network Debugging
 
 ### Test Connectivity
+
 ```bash
 # From nginx to api
 docker exec vpn-nginx curl http://api:3000/health
@@ -319,6 +340,7 @@ docker exec vpn-api nslookup postgres
 ```
 
 ### Network Inspection
+
 ```bash
 # List networks
 docker network ls
@@ -331,6 +353,7 @@ docker network inspect vpn-network --format '{{range .Containers}}{{.Name}} {{en
 ```
 
 ### Fix Network Issues
+
 ```bash
 # Reconnect container to network
 docker network disconnect vpn-network vpn-api
@@ -346,6 +369,7 @@ docker compose up -d
 ## 📦 Volume Management
 
 ### List Volumes
+
 ```bash
 # All volumes
 docker volume ls
@@ -358,6 +382,7 @@ docker volume inspect postgres-data --format '{{.Mountpoint}}'
 ```
 
 ### Backup Volume
+
 ```bash
 # Backup postgres data
 docker run --rm \
@@ -373,6 +398,7 @@ docker run --rm \
 ```
 
 ### Restore Volume
+
 ```bash
 # Stop services first
 docker compose down
@@ -388,6 +414,7 @@ docker compose up -d
 ```
 
 ### Clean Volumes
+
 ```bash
 # Remove unused volumes
 docker volume prune
@@ -401,6 +428,7 @@ docker volume rm postgres-data
 ## 🐛 Troubleshooting
 
 ### Service Won't Start
+
 ```bash
 # Check logs for errors
 docker logs vpn-api
@@ -421,6 +449,7 @@ docker logs vpn-postgres
 ```
 
 ### Container Keeps Restarting
+
 ```bash
 # Check restart count
 docker ps -a | grep vpn-api
@@ -439,6 +468,7 @@ docker start vpn-api
 ```
 
 ### High Resource Usage
+
 ```bash
 # Check which container is using resources
 docker stats --no-stream
@@ -455,6 +485,7 @@ docker update --cpus=1 --memory=512m vpn-api
 ```
 
 ### Slow Performance
+
 ```bash
 # Check logs for errors
 docker logs vpn-api | grep -i error
@@ -470,6 +501,7 @@ docker logs vpn-nginx | grep "request_time"
 ```
 
 ### Database Issues
+
 ```bash
 # Access PostgreSQL
 docker exec -it vpn-postgres psql -U postgres
@@ -489,6 +521,7 @@ VACUUM ANALYZE;
 ## 🔄 Scaling
 
 ### Horizontal Scaling
+
 ```bash
 # Scale API to 3 instances
 docker compose up -d --scale api=3
@@ -500,6 +533,7 @@ docker ps | grep vpn-api
 ```
 
 ### Vertical Scaling
+
 ```yaml
 # Edit docker-compose.yml
 services:
@@ -507,8 +541,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'      # Increase from 1
-          memory: 1G     # Increase from 512M
+          cpus: '2' # Increase from 1
+          memory: 1G # Increase from 512M
 ```
 
 ---
@@ -516,6 +550,7 @@ services:
 ## 📁 Important Files
 
 ### Configuration Files
+
 ```
 infrastructure/docker/
 ├── docker-compose.yml           # Main production config
@@ -527,6 +562,7 @@ infrastructure/docker/
 ```
 
 ### Dockerfiles
+
 ```
 infrastructure/docker/
 ├── Dockerfile.api               # API build
@@ -536,6 +572,7 @@ infrastructure/docker/
 ```
 
 ### Logs (inside containers)
+
 ```
 /var/log/nginx/access.log        # Nginx access
 /var/log/nginx/error.log         # Nginx errors
@@ -547,6 +584,7 @@ infrastructure/docker/
 ## 🆘 Emergency Procedures
 
 ### Complete System Restart
+
 ```bash
 # Stop everything
 docker compose down
@@ -563,6 +601,7 @@ curl http://localhost/health
 ```
 
 ### Rollback Deployment
+
 ```bash
 # Stop current
 docker compose down
@@ -578,6 +617,7 @@ docker compose up -d
 ```
 
 ### Data Recovery
+
 ```bash
 # Stop services
 docker compose down
@@ -604,16 +644,16 @@ Production:
   Main Site:    https://chatbuilds.com
   API Health:   https://chatbuilds.com/api/health
   Web Health:   https://chatbuilds.com/
-  
+
 Development:
   API:          http://localhost:5000/health
   Web:          http://localhost:3001/
   N8N:          http://localhost:5678/
-  
+
 Monitoring:
   Prometheus:   http://localhost:9090
   Grafana:      http://localhost:3000
-  
+
 Database:
   PostgreSQL:   localhost:5432
   Redis:        localhost:6379
@@ -624,6 +664,7 @@ Database:
 ## 💡 Pro Tips
 
 ### 1. Use Aliases
+
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
 alias dps='docker ps'
@@ -635,6 +676,7 @@ alias drebuild='docker compose up -d --build'
 ```
 
 ### 2. Watch Logs in Real-Time
+
 ```bash
 # Multiple services
 docker compose logs -f api web-dashboard
@@ -644,6 +686,7 @@ docker logs -f vpn-api 2>&1 | grep -i error
 ```
 
 ### 3. Quick Health Check Script
+
 ```bash
 #!/bin/bash
 # save as check-health.sh
@@ -655,6 +698,7 @@ done
 ```
 
 ### 4. Auto-restart Failed Containers
+
 ```yaml
 # In docker-compose.yml
 restart: unless-stopped  # Recommended
@@ -663,6 +707,7 @@ restart: on-failure      # Only on error
 ```
 
 ### 5. Resource Monitoring Script
+
 ```bash
 #!/bin/bash
 # save as monitor.sh
@@ -674,6 +719,7 @@ watch -n 2 'docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{
 ## 🎯 Daily Checklist
 
 ### Morning Routine
+
 ```bash
 # 1. Check all services running
 docker ps
@@ -689,6 +735,7 @@ curl https://chatbuilds.com/health
 ```
 
 ### After Code Changes
+
 ```bash
 # 1. Pull latest code
 git pull
@@ -704,6 +751,7 @@ curl http://localhost:3000/health
 ```
 
 ### Before Leaving
+
 ```bash
 # 1. Check all healthy
 docker ps
@@ -723,11 +771,13 @@ git push
 ## 📚 Quick Links
 
 **Documentation:**
+
 - Infrastructure Guide: [INFRASTRUCTURE_COMPLETE_GUIDE.md](./INFRASTRUCTURE_COMPLETE_GUIDE.md)
 - Nginx Docs: [docker/nginx/NGINX_COMPLETE_GUIDE.md](./docker/nginx/NGINX_COMPLETE_GUIDE.md)
 - Docker Docs: https://docs.docker.com
 
 **Monitoring:**
+
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000
 
@@ -738,4 +788,4 @@ git push
 
 ---
 
-*Keep this open while managing infrastructure. Copy-paste with confidence!*
+_Keep this open while managing infrastructure. Copy-paste with confidence!_

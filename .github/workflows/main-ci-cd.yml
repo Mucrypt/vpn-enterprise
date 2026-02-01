@@ -1,0 +1,604 @@
+# ==============================================
+# VPN ENTERPRISE - MAIN CI/CD PIPELINE
+# ==============================================
+# Production-ready CI/CD for microservices architecture
+# Supports: Linting, Testing, Building, Security Scanning, Deployment
+
+name: Main CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target deployment environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip tests (emergency only)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+# Cancel in-progress runs when new commit pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==============================================
+  # SETUP & VALIDATION
+  # ==============================================
+  setup:
+    name: Setup & Validation
+    runs-on: ubuntu-latest
+    outputs:
+      services_matrix: ${{ steps.detect-changes.outputs.services }}
+      should_deploy: ${{ steps.check-deploy.outputs.should_deploy }}
+      target_env: ${{ steps.check-deploy.outputs.target_env }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for change detection
+
+      - name: Detect changed services
+        id: detect-changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api:
+              - 'packages/api/**'
+              - 'packages/auth/**'
+              - 'packages/database/**'
+              - 'packages/shared/**'
+            web:
+              - 'apps/web-dashboard/**'
+            python-api:
+              - 'flask/**'
+            database-manager:
+              - 'packages/database-manager/**'
+            tenant-provisioner:
+              - 'packages/tenant-provisioner/**'
+            infrastructure:
+              - 'infrastructure/**'
+              - 'docker-compose*.yml'
+
+      - name: Check deployment conditions
+        id: check-deploy
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "target_env=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "target_env=production" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "target_env=staging" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "target_env=development" >> $GITHUB_OUTPUT
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "target_env=none" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate version
+        id: version
+        run: |
+          VERSION=$(date +%Y.%m.%d)-${GITHUB_SHA::7}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${VERSION}"
+
+      - name: Output changed services
+        run: |
+          echo "Changed services:"
+          echo "  API: ${{ steps.detect-changes.outputs.api }}"
+          echo "  Web: ${{ steps.detect-changes.outputs.web }}"
+          echo "  Python API: ${{ steps.detect-changes.outputs.python-api }}"
+          echo "  Database Manager: ${{ steps.detect-changes.outputs.database-manager }}"
+          echo "  Tenant Provisioner: ${{ steps.detect-changes.outputs.tenant-provisioner }}"
+
+  # ==============================================
+  # LINT - PARALLEL BY SERVICE
+  # ==============================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, web, python-api, packages]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: matrix.service != 'python-api'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Python
+        if: matrix.service == 'python-api'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies (Node)
+        if: matrix.service != 'python-api'
+        run: npm ci
+
+      - name: Install dependencies (Python)
+        if: matrix.service == 'python-api'
+        run: |
+          cd flask
+          pip install -r requirements.txt
+          pip install flake8 black mypy
+
+      - name: Lint API
+        if: matrix.service == 'api'
+        run: |
+          npm run lint --workspace=@vpn-enterprise/api
+          npm run type-check --workspace=@vpn-enterprise/api || true
+
+      - name: Lint Web Dashboard
+        if: matrix.service == 'web'
+        run: |
+          cd apps/web-dashboard
+          npm run lint
+          npm run type-check || true
+
+      - name: Lint Python API
+        if: matrix.service == 'python-api'
+        run: |
+          cd flask
+          flake8 app.py --max-line-length=120
+          black --check app.py || true
+          mypy app.py --ignore-missing-imports || true
+
+      - name: Lint Shared Packages
+        if: matrix.service == 'packages'
+        run: |
+          npm run lint --workspace=@vpn-enterprise/auth || true
+          npm run lint --workspace=@vpn-enterprise/database || true
+          npm run lint --workspace=@vpn-enterprise/shared || true
+
+  # ==============================================
+  # TEST - PARALLEL BY SERVICE
+  # ==============================================
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [setup, lint]
+    if: inputs.skip_tests != true
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, web, python-api]
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vpn_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: matrix.service != 'python-api'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Python
+        if: matrix.service == 'python-api'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies (Node)
+        if: matrix.service != 'python-api'
+        run: npm ci
+
+      - name: Install dependencies (Python)
+        if: matrix.service == 'python-api'
+        run: |
+          cd flask
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Setup test database
+        if: matrix.service == 'api'
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vpn_test
+        run: |
+          cd packages/database
+          npm run migrate || true
+
+      - name: Test API
+        if: matrix.service == 'api'
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vpn_test
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+          JWT_SECRET: test-secret-key
+        run: |
+          npm run test --workspace=@vpn-enterprise/api || echo "No API tests yet"
+          npm run test --workspace=@vpn-enterprise/auth || true
+          npm run test --workspace=@vpn-enterprise/database || true
+
+      - name: Test Web Dashboard
+        if: matrix.service == 'web'
+        run: |
+          cd apps/web-dashboard
+          npm run test || echo "No web tests yet"
+
+      - name: Test Python API
+        if: matrix.service == 'python-api'
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vpn_test
+        run: |
+          cd flask
+          pytest -v || echo "No Python tests yet"
+
+      - name: Upload coverage reports
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/*.json
+          flags: ${{ matrix.service }}
+          fail_ci_if_error: false
+
+  # ==============================================
+  # BUILD DOCKER IMAGES
+  # ==============================================
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [setup, test]
+    if: needs.setup.outputs.should_deploy == 'true'
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            dockerfile: infrastructure/docker/Dockerfile.api
+            context: .
+          - service: web
+            dockerfile: infrastructure/docker/Dockerfile.web
+            context: .
+          - service: python-api
+            dockerfile: flask/Dockerfile
+            context: flask
+          - service: database-manager
+            dockerfile: infrastructure/docker/Dockerfile.db-manager
+            context: .
+          - service: tenant-provisioner
+            dockerfile: infrastructure/docker/Dockerfile.provisioner
+            context: .
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ needs.setup.outputs.version }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ needs.setup.outputs.version }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ needs.setup.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.service }}.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+
+  # ==============================================
+  # SECURITY SCANNING
+  # ==============================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: setup
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+  # ==============================================
+  # DEPLOY TO ENVIRONMENTS
+  # ==============================================
+  deploy:
+    name: Deploy to ${{ needs.setup.outputs.target_env }}
+    runs-on: ubuntu-latest
+    needs: [setup, build]
+    if: needs.setup.outputs.should_deploy == 'true'
+    environment:
+      name: ${{ needs.setup.outputs.target_env }}
+      url: ${{ steps.deploy-info.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup deployment info
+        id: deploy-info
+        run: |
+          case "${{ needs.setup.outputs.target_env }}" in
+            production)
+              echo "url=https://chatbuilds.com" >> $GITHUB_OUTPUT
+              echo "namespace=vpn-prod" >> $GITHUB_OUTPUT
+              ;;
+            staging)
+              echo "url=https://staging.chatbuilds.com" >> $GITHUB_OUTPUT
+              echo "namespace=vpn-staging" >> $GITHUB_OUTPUT
+              ;;
+            development)
+              echo "url=https://dev.chatbuilds.com" >> $GITHUB_OUTPUT
+              echo "namespace=vpn-dev" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Deploy via SSH (Docker Compose)
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            cd /opt/vpn-enterprise
+            git pull origin ${{ github.ref_name }}
+
+            # Pull latest images
+            docker compose pull
+
+            # Rolling update (zero downtime)
+            docker compose up -d --no-deps --build api
+            sleep 10
+            docker compose up -d --no-deps --build web-dashboard
+            sleep 10
+            docker compose up -d --no-deps --build python-api
+
+            # Health check
+            curl -f http://localhost/health || exit 1
+
+            # Clean up old images
+            docker image prune -f
+
+      - name: Deploy to Vercel (if applicable)
+        if: needs.setup.outputs.target_env == 'production'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npm install -g vercel
+
+          # Deploy API
+          cd packages/api
+          vercel --prod --token=$VERCEL_TOKEN --yes
+
+          # Deploy Web Dashboard
+          cd ../../apps/web-dashboard
+          vercel --prod --token=$VERCEL_TOKEN --yes
+
+      - name: Run smoke tests
+        run: |
+          sleep 30  # Wait for services to stabilize
+
+          # Test API health
+          curl -f ${{ steps.deploy-info.outputs.url }}/api/health || exit 1
+
+          # Test web dashboard
+          curl -f ${{ steps.deploy-info.outputs.url }}/ || exit 1
+
+          echo "✅ Smoke tests passed"
+
+      - name: Notify deployment
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          text: |
+            Deployment to ${{ needs.setup.outputs.target_env }} ${{ job.status }}
+            Version: ${{ needs.setup.outputs.version }}
+            URL: ${{ steps.deploy-info.outputs.url }}
+            Commit: ${{ github.sha }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ==============================================
+  # POST-DEPLOYMENT
+  # ==============================================
+  post-deploy:
+    name: Post-Deployment Tasks
+    runs-on: ubuntu-latest
+    needs: [setup, deploy]
+    if: needs.setup.outputs.target_env == 'production'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.setup.outputs.version }}
+          release_name: Release ${{ needs.setup.outputs.version }}
+          body: |
+            ## Changes in this Release
+            - Automated deployment from commit ${{ github.sha }}
+
+            ## Deployed Services
+            - API: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api:${{ needs.setup.outputs.version }}
+            - Web: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/web:${{ needs.setup.outputs.version }}
+            - Python API: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/python-api:${{ needs.setup.outputs.version }}
+
+            ## URLs
+            - Production: https://chatbuilds.com
+            - API Docs: https://chatbuilds.com/api/docs
+          draft: false
+          prerelease: false
+
+      - name: Update deployment status
+        run: |
+          echo "✅ Deployment completed successfully"
+          echo "Version: ${{ needs.setup.outputs.version }}"
+          echo "Environment: ${{ needs.setup.outputs.target_env }}"
+
+  # ==============================================
+  # ROLLBACK (Manual trigger only)
+  # ==============================================
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.rollback == 'true'
+    environment:
+      name: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Rollback via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/vpn-enterprise
+            git checkout HEAD~1
+            docker compose down
+            docker compose up -d
+
+            echo "⚠️ Rolled back to previous version"

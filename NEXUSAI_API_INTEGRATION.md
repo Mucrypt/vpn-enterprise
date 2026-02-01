@@ -3,6 +3,7 @@
 ## 🔗 Complete Integration Map
 
 ### Architecture Overview
+
 ```
 NexusAI (React) → Nginx → FastAPI → Ollama AI
      ↓                                  ↓
@@ -16,6 +17,7 @@ Browser (https://chatbuilds.com/nexusai/) → Python API (vpn-python-api:5001)
 ### Available Endpoints
 
 #### ✅ AI Generation
+
 ```python
 POST /ai/generate
 Content-Type: application/json
@@ -40,6 +42,7 @@ Response:
 ```
 
 #### ✅ List AI Models
+
 ```python
 GET /ai/models
 X-API-Key: <your-api-key>
@@ -57,6 +60,7 @@ Response:
 ```
 
 #### ✅ SQL Assistant
+
 ```python
 POST /ai/sql/assist
 Content-Type: application/json
@@ -85,6 +89,7 @@ Response (explain):
 ```
 
 #### ✅ Code Completion
+
 ```python
 POST /ai/code/complete
 Content-Type: application/json
@@ -109,6 +114,7 @@ Response:
 ```
 
 #### ✅ Health Check
+
 ```python
 GET /health
 
@@ -123,6 +129,7 @@ Response:
 ```
 
 #### ✅ Service Status
+
 ```python
 GET /services/status
 
@@ -148,10 +155,11 @@ Response:
 ## 2. Frontend Integration (aiService.ts)
 
 ### Configuration
+
 ```typescript
 // API URLs
-const AI_API_URL = 'http://vpn-python-api:5001'  // Internal
-const PUBLIC_API_URL = 'https://chatbuilds.com/api/ai'  // Public
+const AI_API_URL = 'http://vpn-python-api:5001' // Internal
+const PUBLIC_API_URL = 'https://chatbuilds.com/api/ai' // Public
 
 // AIService uses public API by default for browser
 const aiService = new AIService(undefined, true)
@@ -160,6 +168,7 @@ const aiService = new AIService(undefined, true)
 ### Methods Used by NexusAI
 
 #### Generate Component
+
 ```typescript
 async generateComponent(description: string): Promise<string> {
   const prompt = `Generate a React component with TypeScript based on this description:
@@ -185,6 +194,7 @@ Return only the component code, no explanations.`
 **Ollama prompt:** Full prompt with React/TypeScript requirements
 
 #### Generate App Structure
+
 ```typescript
 async generateApp(description: string): Promise<{
   components: Array<{ name: string; code: string }>
@@ -212,6 +222,7 @@ Format response as JSON.`
 **Response:** JSON with app structure
 
 #### Generate Database Schema
+
 ```typescript
 async generateDatabaseSchema(description: string): Promise<string> {
   const request: SQLAssistRequest = {
@@ -229,6 +240,7 @@ async generateDatabaseSchema(description: string): Promise<string> {
 **Response:** PostgreSQL CREATE statements
 
 #### Generate API Endpoints
+
 ```typescript
 async generateAPI(description: string): Promise<string> {
   const prompt = `Generate Express.js API endpoints for:
@@ -324,6 +336,7 @@ location ^~ /api/ai/ {
 ```
 
 ### URL Rewriting
+
 - Browser: `https://chatbuilds.com/api/ai/ai/generate`
 - Nginx rewrites to: `/ai/generate`
 - Proxies to: `http://python-api:5001/ai/generate`
@@ -341,12 +354,12 @@ services:
     container_name: vpn-nexusai
     networks: [vpn-network]
     # Serves React app at http://nexusai:80
-  
+
   python-api:
     container_name: vpn-python-api
     networks: [vpn-network]
     # Serves FastAPI at http://python-api:5001
-  
+
   ollama:
     container_name: vpn-ollama
     networks: [vpn-network]
@@ -364,20 +377,23 @@ All containers can reach each other via Docker DNS using container names.
 ## 6. API Key Management
 
 ### Demo API Key
+
 ```
 vpn_U5zBa_Ze2a4g5zVcJgl1d9ZLXlDJs6uSOTtlO0QRnTg
 ```
 
 ### Storage
+
 - **Browser:** `localStorage.getItem('nexusai_api_key')`
 - **Sent as:** `X-API-Key` header in every request
 
 ### Verification
+
 ```typescript
 // Frontend verifies by calling /ai/models
 async verifyAPIKey(): Promise<boolean> {
   if (!this.apiKey) return false
-  
+
   try {
     await this.listModels()  // GET /ai/models
     return true
@@ -394,18 +410,22 @@ async verifyAPIKey(): Promise<boolean> {
 ### Common Errors
 
 #### 404 Not Found
+
 **Cause:** Calling non-existent endpoint like `/usage`  
 **Fix:** Removed `/usage` calls, use `/ai/models` instead
 
 #### 503 Service Unavailable
+
 **Cause:** Ollama is down or not responding  
 **Fix:** Check `docker ps | grep ollama` and `docker logs vpn-ollama`
 
 #### 401 Unauthorized
+
 **Cause:** Missing or invalid API key  
 **Fix:** Add demo key in NexusAI settings dialog
 
 #### CORS Errors
+
 **Cause:** Nginx not forwarding headers correctly  
 **Fix:** FastAPI has `allow_origins=["*"]` for development
 
@@ -414,6 +434,7 @@ async verifyAPIKey(): Promise<boolean> {
 ## 8. Testing the Integration
 
 ### Test AI Generation
+
 ```bash
 curl -X POST https://chatbuilds.com/api/ai/ai/generate \
   -H "Content-Type: application/json" \
@@ -426,6 +447,7 @@ curl -X POST https://chatbuilds.com/api/ai/ai/generate \
 ```
 
 ### Test SQL Assistant
+
 ```bash
 curl -X POST https://chatbuilds.com/api/ai/ai/sql/assist \
   -H "Content-Type: application/json" \
@@ -437,6 +459,7 @@ curl -X POST https://chatbuilds.com/api/ai/ai/sql/assist \
 ```
 
 ### Test Models List
+
 ```bash
 curl -X GET https://chatbuilds.com/api/ai/ai/models \
   -H "X-API-Key: vpn_U5zBa_Ze2a4g5zVcJgl1d9ZLXlDJs6uSOTtlO0QRnTg"
@@ -447,6 +470,7 @@ curl -X GET https://chatbuilds.com/api/ai/ai/models \
 ## 9. Development Workflow
 
 ### Local Development
+
 ```bash
 # Start all services
 cd infrastructure/docker
@@ -462,6 +486,7 @@ docker logs -f vpn-ollama
 ```
 
 ### Production Deployment
+
 ```bash
 # From local machine
 cd /home/mukulah/vpn-enterprise
@@ -487,6 +512,7 @@ curl -I https://chatbuilds.com/nexusai/
 ## 10. Troubleshooting Checklist
 
 ### NexusAI shows "Error: Not Found"
+
 - ✅ Check if API key is set in localStorage
 - ✅ Verify nginx is routing /api/ai/ correctly
 - ✅ Check FastAPI logs: `docker logs vpn-python-api`
@@ -494,18 +520,21 @@ curl -I https://chatbuilds.com/nexusai/
 - ✅ Ensure aiService.ts uses correct PUBLIC_API_URL
 
 ### "Ollama service unavailable"
+
 - ✅ Check Ollama is running: `docker ps | grep ollama`
 - ✅ Check Ollama logs: `docker logs vpn-ollama`
 - ✅ Test Ollama directly: `curl http://localhost:11434/`
 - ✅ Verify model exists: `docker exec vpn-ollama ollama list`
 
 ### Slow responses
+
 - ✅ First request after restart takes 2-3 seconds (model loading)
 - ✅ Complex prompts take longer (10-30 seconds)
 - ✅ Check CPU usage: `docker stats`
 - ✅ Consider using streaming for better UX
 
 ### Build fails
+
 - ✅ Check Node.js version: `node --version` (should be 20)
 - ✅ Clear npm cache: `npm cache clean --force`
 - ✅ Remove node_modules: `rm -rf node_modules && npm ci`
@@ -516,6 +545,7 @@ curl -I https://chatbuilds.com/nexusai/
 ## 11. Future Enhancements
 
 ### Add Streaming Responses
+
 ```python
 # FastAPI
 @app.post("/ai/generate/stream")
@@ -529,7 +559,7 @@ async def generate_stream(request: AIRequest):
             }) as response:
                 async for chunk in response.aiter_bytes():
                     yield chunk
-    
+
     return StreamingResponse(stream_generator(), media_type="text/event-stream")
 ```
 
@@ -541,13 +571,14 @@ async generateWithStreaming(prompt: string, onChunk: (text: string) => void) {
     headers: this.getHeaders(),
     body: JSON.stringify({ prompt })
   })
-  
+
   const reader = response.body?.getReader()
   // Process stream chunks...
 }
 ```
 
 ### Add Usage Tracking
+
 ```python
 # FastAPI
 @app.get("/usage")
@@ -563,6 +594,7 @@ async def get_usage(api_key: str = Header(..., alias="X-API-Key")):
 ```
 
 ### Add Model Selection UI
+
 ```typescript
 // NexusAI
 const [selectedModel, setSelectedModel] = useState('llama3.2:1b')
@@ -591,6 +623,6 @@ useEffect(() => {
 
 ---
 
-*Last Updated: January 31, 2026*  
-*Status: ✅ PRODUCTION READY*  
-*Integration: NexusAI ↔ FastAPI ↔ Ollama*
+_Last Updated: January 31, 2026_  
+_Status: ✅ PRODUCTION READY_  
+_Integration: NexusAI ↔ FastAPI ↔ Ollama_

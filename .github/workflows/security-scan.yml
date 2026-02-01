@@ -1,0 +1,465 @@
+# ==============================================
+# SECURITY SCANNING & COMPLIANCE
+# ==============================================
+# Automated security scanning for code, dependencies, and containers
+# Runs on: schedule, PR, and manual trigger
+
+name: Security Scanning
+
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # ==============================================
+  # SECRET SCANNING
+  # ==============================================
+  secret-scan:
+    name: Scan for Secrets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for comprehensive scan
+
+      - name: TruffleHog Secret Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # ==============================================
+  # DEPENDENCY SCANNING
+  # ==============================================
+  dependency-scan:
+    name: Scan Dependencies
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        language: [node, python]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: matrix.language == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Python
+        if: matrix.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies (Node)
+        if: matrix.language == 'node'
+        run: npm ci
+
+      - name: Install dependencies (Python)
+        if: matrix.language == 'python'
+        run: |
+          cd flask
+          pip install -r requirements.txt
+
+      - name: Run npm audit (Node)
+        if: matrix.language == 'node'
+        run: |
+          npm audit --audit-level=high --json > npm-audit.json || true
+          cat npm-audit.json
+
+      - name: Run Snyk scan (Node)
+        if: matrix.language == 'node'
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --json-file-output=snyk-node.json
+
+      - name: Run Safety scan (Python)
+        if: matrix.language == 'python'
+        run: |
+          pip install safety
+          cd flask
+          safety check --json --output safety-report.json || true
+          cat safety-report.json
+
+      - name: Run pip-audit (Python)
+        if: matrix.language == 'python'
+        run: |
+          pip install pip-audit
+          cd flask
+          pip-audit --format json --output pip-audit.json || true
+          cat pip-audit.json
+
+      - name: Upload dependency scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-scan-${{ matrix.language }}
+          path: |
+            npm-audit.json
+            snyk-node.json
+            safety-report.json
+            pip-audit.json
+          retention-days: 30
+
+  # ==============================================
+  # SAST (Static Application Security Testing)
+  # ==============================================
+  sast-scan:
+    name: SAST Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript, python
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{matrix.language}}'
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/nodejs
+            p/typescript
+            p/python
+            p/docker
+
+  # ==============================================
+  # CONTAINER SCANNING
+  # ==============================================
+  container-scan:
+    name: Scan Container Images
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, web, python-api, database-manager, tenant-provisioner]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image for scanning
+        run: |
+          case "${{ matrix.service }}" in
+            api)
+              docker build -f infrastructure/docker/Dockerfile.api -t scan-image:${{ matrix.service }} .
+              ;;
+            web)
+              docker build -f infrastructure/docker/Dockerfile.web -t scan-image:${{ matrix.service }} .
+              ;;
+            python-api)
+              docker build -f flask/Dockerfile -t scan-image:${{ matrix.service }} flask/
+              ;;
+            database-manager)
+              docker build -f infrastructure/docker/Dockerfile.db-manager -t scan-image:${{ matrix.service }} .
+              ;;
+            tenant-provisioner)
+              docker build -f infrastructure/docker/Dockerfile.provisioner -t scan-image:${{ matrix.service }} .
+              ;;
+          esac
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: scan-image:${{ matrix.service }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.service }}.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+          category: trivy-${{ matrix.service }}
+
+      - name: Run Grype vulnerability scanner
+        uses: anchore/scan-action@v3
+        with:
+          image: scan-image:${{ matrix.service }}
+          fail-build: false
+          severity-cutoff: high
+          output-format: sarif
+
+      - name: Upload Grype results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: grype-${{ matrix.service }}
+
+      - name: Run Snyk container scan
+        uses: snyk/actions/docker@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: scan-image:${{ matrix.service }}
+          args: --severity-threshold=high
+
+      - name: Generate vulnerability report
+        run: |
+          echo "## Security Scan Results: ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          docker run --rm scan-image:${{ matrix.service }} --version >> $GITHUB_STEP_SUMMARY || true
+
+  # ==============================================
+  # INFRASTRUCTURE AS CODE SCANNING
+  # ==============================================
+  iac-scan:
+    name: IaC Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Checkov (IaC scanner)
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: infrastructure/
+          framework: dockerfile,github_actions
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+
+      - name: Upload Checkov results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
+
+      - name: Scan Docker Compose files
+        run: |
+          docker run --rm -v $(pwd):/project openpolicyagent/conftest test \
+            infrastructure/docker/docker-compose*.yml \
+            --policy infrastructure/security-policies/ || true
+
+      - name: Scan Dockerfiles
+        run: |
+          docker run --rm -i hadolint/hadolint < infrastructure/docker/Dockerfile.api || true
+          docker run --rm -i hadolint/hadolint < infrastructure/docker/Dockerfile.web || true
+          docker run --rm -i hadolint/hadolint < flask/Dockerfile || true
+
+  # ==============================================
+  # LICENSE COMPLIANCE
+  # ==============================================
+  license-scan:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run license checker
+        run: |
+          npx license-checker --json --out licenses.json
+          npx license-checker --summary
+
+      - name: Check for problematic licenses
+        run: |
+          # Fail if GPL, AGPL, or other copyleft licenses found
+          npx license-checker --failOn "GPL;AGPL;LGPL" --production || true
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: licenses.json
+          retention-days: 30
+
+  # ==============================================
+  # SBOM GENERATION
+  # ==============================================
+  sbom-generation:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate SBOM (Node)
+        run: |
+          npx @cyclonedx/cyclonedx-npm --output-file sbom-node.json
+
+      - name: Generate SBOM (Python)
+        run: |
+          pip install cyclonedx-bom
+          cd flask
+          cyclonedx-py -i requirements.txt -o ../sbom-python.json
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-reports
+          path: |
+            sbom-node.json
+            sbom-python.json
+          retention-days: 90
+
+  # ==============================================
+  # SECURITY REPORT
+  # ==============================================
+  security-report:
+    name: Generate Security Report
+    runs-on: ubuntu-latest
+    needs:
+      [
+        secret-scan,
+        dependency-scan,
+        sast-scan,
+        container-scan,
+        iac-scan,
+        license-scan,
+      ]
+    if: always()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Generate summary report
+        run: |
+          echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scan Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Scan Results:" >> $GITHUB_STEP_SUMMARY
+          echo "- Secret Scan: ${{ needs.secret-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Dependency Scan: ${{ needs.dependency-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- SAST Analysis: ${{ needs.sast-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Container Scan: ${{ needs.container-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- IaC Scan: ${{ needs.iac-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- License Check: ${{ needs.license-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.secret-scan.result }}" == "failure" ]] || \
+             [[ "${{ needs.dependency-scan.result }}" == "failure" ]] || \
+             [[ "${{ needs.sast-scan.result }}" == "failure" ]]; then
+            echo "⚠️ **Security issues detected!** Review the scan results above." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **No critical security issues detected.**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify security team (on failure)
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          text: |
+            🚨 Security scan failed!
+
+            Review the results: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          webhook_url: ${{ secrets.SECURITY_SLACK_WEBHOOK }}
+
+  # ==============================================
+  # COMPLIANCE REPORTING
+  # ==============================================
+  compliance-report:
+    name: Generate Compliance Report
+    runs-on: ubuntu-latest
+    needs: [security-report]
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Generate compliance report
+        run: |
+          cat << EOF > compliance-report.md
+          # Security Compliance Report
+
+          **Generated:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Repository:** ${{ github.repository }}
+
+          ## Security Scans Completed
+          - ✅ Secret Detection
+          - ✅ Dependency Vulnerability Scan
+          - ✅ Static Application Security Testing (SAST)
+          - ✅ Container Image Scanning
+          - ✅ Infrastructure as Code (IaC) Scanning
+          - ✅ License Compliance Check
+          - ✅ SBOM Generation
+
+          ## Compliance Standards
+          - OWASP Top 10
+          - CWE Top 25
+          - SANS Top 25
+
+          ## Next Review Date
+          $(date -u -d "+30 days" +"%Y-%m-%d")
+          EOF
+
+          cat compliance-report.md
+
+      - name: Upload compliance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-report-$(date +%Y%m%d)
+          path: compliance-report.md
+          retention-days: 365

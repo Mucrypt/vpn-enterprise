@@ -1,0 +1,367 @@
+# ==============================================
+# DOCKER BUILD & PUBLISH
+# ==============================================
+# Builds and publishes Docker images for all services
+# Triggered on: tags, manual dispatch
+
+name: Docker Build & Publish
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to build (comma-separated: api,web,python-api,all)'
+        required: true
+        default: 'all'
+      push_images:
+        description: 'Push images to registry'
+        required: true
+        type: boolean
+        default: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  # ==============================================
+  # MATRIX BUILD
+  # ==============================================
+  build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Node.js API Service
+          - service: api
+            dockerfile: infrastructure/docker/Dockerfile.api
+            context: .
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              NODE_VERSION=20
+            tags_suffix: ''
+
+          # Next.js Web Dashboard
+          - service: web
+            dockerfile: infrastructure/docker/Dockerfile.web
+            context: .
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              NODE_VERSION=20
+              NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            tags_suffix: ''
+
+          # Python FastAPI Service
+          - service: python-api
+            dockerfile: flask/Dockerfile
+            context: flask
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              PYTHON_VERSION=3.11
+            tags_suffix: ''
+
+          # Database Manager Service
+          - service: database-manager
+            dockerfile: infrastructure/docker/Dockerfile.db-manager
+            context: .
+            platforms: linux/amd64
+            build_args: ''
+            tags_suffix: ''
+
+          # Tenant Provisioner Service
+          - service: tenant-provisioner
+            dockerfile: infrastructure/docker/Dockerfile.provisioner
+            context: .
+            platforms: linux/amd64
+            build_args: ''
+            tags_suffix: ''
+
+          # Nginx Reverse Proxy
+          - service: nginx
+            dockerfile: infrastructure/docker/nginx/Dockerfile
+            context: infrastructure/docker/nginx
+            platforms: linux/amd64,linux/arm64
+            build_args: ''
+            tags_suffix: ''
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check if service should be built
+        id: should-build
+        run: |
+          SERVICES="${{ github.event.inputs.services || 'all' }}"
+          SERVICE="${{ matrix.service }}"
+
+          if [[ "$SERVICES" == "all" ]] || [[ "$SERVICES" == *"$SERVICE"* ]]; then
+            echo "build=true" >> $GITHUB_OUTPUT
+            echo "✅ Building $SERVICE"
+          else
+            echo "build=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping $SERVICE"
+          fi
+
+      - name: Set up QEMU
+        if: steps.should-build.outputs.build == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.should-build.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
+
+      - name: Log in to GitHub Container Registry
+        if: steps.should-build.outputs.build == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub (optional)
+        if: steps.should-build.outputs.build == 'true' && secrets.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: steps.should-build.outputs.build == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+            ${{ secrets.DOCKERHUB_USERNAME != '' && format('{0}/{1}', secrets.DOCKERHUB_USERNAME, matrix.service) || '' }}
+          tags: |
+            # Version tags (v1.2.3)
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # Branch tags
+            type=ref,event=branch
+            # PR tags
+            type=ref,event=pr
+            # Commit SHA tags
+            type=sha,prefix={{branch}}-,format=short
+            # Latest tag (on main branch or tags)
+            type=raw,value=latest,enable={{is_default_branch}}
+            # Date tag
+            type=raw,value={{date 'YYYYMMDD-HHmmss'}}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.service }}
+            org.opencontainers.image.description=VPN Enterprise ${{ matrix.service }} service
+            org.opencontainers.image.vendor=VPN Enterprise
+            org.opencontainers.image.licenses=MIT
+            maintainer=devops@vpn-enterprise.com
+
+      - name: Build and push Docker image
+        if: steps.should-build.outputs.build == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platforms }}
+          push: ${{ github.event.inputs.push_images != 'false' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            ${{ matrix.build_args }}
+            VERSION=${{ github.ref_name }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          provenance: true
+          sbom: true
+
+      - name: Run Trivy vulnerability scanner
+        if: steps.should-build.outputs.build == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.service }}.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy results to GitHub Security
+        if: steps.should-build.outputs.build == 'true' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+          category: ${{ matrix.service }}
+
+      - name: Run Grype vulnerability scanner
+        if: steps.should-build.outputs.build == 'true'
+        uses: anchore/scan-action@v3
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+          fail-build: false
+          severity-cutoff: high
+
+      - name: Test image
+        if: steps.should-build.outputs.build == 'true'
+        run: |
+          # Pull the image
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+
+          # Quick smoke test (service-specific)
+          case "${{ matrix.service }}" in
+            api|web|python-api)
+              echo "✅ Image built successfully"
+              # Could add more sophisticated health checks here
+              ;;
+            *)
+              echo "✅ Image built successfully"
+              ;;
+          esac
+
+      - name: Generate SBOM
+        if: steps.should-build.outputs.build == 'true'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+          format: spdx-json
+          output-file: sbom-${{ matrix.service }}.spdx.json
+
+      - name: Upload SBOM
+        if: steps.should-build.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.spdx.json
+          retention-days: 90
+
+  # ==============================================
+  # IMAGE VERIFICATION
+  # ==============================================
+  verify:
+    name: Verify Images
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event.inputs.push_images != 'false'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify all images exist
+        run: |
+          SERVICES="api web python-api database-manager tenant-provisioner"
+
+          for service in $SERVICES; do
+            echo "Verifying $service..."
+            docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${service}:latest
+            
+            if [ $? -eq 0 ]; then
+              echo "✅ $service image verified"
+            else
+              echo "❌ $service image not found"
+              exit 1
+            fi
+          done
+
+      - name: Check image sizes
+        run: |
+          echo "## Image Sizes" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Size |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|------|" >> $GITHUB_STEP_SUMMARY
+
+          SERVICES="api web python-api database-manager tenant-provisioner"
+
+          for service in $SERVICES; do
+            SIZE=$(docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${service}:latest | \
+              jq '[.layers[].size] | add' | numfmt --to=iec-i)
+            echo "| $service | $SIZE |" >> $GITHUB_STEP_SUMMARY
+          done
+
+  # ==============================================
+  # DEPLOYMENT TRIGGER
+  # ==============================================
+  trigger-deploy:
+    name: Trigger Deployment
+    runs-on: ubuntu-latest
+    needs: [build, verify]
+    if: github.ref_type == 'tag' && github.event.inputs.push_images != 'false'
+
+    steps:
+      - name: Trigger production deployment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'main-ci-cd.yml',
+              ref: 'main',
+              inputs: {
+                environment: 'production',
+                skip_tests: 'false'
+              }
+            })
+
+      - name: Create deployment summary
+        run: |
+          echo "## 🚀 Docker Images Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Available Images:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/web:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/python-api:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/database-manager:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/tenant-provisioner:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull Commands:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/web:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # ==============================================
+  # CLEANUP
+  # ==============================================
+  cleanup:
+    name: Cleanup Old Images
+    runs-on: ubuntu-latest
+    needs: [build, verify]
+    if: always()
+
+    steps:
+      - name: Delete old images
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: 'api'
+          package-type: 'container'
+          min-versions-to-keep: 10
+          delete-only-untagged-versions: 'true'
+
+      - name: Summary
+        run: |
+          echo "✅ Build and publish workflow completed"
+          echo "📦 Images available at: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}"

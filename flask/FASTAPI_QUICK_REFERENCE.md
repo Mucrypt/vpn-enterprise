@@ -7,6 +7,7 @@
 ## 🔥 Essential Commands
 
 ### Service Control
+
 ```bash
 # Start Python API
 docker compose up -d python-api
@@ -28,6 +29,7 @@ docker logs vpn-python-api --tail 100
 ```
 
 ### Quick Health Check
+
 ```bash
 # Local
 curl http://localhost:5001/health
@@ -40,6 +42,7 @@ curl http://localhost:5001/health | jq .
 ```
 
 ### Enter Container
+
 ```bash
 # Interactive shell
 docker exec -it vpn-python-api bash
@@ -53,12 +56,14 @@ docker exec vpn-python-api curl http://localhost:5001/health
 ## 📡 API Endpoints
 
 ### Base URLs
+
 ```
 Local:      http://localhost:5001
 Production: https://chatbuilds.com/api/ai
 ```
 
 ### Health & Status
+
 ```bash
 GET  /                  # Service info
 GET  /health            # Health check
@@ -67,6 +72,7 @@ GET  /docs              # Interactive API docs
 ```
 
 ### AI Generation
+
 ```bash
 POST /ai/generate       # Generate text/code
 POST /ai/sql/assist     # SQL assistance
@@ -75,17 +81,20 @@ POST /ai/code/complete  # Code completion
 ```
 
 ### VPN (Proxy to Main API)
+
 ```bash
 POST /vpn/config/generate  # Generate VPN config
 GET  /vpn/servers          # List VPN servers
 ```
 
 ### Workflows
+
 ```bash
 POST /workflows/trigger/{workflow_id}  # Trigger N8N workflow
 ```
 
 ### Analytics (Placeholder)
+
 ```bash
 POST /analytics/query       # Run analytics query
 GET  /analytics/dashboard   # Dashboard data
@@ -96,10 +105,13 @@ GET  /analytics/dashboard   # Dashboard data
 ## 🧪 Testing Examples
 
 ### Health Check
+
 ```bash
 curl http://localhost:5001/health
 ```
+
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -111,6 +123,7 @@ curl http://localhost:5001/health
 ```
 
 ### AI Generation
+
 ```bash
 curl -X POST http://localhost:5001/ai/generate \
   -H "Content-Type: application/json" \
@@ -120,7 +133,9 @@ curl -X POST http://localhost:5001/ai/generate \
     "temperature": 0.7
   }'
 ```
+
 **Response:**
+
 ```json
 {
   "response": "Here's a React button...",
@@ -131,6 +146,7 @@ curl -X POST http://localhost:5001/ai/generate \
 ```
 
 ### SQL Generation
+
 ```bash
 curl -X POST http://localhost:5001/ai/sql/assist \
   -H "Content-Type: application/json" \
@@ -139,7 +155,9 @@ curl -X POST http://localhost:5001/ai/sql/assist \
     "action": "generate"
   }'
 ```
+
 **Response:**
+
 ```json
 {
   "sql": "SELECT * FROM users WHERE EXTRACT(MONTH FROM created_at) = 1 AND EXTRACT(YEAR FROM created_at) = 2025;",
@@ -148,6 +166,7 @@ curl -X POST http://localhost:5001/ai/sql/assist \
 ```
 
 ### SQL Explain
+
 ```bash
 curl -X POST http://localhost:5001/ai/sql/assist \
   -H "Content-Type: application/json" \
@@ -158,6 +177,7 @@ curl -X POST http://localhost:5001/ai/sql/assist \
 ```
 
 ### SQL Optimize
+
 ```bash
 curl -X POST http://localhost:5001/ai/sql/assist \
   -H "Content-Type: application/json" \
@@ -168,6 +188,7 @@ curl -X POST http://localhost:5001/ai/sql/assist \
 ```
 
 ### SQL Fix
+
 ```bash
 curl -X POST http://localhost:5001/ai/sql/assist \
   -H "Content-Type: application/json" \
@@ -178,15 +199,19 @@ curl -X POST http://localhost:5001/ai/sql/assist \
 ```
 
 ### List AI Models
+
 ```bash
 curl http://localhost:5001/ai/models
 ```
 
 ### Service Status
+
 ```bash
 curl http://localhost:5001/services/status
 ```
+
 **Response:**
+
 ```json
 [
   {
@@ -209,20 +234,25 @@ curl http://localhost:5001/services/status
 ## 🐛 Troubleshooting
 
 ### Check if Service Running
+
 ```bash
 docker ps | grep python-api
 ```
+
 **Should show:**
+
 ```
 vpn-python-api   Up 2 hours   5001/tcp
 ```
 
 ### View Recent Errors
+
 ```bash
 docker logs vpn-python-api --tail 50 | grep ERROR
 ```
 
 ### Test Ollama Connection
+
 ```bash
 # From your machine
 curl http://localhost:11434/
@@ -232,16 +262,19 @@ docker exec vpn-python-api curl http://ollama:11434/
 ```
 
 ### Test From Nginx
+
 ```bash
 docker exec vpn-nginx curl http://python-api:5001/health
 ```
 
 ### Check Environment Variables
+
 ```bash
 docker exec vpn-python-api env | grep -E 'OLLAMA|API_URL'
 ```
 
 ### Python Interactive Shell
+
 ```bash
 docker exec -it vpn-python-api python3
 >>> import httpx
@@ -258,27 +291,35 @@ docker exec -it vpn-python-api python3
 ## 🔥 Common Issues & Fixes
 
 ### Issue: 503 Service Unavailable
+
 **Symptoms:**
+
 ```json
-{"detail": "Ollama service is unavailable"}
+{ "detail": "Ollama service is unavailable" }
 ```
+
 **Cause:** Ollama container is down  
 **Fix:**
+
 ```bash
 docker compose restart ollama
 docker logs ollama  # Check why it crashed
 ```
 
 ### Issue: Slow Response
+
 **Symptoms:** Request takes 30+ seconds  
 **Cause:** AI generation is slow (normal)  
 **Solutions:**
+
 - Use smaller model (`llama3.2:1b` faster than `codellama:7b`)
 - Increase client timeout
 - Add loading indicator in frontend
 
 ### Issue: 422 Validation Error
+
 **Symptoms:**
+
 ```json
 {
   "detail": [
@@ -289,22 +330,29 @@ docker logs ollama  # Check why it crashed
   ]
 }
 ```
+
 **Cause:** Missing required field in request  
 **Fix:** Check Pydantic model, add missing fields
 
 ### Issue: 500 Internal Server Error
+
 **Symptoms:** Generic error  
 **Fix:** Check logs for Python traceback
+
 ```bash
 docker logs vpn-python-api --tail 100
 ```
 
 ### Issue: Cannot Connect to Ollama
+
 **Symptoms:**
+
 ```
 httpx.ConnectError: Connection refused
 ```
+
 **Fixes:**
+
 ```bash
 # 1. Check if Ollama is running
 docker ps | grep ollama
@@ -323,11 +371,15 @@ docker network inspect vpn-enterprise-network
 ```
 
 ### Issue: Port Already in Use
+
 **Symptoms:**
+
 ```
 Error: Bind for 0.0.0.0:5001 failed: port is already allocated
 ```
+
 **Fix:**
+
 ```bash
 # Find process using port
 sudo lsof -i :5001
@@ -360,6 +412,7 @@ ports:
 ## 🔧 Development Workflow
 
 ### Local Development
+
 ```bash
 # 1. Navigate to flask directory
 cd flask
@@ -375,6 +428,7 @@ open http://localhost:5001/docs
 ```
 
 ### Making Changes
+
 ```bash
 # 1. Edit code
 vim flask/app.py
@@ -395,6 +449,7 @@ git push
 ```
 
 ### Adding New Endpoint
+
 ```python
 # In flask/app.py
 
@@ -425,6 +480,7 @@ async def my_endpoint(request: MyRequest):
 ## 🏗️ Architecture
 
 ### Service Connections
+
 ```
 Browser
   ↓
@@ -440,6 +496,7 @@ Python API (:5001)
 ```
 
 ### Docker Containers
+
 ```
 vpn-nginx          → Reverse proxy
 vpn-python-api     → This FastAPI service
@@ -451,6 +508,7 @@ vpn-postgres       → Database
 ```
 
 ### Service Discovery (Docker DNS)
+
 ```python
 # In app.py
 SERVICES = {
@@ -466,11 +524,13 @@ SERVICES = {
 ## 📊 Monitoring
 
 ### Check All Services
+
 ```bash
 curl http://localhost:5001/services/status | jq .
 ```
 
 ### Watch Logs
+
 ```bash
 # Python API
 docker logs -f vpn-python-api
@@ -483,11 +543,13 @@ docker compose logs -f python-api ollama
 ```
 
 ### Container Stats
+
 ```bash
 docker stats vpn-python-api
 ```
 
 ### Disk Space
+
 ```bash
 docker system df
 docker system prune  # Clean up
@@ -498,6 +560,7 @@ docker system prune  # Clean up
 ## 🔑 Environment Variables
 
 ### Service URLs
+
 ```bash
 OLLAMA_URL=http://vpn-ollama:11434
 API_URL=http://vpn-api:5000
@@ -507,6 +570,7 @@ POSTGRES_URL=postgresql://user:pass@host/db
 ```
 
 ### Application Config
+
 ```bash
 ENVIRONMENT=production           # production/development
 LOG_LEVEL=INFO                   # DEBUG/INFO/WARNING/ERROR
@@ -514,11 +578,13 @@ WORKERS=4                        # Uvicorn worker count
 ```
 
 ### View in Container
+
 ```bash
 docker exec vpn-python-api env
 ```
 
 ### Set in docker-compose.yml
+
 ```yaml
 python-api:
   environment:
@@ -531,12 +597,14 @@ python-api:
 ## 💡 Pro Tips
 
 ### 1. Use `/docs` for Testing
+
 - Auto-generated interactive docs
 - Try requests in browser
 - No cURL needed!
 - URL: `http://localhost:5001/docs`
 
 ### 2. Pretty Print JSON
+
 ```bash
 # Using Python
 curl http://localhost:5001/health | python3 -m json.tool
@@ -546,12 +614,14 @@ curl http://localhost:5001/health | jq .
 ```
 
 ### 3. Follow Logs with Grep
+
 ```bash
 docker logs -f vpn-python-api | grep ERROR
 docker logs -f vpn-python-api | grep "POST /ai"
 ```
 
 ### 4. Quick Restart Script
+
 ```bash
 #!/bin/bash
 # save as restart-api.sh
@@ -560,6 +630,7 @@ docker logs -f vpn-python-api
 ```
 
 ### 5. Test from Inside Container
+
 ```bash
 docker exec vpn-python-api curl http://localhost:5001/health
 docker exec vpn-python-api curl http://ollama:11434/
@@ -570,6 +641,7 @@ docker exec vpn-python-api curl http://ollama:11434/
 ## 🎯 Daily Checklist
 
 ### Morning Routine
+
 ```bash
 # 1. Check services
 docker ps
@@ -582,6 +654,7 @@ docker logs vpn-python-api --tail 50
 ```
 
 ### After Code Changes
+
 ```bash
 # 1. Rebuild
 docker compose up -d --build python-api
@@ -597,6 +670,7 @@ open http://localhost:5001/docs
 ```
 
 ### Before Leaving
+
 ```bash
 # 1. Check no errors
 docker logs vpn-python-api | grep ERROR
@@ -654,4 +728,4 @@ Logs:       docker logs vpn-python-api
 
 ---
 
-*Keep this open while coding. Copy-paste the commands. You've got this!*
+_Keep this open while coding. Copy-paste the commands. You've got this!_

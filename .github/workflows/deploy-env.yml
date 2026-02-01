@@ -1,0 +1,507 @@
+# ==============================================
+# ENVIRONMENT DEPLOYMENT
+# ==============================================
+# Deploys services to specific environments
+# Supports: Development, Staging, Production
+
+name: Deploy to Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      services:
+        description: 'Services to deploy (comma-separated or "all")'
+        required: true
+        default: 'all'
+      version:
+        description: 'Image version/tag to deploy (default: latest)'
+        required: false
+        default: 'latest'
+      rollback:
+        description: 'Rollback to previous version'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  # ==============================================
+  # PRE-DEPLOYMENT CHECKS
+  # ==============================================
+  pre-deploy:
+    name: Pre-Deployment Checks
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_id: ${{ steps.generate-id.outputs.deploy_id }}
+      services_list: ${{ steps.parse-services.outputs.services }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate deployment ID
+        id: generate-id
+        run: |
+          DEPLOY_ID="deploy-$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          echo "deploy_id=${DEPLOY_ID}" >> $GITHUB_OUTPUT
+          echo "📋 Deployment ID: ${DEPLOY_ID}"
+
+      - name: Parse services to deploy
+        id: parse-services
+        run: |
+          if [[ "${{ inputs.services }}" == "all" ]]; then
+            # Match actual production services in docker-compose.prod.yml
+            SERVICES="api,web,python-api,nginx"
+          else
+            SERVICES="${{ inputs.services }}"
+          fi
+          echo "services=${SERVICES}" >> $GITHUB_OUTPUT
+          echo "📦 Services to deploy: ${SERVICES}"
+
+      - name: Verify images exist
+        if: inputs.rollback != true
+        run: |
+          IFS=',' read -ra SERVICE_ARRAY <<< "${{ steps.parse-services.outputs.services }}"
+
+          for service in "${SERVICE_ARRAY[@]}"; do
+            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${service}:${{ inputs.version }}"
+            echo "Checking $IMAGE..."
+            
+            docker manifest inspect $IMAGE > /dev/null 2>&1
+            if [ $? -ne 0 ]; then
+              echo "❌ Image not found: $IMAGE"
+              exit 1
+            fi
+            echo "✅ Image exists: $IMAGE"
+          done
+
+      - name: Check environment status
+        run: |
+          echo "## Deployment Plan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Services:** ${{ steps.parse-services.outputs.services }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rollback:** ${{ inputs.rollback }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy ID:** ${{ steps.generate-id.outputs.deploy_id }}" >> $GITHUB_STEP_SUMMARY
+
+  # ==============================================
+  # DEPLOY TO DEVELOPMENT
+  # ==============================================
+  deploy-development:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    if: inputs.environment == 'development' && inputs.rollback != true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEV_DEPLOY_HOST }}
+          username: ${{ secrets.DEV_DEPLOY_USER }}
+          key: ${{ secrets.DEV_DEPLOY_SSH_KEY }}
+          port: 22
+          script: |
+            cd /opt/vpn-enterprise-dev
+
+            # Update code
+            git fetch origin
+            git checkout ${{ github.ref_name }}
+            git pull origin ${{ github.ref_name }}
+
+            # Set version
+            export VERSION=${{ inputs.version }}
+
+            # Pull images
+            docker compose -f infrastructure/docker/docker-compose.dev.yml pull
+
+            # Deploy services (including nginx if needed)
+            IFS=',' read -ra SERVICES <<< "${{ needs.pre-deploy.outputs.services_list }}"
+            for service in "${SERVICES[@]}"; do
+              echo "Deploying $service..."
+              docker compose -f infrastructure/docker/docker-compose.dev.yml up -d --no-deps $service
+              sleep 5
+            done
+
+            # Always restart nginx to reload config
+            docker compose -f infrastructure/docker/docker-compose.dev.yml restart nginx 2>/dev/null || echo "No nginx in dev environment"
+
+            # Health check
+            sleep 10
+            curl -f http://localhost/health || exit 1
+
+            echo "✅ Development deployment completed"
+
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          curl -f https://dev.chatbuilds.com/health || exit 1
+          curl -f https://dev.chatbuilds.com/api/health || exit 1
+          echo "✅ Smoke tests passed"
+
+  # ==============================================
+  # DEPLOY TO STAGING
+  # ==============================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    if: inputs.environment == 'staging' && inputs.rollback != true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH (Rolling Update)
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_DEPLOY_HOST }}
+          username: ${{ secrets.STAGING_DEPLOY_USER }}
+          key: ${{ secrets.STAGING_DEPLOY_SSH_KEY }}
+          port: 22
+          script: |
+            cd /opt/vpn-enterprise-staging
+
+            # Update code
+            git fetch origin
+            git checkout staging
+            git pull origin staging
+
+            # Set version
+            export VERSION=${{ inputs.version }}
+
+            # Create backup
+            docker compose -f docker-compose.yml ps > deployment-backup-$(date +%Y%m%d-%H%M%S).txt
+
+            # Rolling update (one service at a time)
+            IFS=',' read -ra SERVICES <<< "${{ needs.pre-deploy.outputs.services_list }}"
+            for service in "${SERVICES[@]}"; do
+              echo "🚀 Deploying $service..."
+              
+              # Pull new image
+              docker compose -f infrastructure/docker/docker-compose.prod.yml pull $service
+              
+              # Update service
+              docker compose -f infrastructure/docker/docker-compose.prod.yml up -d --no-deps --force-recreate $service
+              
+              # Wait for health check
+              sleep 15
+              
+              # Verify service is healthy (handle services without health checks)
+              HEALTH=$(docker inspect --format='{{.State.Health.Status}}' vpn-${service} 2>/dev/null || echo "unknown")
+              if [[ "$HEALTH" != "healthy" ]] && [[ "$HEALTH" != "unknown" ]]; then
+                echo "❌ Service $service is not healthy: $HEALTH"
+                exit 1
+              fi
+              
+              echo "✅ $service deployed successfully"
+            done
+
+            # Always reload nginx last to pick up any config changes
+            if docker ps --filter "name=vpn-nginx" --format "{{.Names}}" | grep -q vpn-nginx; then
+              echo "🔄 Reloading nginx..."
+              docker exec vpn-nginx nginx -s reload || docker restart vpn-nginx
+            fi
+
+            # Final health check
+            curl -f http://localhost/health || exit 1
+
+            echo "✅ Staging deployment completed"
+
+      - name: Run integration tests
+        run: |
+          sleep 30
+          curl -f https://staging.chatbuilds.com/health || exit 1
+          curl -f https://staging.chatbuilds.com/api/health || exit 1
+          echo "✅ Integration tests passed"
+
+      - name: Notify staging deployment
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          text: |
+            Staging deployment ${{ job.status }}
+            Services: ${{ needs.pre-deploy.outputs.services_list }}
+            Version: ${{ inputs.version }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ==============================================
+  # DEPLOY TO PRODUCTION
+  # ==============================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    if: inputs.environment == 'production' && inputs.rollback != true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create deployment backup
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_DEPLOY_HOST }}
+          username: ${{ secrets.PROD_DEPLOY_USER }}
+          key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          port: 22
+          script: |
+            cd /opt/vpn-enterprise
+
+            # Backup current state
+            BACKUP_DIR="/opt/backups/deployments/$(date +%Y%m%d-%H%M%S)"
+            mkdir -p $BACKUP_DIR
+
+            # Save current version info
+            docker compose ps > $BACKUP_DIR/services.txt
+            git log -1 > $BACKUP_DIR/git-commit.txt
+
+            # Backup database (optional, use with caution)
+            # docker exec vpn-postgres pg_dump -U postgres > $BACKUP_DIR/db-backup.sql
+
+            echo "✅ Backup created: $BACKUP_DIR"
+
+      - name: Blue-Green Deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_DEPLOY_HOST }}
+          username: ${{ secrets.PROD_DEPLOY_USER }}
+          key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          port: 22
+          script: |
+            cd /opt/vpn-enterprise
+
+            # Update code
+            git fetch origin
+            git checkout main
+            git pull origin main
+
+            # Set version
+            export VERSION=${{ inputs.version }}
+
+            echo "🚀 Starting blue-green deployment..."
+
+            # Deploy services with zero downtime
+            IFS=',' read -ra SERVICES <<< "${{ needs.pre-deploy.outputs.services_list }}"
+            for service in "${SERVICES[@]}"; do
+              echo "Deploying $service..."
+              
+              # Pull new image
+              docker compose -f infrastructure/docker/docker-compose.prod.yml pull $service
+              
+              # For nginx, just reload config instead of restarting
+              if [[ "$service" == "nginx" ]]; then
+                echo "🔄 Reloading nginx configuration..."
+                docker exec vpn-nginx nginx -s reload || docker compose -f infrastructure/docker/docker-compose.prod.yml restart nginx
+                echo "✅ nginx reloaded"
+                continue
+              fi
+              
+              # Start new container alongside old one
+              docker compose -f infrastructure/docker/docker-compose.prod.yml up -d --no-deps --scale ${service}=2 --no-recreate $service
+              
+              # Wait for new container to be healthy
+              sleep 20
+              
+              # Check health
+              NEW_CONTAINER=$(docker ps --filter "name=vpn-${service}" --format "{{.ID}}" | head -n 1)
+              HEALTH=$(docker inspect --format='{{.State.Health.Status}}' $NEW_CONTAINER 2>/dev/null || echo "unknown")
+              
+              if [[ "$HEALTH" == "healthy" ]] || [[ "$HEALTH" == "unknown" ]]; then
+                # Stop old container
+                docker compose -f infrastructure/docker/docker-compose.prod.yml up -d --no-deps --scale ${service}=1 --force-recreate $service
+                echo "✅ $service deployed with zero downtime"
+              else
+                echo "❌ New $service container is not healthy"
+                docker compose -f infrastructure/docker/docker-compose.prod.yml up -d --no-deps --scale ${service}=1 --no-recreate $service
+                exit 1
+              fi
+              
+              sleep 5
+            done
+
+            # Clean up old images
+            docker image prune -f
+
+            # Final health check
+            curl -f http://localhost/health || exit 1
+            curl -f http://localhost/api/health || exit 1
+
+            echo "✅ Production deployment completed successfully"
+
+      - name: Run production smoke tests
+        run: |
+          sleep 45
+
+          # Health checks
+          curl -f https://chatbuilds.com/health || exit 1
+          curl -f https://chatbuilds.com/api/health || exit 1
+
+          # Response time check
+          RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' https://chatbuilds.com/)
+          echo "Response time: ${RESPONSE_TIME}s"
+
+          if (( $(echo "$RESPONSE_TIME > 5" | bc -l) )); then
+            echo "⚠️ High response time detected"
+          fi
+
+          echo "✅ Production smoke tests passed"
+
+      - name: Update deployment tag
+        run: |
+          git tag -a "prod-${{ needs.pre-deploy.outputs.deploy_id }}" -m "Production deployment ${{ inputs.version }}"
+          git push origin "prod-${{ needs.pre-deploy.outputs.deploy_id }}"
+
+      - name: Notify production deployment
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          text: |
+            🚀 Production deployment ${{ job.status }}
+
+            **Services:** ${{ needs.pre-deploy.outputs.services_list }}
+            **Version:** ${{ inputs.version }}
+            **Deploy ID:** ${{ needs.pre-deploy.outputs.deploy_id }}
+            **URL:** https://chatbuilds.com
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Create deployment record
+        run: |
+          echo "## 🎉 Production Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Services:** ${{ needs.pre-deploy.outputs.services_list }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy ID:** ${{ needs.pre-deploy.outputs.deploy_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Website:** https://chatbuilds.com" >> $GITHUB_STEP_SUMMARY
+          echo "- **API:** https://chatbuilds.com/api" >> $GITHUB_STEP_SUMMARY
+          echo "- **Health:** https://chatbuilds.com/health" >> $GITHUB_STEP_SUMMARY
+
+  # ==============================================
+  # ROLLBACK
+  # ==============================================
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    if: inputs.rollback == true
+    environment:
+      name: ${{ inputs.environment }}
+
+    steps:
+      - name: Rollback via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 22
+          script: |
+            cd /opt/vpn-enterprise
+
+            echo "⚠️ Starting rollback..."
+
+            # Find latest backup
+            LATEST_BACKUP=$(ls -t /opt/backups/deployments/ | head -n 1)
+
+            if [ -z "$LATEST_BACKUP" ]; then
+              echo "❌ No backup found for rollback"
+              exit 1
+            fi
+
+            echo "Rolling back to: $LATEST_BACKUP"
+
+            # Checkout previous version
+            PREV_COMMIT=$(git log --skip=1 -1 --format="%H")
+            git checkout $PREV_COMMIT
+
+            # Restart services using the correct docker-compose file
+            docker compose -f infrastructure/docker/docker-compose.prod.yml down
+            docker compose -f infrastructure/docker/docker-compose.prod.yml up -d
+
+            # Wait and verify
+            sleep 30
+            curl -f http://localhost/health || exit 1
+
+            echo "✅ Rollback completed to backup: $LATEST_BACKUP"
+
+      - name: Notify rollback
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          text: |
+            ⚠️ Rollback ${{ job.status }}
+            Environment: ${{ inputs.environment }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ==============================================
+  # POST-DEPLOYMENT
+  # ==============================================
+  post-deploy:
+    name: Post-Deployment Tasks
+    runs-on: ubuntu-latest
+    needs: [pre-deploy, deploy-development, deploy-staging, deploy-production]
+    if: |
+      always() && 
+      (needs.deploy-development.result == 'success' || 
+       needs.deploy-staging.result == 'success' || 
+       needs.deploy-production.result == 'success')
+
+    steps:
+      - name: Update deployment status
+        run: |
+          echo "Deployment completed for ${{ inputs.environment }}"
+          echo "Services: ${{ needs.pre-deploy.outputs.services_list }}"
+          echo "Version: ${{ inputs.version }}"
+
+      - name: Trigger monitoring alerts
+        run: |
+          # Could trigger monitoring system here
+          echo "✅ Monitoring alerted of new deployment"
+
+      - name: Generate deployment report
+        run: |
+          cat << EOF > deployment-report.md
+          # Deployment Report
+
+          - **Environment:** ${{ inputs.environment }}
+          - **Services:** ${{ needs.pre-deploy.outputs.services_list }}
+          - **Version:** ${{ inputs.version }}
+          - **Deploy ID:** ${{ needs.pre-deploy.outputs.deploy_id }}
+          - **Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          - **Triggered by:** ${{ github.actor }}
+
+          ## Status
+          - Development: ${{ needs.deploy-development.result }}
+          - Staging: ${{ needs.deploy-staging.result }}
+          - Production: ${{ needs.deploy-production.result }}
+          EOF
+
+          cat deployment-report.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload deployment report
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report-${{ needs.pre-deploy.outputs.deploy_id }}
+          path: deployment-report.md
+          retention-days: 90

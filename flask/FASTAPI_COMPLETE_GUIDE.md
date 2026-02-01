@@ -25,6 +25,7 @@
 ### What is FastAPI?
 
 **FastAPI** is a modern Python web framework for building APIs. It's:
+
 - **Fast** - As fast as NodeJS and Go (thanks to Starlette/Pydantic)
 - **Type-safe** - Uses Python type hints for validation
 - **Auto-documented** - Generates interactive API docs automatically
@@ -33,6 +34,7 @@
 ### Why FastAPI for Your Project?
 
 In VPN Enterprise, this FastAPI service:
+
 1. **AI Integration** - Connects to Ollama for code/SQL generation
 2. **Service Bridge** - Links frontend to AI without direct exposure
 3. **API Gateway** - Aggregates multiple services (Ollama, N8N, main API)
@@ -96,6 +98,7 @@ flask/
 ### What Each File Does
 
 **`app.py`** (562 lines) - YOUR MAIN FILE
+
 - FastAPI app initialization
 - All endpoint definitions
 - Service integrations (Ollama, N8N)
@@ -104,15 +107,18 @@ flask/
 - Logging setup
 
 **`app_production.py`** - Production Wrapper
+
 - Imports from `app.py`
 - Production-specific config
 - Used in Dockerfile CMD
 
 **`requirements.txt`** - Dependencies
+
 - Lists all Python packages needed
 - Installed via `pip install -r requirements.txt`
 
 **`Dockerfile`** - Container Build
+
 - Multi-stage build (builder + runtime)
 - Security: Non-root user
 - Health check included
@@ -147,24 +153,30 @@ import httpx
 **What each import does:**
 
 **`fastapi.FastAPI`**
+
 - Main application class
 - Creates your API instance: `app = FastAPI()`
 
 **`fastapi.HTTPException`**
+
 - Raise HTTP errors: `raise HTTPException(status_code=404, detail="Not found")`
 
 **`fastapi.Depends`**
+
 - Dependency injection (not heavily used in your code yet)
 
 **`fastapi.middleware.cors.CORSMiddleware`**
+
 - Enables CORS (Cross-Origin Resource Sharing)
 - Allows frontend to call API from different domain
 
 **`pydantic.BaseModel`**
+
 - Data validation and serialization
 - Define request/response schemas
 
 **`httpx`**
+
 - Modern HTTP client (like `requests` but async)
 - Used to call Ollama, N8N, main API
 
@@ -182,11 +194,13 @@ SERVICES = {
 ```
 
 **What this does:**
+
 - Maps service names to Docker container addresses
 - Uses environment variables for flexibility
 - Falls back to defaults if env vars not set
 
 **How to use:**
+
 ```python
 # Get Ollama URL
 ollama_url = SERVICES["ollama"]  # "http://vpn-ollama-dev:11434"
@@ -204,12 +218,12 @@ response = await client.post(f"{ollama_url}/api/generate", ...)
 async def lifespan(app: FastAPI):
     # Startup code
     logger.info("🚀 FastAPI Python Service Starting...")
-    
+
     # Initialize Redis
     redis_client = await redis.from_url(...)
-    
+
     yield  # App runs here
-    
+
     # Shutdown code
     if redis_client:
         await redis_client.close()
@@ -219,6 +233,7 @@ app = FastAPI(lifespan=lifespan)
 ```
 
 **What `lifespan` does:**
+
 1. **Before `yield`:** Runs once when app starts
    - Connect to databases
    - Initialize connections
@@ -232,6 +247,7 @@ app = FastAPI(lifespan=lifespan)
    - Log shutdown info
 
 **When it runs:**
+
 ```
 Container starts → lifespan startup → App ready → Handle requests
                                           ↓
@@ -254,6 +270,7 @@ app.add_middleware(
 Browser security that blocks requests from one domain to another.
 
 **Example without CORS:**
+
 ```
 Frontend: https://chatbuilds.com
 API: https://chatbuilds.com/api/ai/
@@ -269,12 +286,14 @@ Browser: ❌ Different domain, request BLOCKED
 ```
 
 **Your CORS config:**
+
 - `allow_origins=["*"]` - Allow requests from ANY domain
 - `allow_credentials=True` - Allow cookies/auth headers
 - `allow_methods=["*"]` - Allow GET, POST, PUT, DELETE, etc.
 - `allow_headers=["*"]` - Allow any custom headers
 
 **Production tip:** Change `["*"]` to specific domains:
+
 ```python
 allow_origins=[
     "https://chatbuilds.com",
@@ -298,31 +317,37 @@ async def generate_ai_response(request: AIRequest):
 **Breaking it down:**
 
 **`@app.post`** - Decorator (tells FastAPI this is an endpoint)
+
 - `@app.get` - GET requests
-- `@app.post` - POST requests  
+- `@app.post` - POST requests
 - `@app.put` - PUT requests
 - `@app.delete` - DELETE requests
 
 **`"/ai/generate"`** - URL path
+
 - Full URL: `http://python-api:5001/ai/generate`
 - Accessed via nginx: `https://chatbuilds.com/api/ai/generate`
 
 **`response_model=AIResponse`** - Response type
+
 - FastAPI validates response matches this model
 - Auto-generates docs with response schema
 - Converts Python dict to JSON
 
 **`async def`** - Async function
+
 - Can use `await` inside
 - Doesn't block other requests
 - More on this in Async section
 
 **`request: AIRequest`** - Request body type
+
 - FastAPI auto-validates incoming JSON
 - Rejects invalid requests with 422 error
 - Provides type hints in IDE
 
 **Docstring `""" ... """`**
+
 - Shows in `/docs` as endpoint description
 - Good practice to document what endpoint does
 
@@ -343,6 +368,7 @@ async def root():
 **Purpose:** Service information  
 **When to use:** Check if API is reachable  
 **Example:**
+
 ```bash
 curl http://localhost:5001/
 {
@@ -370,12 +396,14 @@ async def health_check():
 
 **Purpose:** Monitoring and load balancers  
 **Used by:**
+
 - Docker health checks
 - Kubernetes liveness probes
 - Monitoring tools (Prometheus, Grafana)
 - Nginx upstream checks
 
 **Example:**
+
 ```bash
 curl http://localhost:5001/health
 {
@@ -388,6 +416,7 @@ curl http://localhost:5001/health
 ```
 
 **In Dockerfile:**
+
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=10s \
     CMD curl -f http://localhost:5001/health || exit 1
@@ -400,12 +429,12 @@ HEALTHCHECK --interval=30s --timeout=10s \
 async def check_services():
     """Check status of all services via Docker DNS"""
     results = []
-    
+
     async with httpx.AsyncClient(timeout=5.0) as client:
         for name, url in SERVICES.items():
             try:
                 start_time = datetime.now()
-                
+
                 if name == "ollama":
                     response = await client.get(f"{url}/")
                 elif name == "n8n":
@@ -414,12 +443,14 @@ async def check_services():
 ```
 
 **What it does:**
+
 1. Loop through all services in `SERVICES` dict
 2. Try to reach each service's health endpoint
 3. Measure response time
 4. Return status for each
 
 **Response example:**
+
 ```json
 [
   {
@@ -444,6 +475,7 @@ async def check_services():
 ```
 
 **Use cases:**
+
 - Dashboard: Show service health
 - Debugging: Which service is down?
 - Monitoring: Track response times
@@ -463,7 +495,7 @@ async def generate_ai_response(request: AIRequest):
         full_prompt = request.prompt
         if request.context:
             full_prompt = f"Context: {request.context}\n\nQuestion: {request.prompt}"
-        
+
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{SERVICES['ollama']}/api/generate",
@@ -481,13 +513,16 @@ async def generate_ai_response(request: AIRequest):
 **Step-by-step breakdown:**
 
 **1. Build prompt**
+
 ```python
 full_prompt = request.prompt
 if request.context:
     full_prompt = f"Context: {request.context}\n\nQuestion: {request.prompt}"
 ```
+
 **Why:** Providing context helps AI give better answers  
 **Example:**
+
 ```python
 prompt = "Create a button"
 context = "React + TypeScript project with Tailwind"
@@ -495,14 +530,17 @@ full_prompt = "Context: React + TypeScript project with Tailwind\n\nQuestion: Cr
 ```
 
 **2. Create HTTP client**
+
 ```python
 async with httpx.AsyncClient(timeout=120.0) as client:
 ```
+
 **Why `async with`:** Auto-closes connection when done  
 **`timeout=120.0`:** Wait up to 2 minutes (AI can be slow)  
 **Without timeout:** Request hangs forever if Ollama crashes
 
 **3. Call Ollama API**
+
 ```python
 response = await client.post(
     f"{SERVICES['ollama']}/api/generate",
@@ -516,6 +554,7 @@ response = await client.post(
 ```
 
 **Ollama API parameters:**
+
 - `model` - Which AI model to use (`llama3.2:1b`, `codellama`, etc.)
 - `prompt` - The question/instruction
 - `stream` - If `True`, returns tokens as they're generated
@@ -525,6 +564,7 @@ response = await client.post(
   - 2.0 = very creative, random
 
 **4. Parse response**
+
 ```python
 data = response.json()
 return {
@@ -536,6 +576,7 @@ return {
 ```
 
 **Ollama response structure:**
+
 ```json
 {
   "response": "Sure! Here's a React button component...",
@@ -546,6 +587,7 @@ return {
 ```
 
 **Your response (converted):**
+
 ```json
 {
   "response": "Sure! Here's a React button component...",
@@ -568,16 +610,16 @@ User Request: {request.query}
 {f'Database Schema: {request.schema}' if request.schema else ''}
 
 Generate ONLY the SQL query without explanations.""",
-        
+
         "explain": f"""Explain this SQL query in simple terms:
 
 SQL Query: {request.query}""",
-        
+
         "optimize": f"""Analyze and optimize this query...""",
-        
+
         "fix": f"""Fix the errors in this SQL query..."""
     }
-    
+
     prompt = prompts.get(request.action, prompts["generate"])
 ```
 
@@ -585,6 +627,7 @@ SQL Query: {request.query}""",
 Different prompts for different actions:
 
 **1. Generate SQL**
+
 ```
 User: "Get all users who signed up in 2025"
 Action: generate
@@ -593,6 +636,7 @@ AI Response: "SELECT * FROM users WHERE EXTRACT(YEAR FROM created_at) = 2025;"
 ```
 
 **2. Explain SQL**
+
 ```
 User: "SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)"
 Action: explain
@@ -600,6 +644,7 @@ AI Response: "This query finds all users who have placed at least one order..."
 ```
 
 **3. Optimize SQL**
+
 ```
 User: "SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)"
 Action: optimize
@@ -608,6 +653,7 @@ Explanation: "Using JOIN instead of subquery is faster..."
 ```
 
 **4. Fix SQL**
+
 ```
 User: "SELCT * FRM users WERE id = 1"
 Action: fix
@@ -616,15 +662,17 @@ Explanation: "Fixed typos: SELCT→SELECT, FRM→FROM, WERE→WHERE"
 ```
 
 **Response parsing:**
-```python
+
+````python
 if request.action == "generate":
     sql = ai_response.strip()
     sql = sql.replace("```sql", "").replace("```", "").strip()
     return {"sql": sql, "explanation": None}
-```
+````
 
 **Why remove markdown:**
 AI sometimes wraps SQL in code blocks:
+
 ````
 ```sql
 SELECT * FROM users;
@@ -632,6 +680,7 @@ SELECT * FROM users;
 ````
 
 We extract just the SQL:
+
 ```sql
 SELECT * FROM users;
 ```
@@ -651,6 +700,7 @@ async def list_ai_models():
 
 **Purpose:** Show which models are installed  
 **Example response:**
+
 ```json
 {
   "models": [
@@ -677,6 +727,7 @@ async def list_ai_models():
 ### What is Async?
 
 **Synchronous (Blocking):**
+
 ```python
 def slow_function():
     result = call_api()  # Wait 2 seconds
@@ -684,12 +735,13 @@ def slow_function():
 
 # Handle 3 requests
 request1 = slow_function()  # 2 seconds
-request2 = slow_function()  # 2 seconds  
+request2 = slow_function()  # 2 seconds
 request3 = slow_function()  # 2 seconds
 # Total: 6 seconds
 ```
 
 **Asynchronous (Non-blocking):**
+
 ```python
 async def fast_function():
     result = await call_api()  # Start request, do other work
@@ -715,33 +767,38 @@ async def generate_ai_response(request: AIRequest):
 **Key keywords:**
 
 **`async def`** - Async function
+
 - Can use `await` inside
 - Returns a coroutine
 - Must be awaited when called
 
 **`await`** - Wait for async operation
+
 - Pauses this function
 - Lets other requests run
 - Resumes when operation done
 
 **`async with`** - Async context manager
+
 - Like `with` but for async resources
 - Auto-closes when block exits
 
 ### Why Async Matters
 
 **Without async (blocking):**
+
 ```
 Request 1: Call Ollama (2s) → Process → Return
 Request 2: Wait... → Call Ollama (2s) → Process → Return
 Request 3: Wait... → Wait... → Call Ollama (2s) → Process → Return
 
 User 1 waits: 2 seconds
-User 2 waits: 4 seconds  
+User 2 waits: 4 seconds
 User 3 waits: 6 seconds
 ```
 
 **With async (non-blocking):**
+
 ```
 Request 1: Call Ollama → (waiting, but not blocking)
 Request 2: Call Ollama → (waiting, but not blocking)
@@ -757,6 +814,7 @@ User 3 waits: 2 seconds
 ### Common Async Patterns
 
 **Pattern 1: HTTP Request**
+
 ```python
 async with httpx.AsyncClient() as client:
     response = await client.get("http://api.example.com")
@@ -764,19 +822,21 @@ async with httpx.AsyncClient() as client:
 ```
 
 **Pattern 2: Database Query**
+
 ```python
 async with database.transaction():
     result = await database.fetch_one("SELECT * FROM users")
 ```
 
 **Pattern 3: Multiple Concurrent Requests**
+
 ```python
 async with httpx.AsyncClient() as client:
     # Start all requests at once
     task1 = client.get("http://api1.com")
     task2 = client.get("http://api2.com")
     task3 = client.get("http://api3.com")
-    
+
     # Wait for all to complete
     response1, response2, response3 = await asyncio.gather(
         task1, task2, task3
@@ -792,6 +852,7 @@ async with httpx.AsyncClient() as client:
 **Pydantic** validates and serializes data using Python type hints.
 
 **Without Pydantic:**
+
 ```python
 @app.post("/user")
 def create_user(data: dict):
@@ -803,6 +864,7 @@ def create_user(data: dict):
 ```
 
 **With Pydantic:**
+
 ```python
 class User(BaseModel):
     name: str
@@ -820,6 +882,7 @@ def create_user(user: User):
 ### Your Request Models
 
 **AIRequest:**
+
 ```python
 class AIRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=2000)
@@ -832,26 +895,32 @@ class AIRequest(BaseModel):
 **Field parameters:**
 
 **`Field(...)`** - Required field
+
 - `...` (Ellipsis) = required
 - Without it = optional
 
 **`min_length=1, max_length=2000`** - String validation
+
 - Prompt must be 1-2000 characters
 - Rejects empty or too-long prompts
 
 **`default="llama3.2:1b"`** - Default value
+
 - If client doesn't provide, use this
 
 **`Optional[str]`** - Can be None
+
 - Context is optional
 - Can be `None` or string
 
 **`ge=0.0, le=2.0`** - Numeric validation
+
 - `ge` = greater than or equal
 - `le` = less than or equal
 - Temperature must be 0.0-2.0
 
 **Example valid request:**
+
 ```json
 {
   "prompt": "Hello",
@@ -863,6 +932,7 @@ class AIRequest(BaseModel):
 ```
 
 **Example invalid request (rejected with 422):**
+
 ```json
 {
   "prompt": "",  # ❌ Too short (min_length=1)
@@ -873,6 +943,7 @@ class AIRequest(BaseModel):
 ### Your Response Models
 
 **AIResponse:**
+
 ```python
 class AIResponse(BaseModel):
     response: str
@@ -882,11 +953,13 @@ class AIResponse(BaseModel):
 ```
 
 **Why use response models:**
+
 1. **Documentation** - Shows in `/docs` what API returns
 2. **Validation** - Ensures you return correct structure
 3. **Type safety** - IDE autocomplete works
 
 **Example:**
+
 ```python
 @app.post("/ai/generate", response_model=AIResponse)
 async def generate_ai_response(request: AIRequest):
@@ -914,15 +987,18 @@ class SQLAssistRequest(BaseModel):
 ```
 
 **`pattern="^(generate|explain|optimize|fix)$"`** - Regex validation
+
 - Only allow these 4 values
 - Rejects anything else
 
 **Valid:**
+
 ```json
-{"query": "SELECT * FROM users", "action": "explain"}
+{ "query": "SELECT * FROM users", "action": "explain" }
 ```
 
 **Invalid:**
+
 ```json
 {"query": "SELECT * FROM users", "action": "delete"}  # ❌ Not in pattern
 ```
@@ -942,16 +1018,16 @@ raise HTTPException(
 
 **Common status codes:**
 
-| Code | Constant | Meaning | When to Use |
-|------|----------|---------|-------------|
-| 200 | HTTP_200_OK | Success | Normal response |
-| 400 | HTTP_400_BAD_REQUEST | Bad input | Invalid data |
-| 401 | HTTP_401_UNAUTHORIZED | Not authenticated | Missing API key |
-| 403 | HTTP_403_FORBIDDEN | Not authorized | Wrong permissions |
-| 404 | HTTP_404_NOT_FOUND | Not found | Resource doesn't exist |
-| 422 | HTTP_422_UNPROCESSABLE_ENTITY | Validation failed | Pydantic error |
-| 500 | HTTP_500_INTERNAL_SERVER_ERROR | Server error | Unexpected error |
-| 503 | HTTP_503_SERVICE_UNAVAILABLE | Service down | Ollama unreachable |
+| Code | Constant                       | Meaning           | When to Use            |
+| ---- | ------------------------------ | ----------------- | ---------------------- |
+| 200  | HTTP_200_OK                    | Success           | Normal response        |
+| 400  | HTTP_400_BAD_REQUEST           | Bad input         | Invalid data           |
+| 401  | HTTP_401_UNAUTHORIZED          | Not authenticated | Missing API key        |
+| 403  | HTTP_403_FORBIDDEN             | Not authorized    | Wrong permissions      |
+| 404  | HTTP_404_NOT_FOUND             | Not found         | Resource doesn't exist |
+| 422  | HTTP_422_UNPROCESSABLE_ENTITY  | Validation failed | Pydantic error         |
+| 500  | HTTP_500_INTERNAL_SERVER_ERROR | Server error      | Unexpected error       |
+| 503  | HTTP_503_SERVICE_UNAVAILABLE   | Service down      | Ollama unreachable     |
 
 ### Try-Except Pattern
 
@@ -971,6 +1047,7 @@ async def generate_ai_response(request: AIRequest):
 ```
 
 **Flow:**
+
 ```
 1. Try to call Ollama
    ↓
@@ -979,6 +1056,7 @@ async def generate_ai_response(request: AIRequest):
 ```
 
 **Why this pattern:**
+
 1. **Graceful failure** - Return proper error to client
 2. **Logging** - Track what went wrong
 3. **Specificity** - Different errors for different problems
@@ -988,6 +1066,7 @@ async def generate_ai_response(request: AIRequest):
 FastAPI automatically validates with Pydantic:
 
 **Request:**
+
 ```json
 {
   "prompt": "",
@@ -996,6 +1075,7 @@ FastAPI automatically validates with Pydantic:
 ```
 
 **Response (automatic 422):**
+
 ```json
 {
   "detail": [
@@ -1024,6 +1104,7 @@ logger.info(f"📡 Service Discovery: {len(SERVICES)} services")
 ```
 
 **Log levels:**
+
 - `logger.debug()` - Detailed info (dev only)
 - `logger.info()` - General info (what's happening)
 - `logger.warning()` - Something unusual (still works)
@@ -1031,6 +1112,7 @@ logger.info(f"📡 Service Discovery: {len(SERVICES)} services")
 - `logger.critical()` - Critical failure (service down)
 
 **View logs:**
+
 ```bash
 docker logs vpn-python-api
 docker logs -f vpn-python-api  # Follow/watch
@@ -1064,12 +1146,14 @@ COPY . .
 ```
 
 **Multi-stage build:**
+
 - Stage 1 (builder): Install everything (compilers, dev tools)
 - Stage 2 (final): Only runtime dependencies
 
 **Why:** Smaller image (builder stage discarded)
 
 **Stage 2: Runtime**
+
 ```dockerfile
 FROM python:3.11-slim
 
@@ -1101,6 +1185,7 @@ CMD ["uvicorn", "app_production:app", "--host", "0.0.0.0", "--port", "5001", "--
 ```
 
 **CMD explained:**
+
 - `uvicorn` - ASGI server (runs FastAPI)
 - `app_production:app` - Import `app` from `app_production.py`
 - `--host 0.0.0.0` - Listen on all interfaces
@@ -1110,6 +1195,7 @@ CMD ["uvicorn", "app_production:app", "--host", "0.0.0.0", "--port", "5001", "--
 ### Environment Variables
 
 **Set in docker-compose:**
+
 ```yaml
 python-api:
   environment:
@@ -1119,6 +1205,7 @@ python-api:
 ```
 
 **Access in code:**
+
 ```python
 SERVICES = {
     "ollama": os.getenv("OLLAMA_URL", "http://vpn-ollama-dev:11434"),
@@ -1126,29 +1213,34 @@ SERVICES = {
 ```
 
 **`os.getenv(key, default)`:**
+
 - Read environment variable
 - Use default if not set
 
 ### Building & Running
 
 **Build image:**
+
 ```bash
 cd flask
 docker build -t vpn-python-api .
 ```
 
 **Run container:**
+
 ```bash
 docker run -p 5001:5001 vpn-python-api
 ```
 
 **With docker-compose:**
+
 ```bash
 cd infrastructure/docker
 docker compose up -d python-api
 ```
 
 **Rebuild and restart:**
+
 ```bash
 docker compose up -d --build python-api
 ```
@@ -1170,11 +1262,13 @@ docker compose up -d --build python-api
 ```
 
 **Why multiple workers:**
+
 - Better CPU utilization (one per core)
 - Handle more concurrent requests
 - If one crashes, others keep running
 
 **How many workers:**
+
 - **Formula:** `(2 × CPU cores) + 1`
 - **Your server (4 cores):** 4 workers is good
 - **Small VPS (1 core):** 2 workers
@@ -1189,17 +1283,20 @@ docker compose up -d --build python-api
 FastAPI generates docs automatically!
 
 **Swagger UI (recommended):**
+
 ```
 http://localhost:5001/docs
 ```
 
 **Features:**
+
 - List all endpoints
 - Try requests in browser
 - See request/response schemas
 - No code needed!
 
 **ReDoc (alternative):**
+
 ```
 http://localhost:5001/redoc
 ```
@@ -1207,11 +1304,13 @@ http://localhost:5001/redoc
 ### Manual Testing with cURL
 
 **Test health:**
+
 ```bash
 curl http://localhost:5001/health
 ```
 
 **Test AI generation:**
+
 ```bash
 curl -X POST http://localhost:5001/ai/generate \
   -H "Content-Type: application/json" \
@@ -1222,6 +1321,7 @@ curl -X POST http://localhost:5001/ai/generate \
 ```
 
 **Test SQL assist:**
+
 ```bash
 curl -X POST http://localhost:5001/ai/sql/assist \
   -H "Content-Type: application/json" \
@@ -1232,6 +1332,7 @@ curl -X POST http://localhost:5001/ai/sql/assist \
 ```
 
 **Pretty print JSON:**
+
 ```bash
 curl http://localhost:5001/health | python3 -m json.tool
 curl http://localhost:5001/health | jq .
@@ -1240,33 +1341,39 @@ curl http://localhost:5001/health | jq .
 ### Debugging Tips
 
 **1. Check logs**
+
 ```bash
 docker logs vpn-python-api
 docker logs -f vpn-python-api  # Follow
 ```
 
 **2. Check if service is running**
+
 ```bash
 docker ps | grep python-api
 ```
 
 **3. Test Ollama directly**
+
 ```bash
 curl http://localhost:11434/api/generate \
   -d '{"model":"llama3.2:1b","prompt":"Hello"}'
 ```
 
 **4. Enter container**
+
 ```bash
 docker exec -it vpn-python-api bash
 ```
 
 **5. Check network**
+
 ```bash
 docker exec vpn-python-api curl http://ollama:11434/
 ```
 
 **6. Test endpoint from inside nginx**
+
 ```bash
 docker exec vpn-nginx curl http://python-api:5001/health
 ```
@@ -1274,24 +1381,28 @@ docker exec vpn-nginx curl http://python-api:5001/health
 ### Common Issues
 
 **Issue: 503 Service Unavailable**
+
 ```
 Cause: Ollama is down or unreachable
 Fix: docker compose restart ollama
 ```
 
 **Issue: 500 Internal Server Error**
+
 ```
 Cause: Python exception
 Fix: Check logs for traceback
 ```
 
 **Issue: 422 Validation Error**
+
 ```
 Cause: Invalid request body
 Fix: Check request matches Pydantic model
 ```
 
 **Issue: Slow responses**
+
 ```
 Cause: Ollama generating (normal for AI)
 Solution: Increase timeout or add progress indicator
@@ -1345,6 +1456,7 @@ GET  /docs              - Interactive API docs
 ### Request Examples
 
 **Generate AI:**
+
 ```json
 POST /ai/generate
 {
@@ -1355,6 +1467,7 @@ POST /ai/generate
 ```
 
 **SQL Assist:**
+
 ```json
 POST /ai/sql/assist
 {
@@ -1428,30 +1541,35 @@ curl https://chatbuilds.com/api/ai/health
 ## 📚 Learning Path
 
 ### Week 1: Basics
+
 - ✅ Understand FastAPI concepts
 - ✅ Read through app.py
 - ✅ Test endpoints in `/docs`
 - ✅ Make a simple endpoint
 
 ### Week 2: Deep Dive
+
 - ✅ Study Pydantic models
 - ✅ Understand async/await
 - ✅ Learn error handling
 - ✅ Add validation to endpoint
 
 ### Week 3: Integration
+
 - ✅ Study Ollama integration
 - ✅ Understand httpx usage
 - ✅ Learn Docker deployment
 - ✅ Debug a production issue
 
 ### Week 4: Advanced
+
 - ✅ Add caching with Redis
 - ✅ Implement rate limiting
 - ✅ Add authentication
 - ✅ Monitor performance
 
 ### Ongoing
+
 - Read FastAPI docs: https://fastapi.tiangolo.com
 - Practice on test environment
 - Document your changes
@@ -1465,4 +1583,4 @@ curl https://chatbuilds.com/api/ai/health
 
 ---
 
-*This guide grows with you. Every endpoint you add, every bug you fix, you'll understand FastAPI better!*
+_This guide grows with you. Every endpoint you add, every bug you fix, you'll understand FastAPI better!_

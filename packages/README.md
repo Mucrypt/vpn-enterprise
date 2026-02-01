@@ -1,53 +1,678 @@
-# packages — VPN Enterprise (monorepo packages)
+# 📦 VPN Enterprise Packages
 
-This file explains the purpose of each package in the `packages/` folder, how to build and test packages, and enterprise-grade maintenance and onboarding guidance so you (or future teammates) can pick this project up quickly.
+**Enterprise-grade monorepo packages for VPN platform business logic.**
 
-Why this README exists
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
+[![Monorepo](https://img.shields.io/badge/Monorepo-npm%20workspaces-orange.svg)](https://docs.npmjs.com/cli/v7/using-npm/workspaces)
 
-- This is an enterprise-level monorepo. Over time the number of packages and responsibilities will grow. This document is a single, persistent reference for package owners, CI, and maintainers.
+> Modular, type-safe packages containing the core business logic for VPN Enterprise. Built as independent, reusable modules that can be imported by apps or deployed as microservices.
 
-Quick map (what's in `packages/` today)
+---
 
-- `api/` — TypeScript Express API used for local development and compiled for serverless (Vercel). Key files:
-  - `src/app.ts` — Express app (routes, middleware) exported for dev and serverless deployments.
-  - `src/index.ts` — dev entry that listens when run directly.
-  - `api/index.js` — Vercel bridge (requires `../dist/index.js` for production deployments).
-  - `package.json`, `package.vercel.json`, `vercel.json`, `prepare-vercel.sh`, `.vercelignore`, `.env`.
+## 📋 Table of Contents
 
-- `auth/` — Authentication helpers and service wrappers.
-  - `src/auth-service.ts` — authentication wrapper (session handling, refresh, signIn flows).
-  - `src/middleware.ts` — express/route middleware helpers for authentication.
+- [Overview](#overview)
+- [Package Structure](#package-structure)
+- [Quick Start](#quick-start)
+- [Core Packages](#core-packages)
+- [Service Packages](#service-packages)
+- [Utility Packages](#utility-packages)
+- [Documentation](#documentation)
+- [Development](#development)
+- [Contributing](#contributing)
 
-- `database/` — DB client, repositories and supporting SQL migration/schema files.
-  - `src/` includes database client and repository layers (connections, subscriptions, servers, etc.).
-  - SQL files live at the package root (schema files, triggers and helpers).
+---
 
-- `billing/` — billing-related code (may contain integrations or billing-domain logic).
+## Overview
 
-- `shared/` — shared utilities and types used across packages & apps.
+The `packages/` directory contains the **core business logic** of VPN Enterprise organized as independent, reusable TypeScript modules using **npm workspaces**.
 
-- `vpn-core/` — core VPN logic, server management, wireguard helpers, and native client generator.
+### Why Monorepo?
 
-Note: package list above is intentionally brief — use the per-package folder README (or the package `package.json`/`src` files) for implementation details.
+✅ **Code Reuse** - Share types, utilities, and business logic across services  
+✅ **Type Safety** - TypeScript ensures cross-package compatibility  
+✅ **Atomic Changes** - Update multiple packages in a single commit  
+✅ **Unified Versioning** - All packages evolve together  
+✅ **Simplified Dependencies** - No need to publish internal packages  
+✅ **Better DX** - Single checkout, unified tooling  
 
-Common developer commands (run from repo root)
+### Architecture
 
-```bash
-# Build all packages (fast path)
-make build
-
-# Build a single package (example)
-cd packages/api && npm install && npm run build
-
-# Run tests for a package (if tests exist)
-cd packages/database && npm test
-
-# Lint + typecheck across repo (if configured at root)
-npm run lint
-npm run -w @vpn-enterprise/api tsc --noEmit
+```
+┌─────────────────────────────────────────┐
+│        Frontend Apps                     │
+│  (web-dashboard, mobile-app)            │
+└──────────────┬──────────────────────────┘
+               │ Import packages
+               ▼
+┌─────────────────────────────────────────┐
+│           API Package                    │
+│  (Express server, REST endpoints)       │
+└───┬──────────┬──────────┬───────────────┘
+    │          │          │
+    ▼          ▼          ▼
+┌────────┐ ┌─────────┐ ┌──────────┐
+│  Auth  │ │Database │ │ VPN-Core │
+│        │ │         │ │          │
+└───┬────┘ └────┬────┘ └─────┬────┘
+    │           │            │
+    └───────────┴────────────┘
+                │
+                ▼
+         ┌──────────┐
+         │  Shared  │
+         │(Utils/Types)
+         └──────────┘
 ```
 
-Package-specific notes
+---
+
+## Package Structure
+
+### Core Packages (Business Logic)
+
+| Package | Purpose | Key Exports | Port |
+|---------|---------|-------------|------|
+| **api** | REST API server | Express app, routes | 3000 |
+| **auth** | Authentication | AuthService, middleware | - |
+| **database** | Data access | Repositories, types, client | - |
+| **vpn-core** | VPN management | VPNServerManager, LoadBalancer | - |
+
+### Service Packages (Microservices)
+
+| Package | Purpose | Key Features | Port |
+|---------|---------|--------------|------|
+| **tenant-provisioner** | Tenant DB provisioning | Async job processing, resource limits | 4000 |
+| **database-manager** | DB operations | Backups, metrics, monitoring | 4001 |
+| **billing** | Payment processing | Stripe integration, subscriptions | - |
+
+### Utility Packages (Shared Code)
+
+| Package | Purpose | Key Exports |
+|---------|---------|-------------|
+| **shared** | Common utilities | Types, validators, logger, errors |
+| **realtime** | WebSocket/subscriptions | PostgresSubscriptionEngine |
+| **editor** | SQL editor UI | SQLEditor, QueryBuilder |
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 20+
+- npm 8+
+- TypeScript 5+
+
+### Installation
+
+```bash
+# From repo root
+npm install
+
+# Installs all workspace dependencies
+```
+
+### Build All Packages
+
+```bash
+# Build all packages in dependency order
+npm run build
+
+# Or with make
+make build
+```
+
+### Build Single Package
+
+```bash
+cd packages/api
+npm run build
+
+# Output in dist/
+ls dist/
+```
+
+### Development Mode
+
+```bash
+# Auto-rebuild on changes
+cd packages/api
+npm run dev
+
+# API running at http://localhost:3000
+```
+
+---
+
+## Core Packages
+
+### API (`packages/api/`)
+
+**Purpose:** Main REST API server for VPN Enterprise
+
+**Key Features:**
+- Express.js with TypeScript
+- JWT authentication
+- Rate limiting
+- CORS configuration
+- Health checks
+- Vercel serverless deployment
+
+**Start Development:**
+```bash
+cd packages/api
+npm run dev
+
+# API: http://localhost:3000/health
+```
+
+**Environment Variables:**
+```bash
+DATABASE_URL=postgresql://...
+SUPABASE_URL=https://...
+SUPABASE_SERVICE_KEY=...
+JWT_SECRET=...
+PORT=3000
+```
+
+**API Endpoints:**
+```
+GET  /health              # Health check
+GET  /api/vpn/servers     # List VPN servers
+POST /api/vpn/connect     # Connect to VPN
+GET  /api/tenants         # List user tenants
+POST /api/tenants         # Create tenant
+GET  /api/admin/users     # Admin: list users (requires admin)
+```
+
+---
+
+### Auth (`packages/auth/`)
+
+**Purpose:** Authentication and authorization using Supabase Auth
+
+**Key Features:**
+- Supabase Auth integration
+- JWT token verification
+- Express middleware
+- Role-based access control
+
+**Usage:**
+```typescript
+import { authMiddleware, AuthRequest } from '@vpn-enterprise/auth';
+
+// Protect route
+app.get('/api/profile', authMiddleware, async (req: AuthRequest, res) => {
+  const userId = req.user!.id;
+  // ...
+});
+
+// Admin-only route
+app.get('/api/admin', adminMiddleware, async (req, res) => {
+  // Only admins can access
+});
+```
+
+---
+
+### Database (`packages/database/`)
+
+**Purpose:** Type-safe database client and repository pattern
+
+**Key Features:**
+- Supabase client (admin & user)
+- Repository pattern for data access
+- TypeScript types generated from schema
+- SQL migrations
+- PostgreSQL, MySQL, NoSQL managers
+
+**Usage:**
+```typescript
+import { ServerRepository } from '@vpn-enterprise/database';
+
+const serverRepo = new ServerRepository();
+
+// Get user's servers
+const servers = await serverRepo.getUserServers(userId);
+
+// Create server
+const server = await serverRepo.createServer({
+  name: 'vpn-us-1',
+  region: 'us-east',
+  userId
+});
+
+// Update status
+await serverRepo.updateStatus(serverId, 'active');
+```
+
+**Repositories:**
+- `ServerRepository` - VPN servers
+- `SubscriptionRepository` - User subscriptions
+- `ConnectionRepository` - VPN connections
+- `DeviceRepository` - User devices
+- `AuditRepository` - Audit logs
+- `HostingPlanRepository` - Database hosting plans
+
+---
+
+### VPN-Core (`packages/vpn-core/`)
+
+**Purpose:** Core VPN server management and WireGuard operations
+
+**Key Features:**
+- VPN server lifecycle management
+- WireGuard configuration
+- Load balancing
+- Connection tracking
+- Native client config generation
+
+**Usage:**
+```typescript
+import { 
+  VPNServerManager, 
+  ServerLoadBalancer 
+} from '@vpn-enterprise/vpn-core';
+
+const vpnManager = new VPNServerManager();
+
+// Create server
+const server = await vpnManager.createServer({
+  name: 'vpn-us-1',
+  region: 'us-east',
+  port: 51820
+});
+
+// Load balancing
+const loadBalancer = new ServerLoadBalancer();
+const bestServer = loadBalancer.selectServer(servers, userRegion);
+
+// Connect client
+await vpnManager.connectClient(serverId, clientPublicKey, clientIp);
+```
+
+---
+
+## Service Packages
+
+### Tenant Provisioner (`packages/tenant-provisioner/`)
+
+**Purpose:** Automated provisioning of isolated tenant databases
+
+**How It Works:**
+1. User requests database hosting
+2. Job added to Redis/Bull queue
+3. Provisioner creates isolated PostgreSQL database
+4. Applies schema, security, resource limits
+5. Returns connection string
+
+**Resource Limits:**
+```
+Free Plan:    10 connections, 100MB storage
+Pro Plan:     50 connections, 5GB storage  
+Enterprise:   500 connections, 50GB storage
+```
+
+**Start Service:**
+```bash
+cd packages/tenant-provisioner
+npm start
+
+# Service: http://localhost:4000
+```
+
+---
+
+### Database Manager (`packages/database-manager/`)
+
+**Purpose:** Automated database operations and monitoring
+
+**Features:**
+- Automated backups (hourly, daily, weekly)
+- Performance metrics collection
+- Resource monitoring
+- Slow query detection
+- Automated cleanup
+
+**Backup Schedule:**
+```
+Hourly:   Incremental backups
+Daily:    Full backup at 2 AM
+Weekly:   Table analysis and optimization
+```
+
+**Start Service:**
+```bash
+cd packages/database-manager
+npm start
+
+# Service: http://localhost:4001
+```
+
+---
+
+## Utility Packages
+
+### Shared (`packages/shared/`)
+
+**Purpose:** Common utilities, types, and validators
+
+**Exports:**
+```typescript
+import {
+  logger,                # Winston logger
+  ValidationError,       # Custom errors
+  emailSchema,          # Zod validators
+  formatDate            # Utility functions
+} from '@vpn-enterprise/shared';
+```
+
+**Usage:**
+```typescript
+// Logging
+logger.info('Server started', { port: 3000 });
+
+// Validation
+const validEmail = emailSchema.parse(email);
+
+// Error handling
+throw new ValidationError('Invalid input', 'email');
+```
+
+---
+
+### Realtime (`packages/realtime/`)
+
+**Purpose:** WebSocket connections and database subscriptions
+
+**Features:**
+- PostgreSQL LISTEN/NOTIFY
+- Logical replication decoding
+- WebSocket broadcast
+- Real-time updates
+
+**Usage:**
+```typescript
+import { PostgresSubscriptionEngine } from '@vpn-enterprise/realtime';
+
+const engine = new PostgresSubscriptionEngine();
+await engine.subscribe('connections', websocket);
+
+// Clients receive real-time updates when data changes
+```
+
+---
+
+### Editor (`packages/editor/`)
+
+**Purpose:** SQL editor and query builder UI components
+
+**Features:**
+- Monaco-based SQL editor
+- Syntax highlighting
+- Auto-completion
+- Visual query builder
+- Query history
+
+**Usage:**
+```typescript
+import { SQLEditor } from '@vpn-enterprise/editor';
+
+<SQLEditor
+  onExecute={handleExecute}
+  defaultValue="SELECT * FROM users"
+/>
+```
+
+---
+
+## Documentation
+
+### Complete Guides
+
+📖 **[Packages Complete Guide](./PACKAGES_COMPLETE_GUIDE.md)**  
+Comprehensive reference covering all packages, architecture, integration patterns, best practices, and troubleshooting. Start here for deep understanding.
+
+⚡ **[Packages Quick Reference](./PACKAGES_QUICK_REFERENCE.md)**  
+Daily operations cheat sheet with essential commands, import patterns, and quick fixes. Print this out!
+
+### Related Documentation
+
+- **Infrastructure:** [../infrastructure/README.md](../infrastructure/README.md)
+- **Web Dashboard:** [../apps/web-dashboard/README.md](../apps/web-dashboard/README.md)
+- **API Docs:** [./api/README.md](./api/README.md)
+
+---
+
+## Development
+
+### Common Commands
+
+```bash
+# Install dependencies
+npm install
+
+# Build all packages
+npm run build
+
+# Build single package
+cd packages/api && npm run build
+
+# Run tests
+npm test
+
+# Run tests for single package
+cd packages/api && npm test
+
+# Development mode (auto-rebuild)
+cd packages/api && npm run dev
+
+# Clean build artifacts
+npm run clean
+
+# Type check
+npx tsc --noEmit
+
+# Lint
+npm run lint
+```
+
+### Package Import Pattern
+
+```typescript
+// Import from packages using workspace namespace
+import { authMiddleware } from '@vpn-enterprise/auth';
+import { ServerRepository } from '@vpn-enterprise/database';
+import { VPNServerManager } from '@vpn-enterprise/vpn-core';
+import { logger } from '@vpn-enterprise/shared';
+```
+
+### Adding New Package
+
+```bash
+# 1. Create package directory
+mkdir packages/my-package
+cd packages/my-package
+
+# 2. Initialize
+npm init -y
+
+# 3. Update name: "@vpn-enterprise/my-package"
+
+# 4. Create src/
+mkdir src && touch src/index.ts
+
+# 5. Add tsconfig.json
+cp ../auth/tsconfig.json .
+
+# 6. Install from root
+cd ../..
+npm install
+```
+
+### Testing
+
+```bash
+# All packages
+npm test
+
+# Single package
+cd packages/api
+npm test
+
+# Watch mode
+npm run test:watch
+
+# Coverage
+npm run test:coverage
+```
+
+---
+
+## Contributing
+
+### Workflow
+
+1. **Create branch**
+   ```bash
+   git checkout -b feature/add-feature
+   ```
+
+2. **Make changes**
+   ```bash
+   cd packages/api
+   vim src/routes/new-route.ts
+   ```
+
+3. **Build and test**
+   ```bash
+   npm run build
+   npm test
+   ```
+
+4. **Commit**
+   ```bash
+   git add .
+   git commit -m "feat(api): add new endpoint"
+   ```
+
+5. **Push and PR**
+   ```bash
+   git push origin feature/add-feature
+   ```
+
+### Code Style
+
+- Use TypeScript strict mode
+- Follow ESLint configuration
+- Write tests for new features
+- Document public APIs with JSDoc
+- Use meaningful variable names
+- Keep functions small and focused
+
+### Best Practices
+
+✅ **Single Responsibility** - Each package has one clear purpose  
+✅ **Loose Coupling** - Minimize dependencies between packages  
+✅ **Type Safety** - Use TypeScript types everywhere  
+✅ **Error Handling** - Use custom error classes  
+✅ **Testing** - Unit tests for business logic  
+✅ **Documentation** - Document public APIs  
+
+---
+
+## Troubleshooting
+
+### Build Errors
+
+**Issue:** "Cannot find module '@vpn-enterprise/auth'"
+
+**Solution:**
+```bash
+rm -rf node_modules package-lock.json
+npm install
+npm run build
+```
+
+### Runtime Errors
+
+**Issue:** Environment variables not loading
+
+**Solution:**
+```typescript
+import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+```
+
+### Dependency Issues
+
+**Issue:** Version conflicts
+
+**Solution:**
+```json
+// Root package.json
+{
+  "overrides": {
+    "problematic-package": "^3.0.0"
+  }
+}
+```
+
+---
+
+## Architecture Decisions
+
+### Why npm Workspaces?
+
+- **Native Solution** - Built into npm, no extra tools
+- **Simple** - Easy to understand and maintain
+- **Fast** - Efficient dependency resolution
+- **Compatible** - Works with all npm tooling
+
+### Why TypeScript Project References?
+
+- **Incremental Builds** - Only rebuild changed packages
+- **Type Checking** - Enforce type safety across packages
+- **IDE Support** - Better IntelliSense and navigation
+
+### Why Repository Pattern?
+
+- **Abstraction** - Hide database implementation details
+- **Testing** - Easy to mock for unit tests
+- **Flexibility** - Swap database providers easily
+- **Consistency** - Uniform data access API
+
+---
+
+## Resources
+
+### Official Documentation
+
+- **TypeScript:** https://www.typescriptlang.org/docs
+- **npm Workspaces:** https://docs.npmjs.com/cli/v7/using-npm/workspaces
+- **Express:** https://expressjs.com/
+- **Supabase:** https://supabase.com/docs
+
+### Community
+
+- **GitHub:** https://github.com/your-org/vpn-enterprise
+- **Slack:** https://vpn-enterprise.slack.com
+
+---
+
+## License
+
+[Your License Here]
+
+---
+
+**Built with ❤️ by the VPN Enterprise Team**
+
+*Modular, type-safe, production-ready* 🚀
 
 - packages/api
   - Build: `cd packages/api && npm install && npm run build` — this produces `packages/api/dist`.

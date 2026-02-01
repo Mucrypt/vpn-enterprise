@@ -26,6 +26,7 @@
 ### What is Infrastructure?
 
 **Infrastructure** is the foundation that runs your applications:
+
 - **Containers** - Isolated environments for each service
 - **Networking** - How services communicate
 - **Storage** - Where data is persisted
@@ -71,6 +72,7 @@
 ### Why Docker?
 
 **Docker** packages applications into containers:
+
 - **Consistency** - Same environment everywhere (dev, staging, prod)
 - **Isolation** - Services don't interfere with each other
 - **Portability** - Run anywhere (laptop, server, cloud)
@@ -119,11 +121,13 @@ infrastructure/
 ### Technology Stack
 
 **Container Orchestration:**
+
 - **Docker** - Container runtime
 - **Docker Compose** - Multi-container orchestration
 - **Docker Networks** - Service communication
 
 **Services:**
+
 - **Nginx** - Reverse proxy & load balancer
 - **Node.js** - API & Web dashboard
 - **Python/FastAPI** - AI service
@@ -133,6 +137,7 @@ infrastructure/
 - **N8N** - Workflow automation
 
 **Monitoring:**
+
 - **Prometheus** - Metrics collection
 - **Grafana** - Dashboards
 - **Promtail** - Log shipping
@@ -147,6 +152,7 @@ infrastructure/
 **Docker Compose** is a tool for defining multi-container applications:
 
 **Without Compose (manual):**
+
 ```bash
 docker run -d --name nginx nginx:alpine
 docker run -d --name api node:20-alpine
@@ -158,6 +164,7 @@ docker network connect vpn-network api
 ```
 
 **With Compose (automated):**
+
 ```bash
 docker compose up -d
 # Done! All services started with networking configured
@@ -166,39 +173,42 @@ docker compose up -d
 ### Understanding docker-compose.yml
 
 **Basic structure:**
+
 ```yaml
 version: '3.9'
 
-services:              # Your containers
-  nginx:              # Service name
-    image: nginx:alpine     # Docker image to use
-    container_name: vpn-nginx  # Container name
-    restart: unless-stopped    # Restart policy
+services: # Your containers
+  nginx: # Service name
+    image: nginx:alpine # Docker image to use
+    container_name: vpn-nginx # Container name
+    restart: unless-stopped # Restart policy
     ports:
-      - "80:80"       # Port mapping (host:container)
+      - '80:80' # Port mapping (host:container)
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf  # File mount
+      - ./nginx.conf:/etc/nginx/nginx.conf # File mount
     networks:
-      - vpn-network   # Network to join
+      - vpn-network # Network to join
     depends_on:
-      - api           # Start after api service
+      - api # Start after api service
 
-networks:              # Network definitions
+networks: # Network definitions
   vpn-network:
     driver: bridge
 
-volumes:               # Persistent storage
+volumes: # Persistent storage
   api-logs:
 ```
 
 ### Multi-Stage Docker Builds
 
 **Why multi-stage?**
+
 - Smaller final images (less attack surface)
 - Faster deployments
 - Separate build and runtime dependencies
 
 **Example: API Dockerfile**
+
 ```dockerfile
 # Stage 1: Build (includes dev tools)
 FROM node:20-alpine AS builder
@@ -217,6 +227,7 @@ CMD ["node", "dist/index.js"]
 ```
 
 **Result:**
+
 - Builder stage: 500MB (includes TypeScript, build tools)
 - Production stage: 150MB (only runtime files)
 - Final image: 150MB (builder stage discarded)
@@ -226,6 +237,7 @@ CMD ["node", "dist/index.js"]
 **Your networks:**
 
 **vpn-network (Production):**
+
 ```yaml
 networks:
   vpn-network:
@@ -236,6 +248,7 @@ networks:
 ```
 
 **vpn-dev-network (Development):**
+
 ```yaml
 networks:
   vpn-dev-network:
@@ -243,6 +256,7 @@ networks:
 ```
 
 **How services communicate:**
+
 ```
 Inside Docker network:
 - nginx can reach api at: http://api:3000
@@ -257,24 +271,27 @@ Docker DNS automatically resolves service names!
 **Types:**
 
 **Named volumes (persistent data):**
+
 ```yaml
 volumes:
-  postgres-data:    # Survives container restarts
-  redis-data:       # Managed by Docker
-  api-logs:         # Good for databases, logs
+  postgres-data: # Survives container restarts
+  redis-data: # Managed by Docker
+  api-logs: # Good for databases, logs
 ```
 
 **Bind mounts (development):**
+
 ```yaml
 volumes:
-  - ./app:/app      # Maps host folder to container
-  - ./config:/config  # Changes on host reflect in container
+  - ./app:/app # Maps host folder to container
+  - ./config:/config # Changes on host reflect in container
 ```
 
 **Anonymous volumes (temporary):**
+
 ```yaml
 volumes:
-  - /app/node_modules  # Preserves node_modules in container
+  - /app/node_modules # Preserves node_modules in container
 ```
 
 ---
@@ -288,6 +305,7 @@ volumes:
 **Purpose:** Reverse proxy that routes requests to appropriate services
 
 **How it works:**
+
 ```
 Browser request: https://chatbuilds.com/api/health
                  ↓
@@ -305,6 +323,7 @@ Nginx returns: {"status": "healthy"}
 **Main config breakdown:**
 
 **`nginx.conf`:**
+
 ```nginx
 # Worker processes
 worker_processes auto;  # One per CPU core
@@ -319,24 +338,25 @@ events {
 http {
     # Logging
     access_log /var/log/nginx/access.log json_combined;
-    
+
     # Performance
     sendfile on;
     tcp_nopush on;
     tcp_nodelay on;
     keepalive_timeout 65;
-    
+
     # Compression
     gzip on;
     gzip_comp_level 5;
     gzip_types text/plain text/css application/json;
-    
+
     # Include site configs
     include /etc/nginx/conf.d/*.conf;
 }
 ```
 
 **Site config (conf.d/default.conf):**
+
 ```nginx
 upstream api_backend {
     least_conn;  # Load balancing method
@@ -349,7 +369,7 @@ upstream api_backend {
 server {
     listen 80;
     server_name chatbuilds.com;
-    
+
     # Redirect HTTP to HTTPS
     return 301 https://$server_name$request_uri;
 }
@@ -357,11 +377,11 @@ server {
 server {
     listen 443 ssl http2;
     server_name chatbuilds.com;
-    
+
     # SSL certificates
     ssl_certificate /etc/nginx/ssl/cert.pem;
     ssl_certificate_key /etc/nginx/ssl/key.pem;
-    
+
     # API proxy
     location /api/ {
         proxy_pass http://api_backend/;
@@ -369,19 +389,19 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # Timeouts
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;
     }
-    
+
     # Python AI API
     location /api/ai/ {
         proxy_pass http://python-api:5001/;
         proxy_read_timeout 120s;  # AI can be slow
     }
-    
+
     # N8N workflows
     location /admin/n8n/ {
         proxy_pass http://n8n:5678/;
@@ -389,7 +409,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
-    
+
     # Web dashboard (everything else)
     location / {
         proxy_pass http://web-dashboard:3001;
@@ -405,6 +425,7 @@ server {
 **Dockerfile:** `infrastructure/docker/Dockerfile.api`
 
 **Multi-stage build:**
+
 ```dockerfile
 # Stage 1: Build TypeScript
 FROM node:20-alpine AS builder
@@ -455,6 +476,7 @@ CMD ["node", "dist/index.js"]
 ```
 
 **Compose configuration:**
+
 ```yaml
 api:
   build:
@@ -471,11 +493,11 @@ api:
   networks:
     - vpn-network
   expose:
-    - "3000"  # Only accessible within Docker network
+    - '3000' # Only accessible within Docker network
   volumes:
     - api-logs:/app/logs
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+    test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
     interval: 30s
     timeout: 10s
     retries: 3
@@ -494,6 +516,7 @@ api:
 **Dockerfile:** `infrastructure/docker/Dockerfile.web`
 
 **Multi-stage build:**
+
 ```dockerfile
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
@@ -538,6 +561,7 @@ CMD ["node", "server.js"]
 **See:** `flask/Dockerfile`
 
 **Compose configuration:**
+
 ```yaml
 python-api:
   build:
@@ -552,36 +576,38 @@ python-api:
   networks:
     - vpn-network
   expose:
-    - "5001"
+    - '5001'
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+    test: ['CMD', 'curl', '-f', 'http://localhost:5001/health']
     interval: 30s
 ```
 
 ### Ollama (AI Model Server)
 
 **Compose configuration:**
+
 ```yaml
 ollama:
   image: ollama/ollama:latest
   container_name: vpn-ollama
   restart: unless-stopped
   volumes:
-    - ollama-models:/root/.ollama  # Persist models
+    - ollama-models:/root/.ollama # Persist models
   networks:
     - vpn-network
   expose:
-    - "11434"
+    - '11434'
   deploy:
     resources:
       limits:
         cpus: '2'
-        memory: 4G  # AI models need memory
+        memory: 4G # AI models need memory
 ```
 
 ### PostgreSQL
 
 **Compose configuration:**
+
 ```yaml
 postgres:
   image: postgres:15-alpine
@@ -599,15 +625,16 @@ postgres:
   networks:
     - vpn-network
   ports:
-    - "5432:5432"  # Expose for external connections
+    - '5432:5432' # Expose for external connections
   healthcheck:
-    test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+    test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER}']
     interval: 10s
 ```
 
 ### Redis
 
 **Compose configuration:**
+
 ```yaml
 redis:
   image: redis:7-alpine
@@ -621,9 +648,9 @@ redis:
   networks:
     - vpn-network
   expose:
-    - "6379"
+    - '6379'
   healthcheck:
-    test: ["CMD", "redis-cli", "ping"]
+    test: ['CMD', 'redis-cli', 'ping']
     interval: 10s
 ```
 
@@ -634,6 +661,7 @@ redis:
 ### Docker Networking Explained
 
 **Bridge Network (default):**
+
 ```yaml
 networks:
   vpn-network:
@@ -641,11 +669,13 @@ networks:
 ```
 
 **What it does:**
+
 - Creates isolated network for containers
 - Containers can talk to each other by name
 - Isolated from host network (secure)
 
 **How DNS works:**
+
 ```
 Container "api" wants to reach "redis":
 1. Looks up "redis" in Docker DNS
@@ -660,27 +690,30 @@ No hardcoded IPs needed!
 **Format:** `HOST:CONTAINER`
 
 **Example:**
+
 ```yaml
 ports:
-  - "80:80"      # Host port 80 → Container port 80
-  - "3000:3001"  # Host port 3000 → Container port 3001
-  - "127.0.0.1:5432:5432"  # Only localhost can access
+  - '80:80' # Host port 80 → Container port 80
+  - '3000:3001' # Host port 3000 → Container port 3001
+  - '127.0.0.1:5432:5432' # Only localhost can access
 ```
 
 **Expose vs Ports:**
+
 ```yaml
 # expose: Only accessible within Docker network
 expose:
-  - "3000"
+  - '3000'
 
 # ports: Accessible from host machine
 ports:
-  - "3000:3000"
+  - '3000:3000'
 ```
 
 ### Request Flow
 
 **Example: User visits dashboard**
+
 ```
 1. Browser → https://chatbuilds.com
    ↓
@@ -702,6 +735,7 @@ ports:
 ```
 
 **Example: API call from dashboard**
+
 ```
 1. Dashboard JavaScript → fetch('/api/servers')
    ↓
@@ -727,13 +761,14 @@ ports:
 ### Load Balancing
 
 **Configure multiple backend instances:**
+
 ```nginx
 upstream api_backend {
     least_conn;  # Route to server with fewest connections
     server api-1:3000 weight=3;  # More weight = more traffic
     server api-2:3000 weight=2;
     server api-3:3000 weight=1;
-    
+
     # Health checks
     server api-1:3000 max_fails=3 fail_timeout=30s;
 }
@@ -746,6 +781,7 @@ server {
 ```
 
 **Compose (scaling):**
+
 ```bash
 docker compose up -d --scale api=3
 ```
@@ -757,12 +793,14 @@ docker compose up -d --scale api=3
 ### Development Setup
 
 **Quick start:**
+
 ```bash
 cd infrastructure/docker
 docker compose -f docker-compose.dev.yml up -d
 ```
 
 **What it includes:**
+
 - API with hot reload
 - Web dashboard with hot reload
 - Redis
@@ -771,6 +809,7 @@ docker compose -f docker-compose.dev.yml up -d
 - Ollama
 
 **Development features:**
+
 - Volume mounts for live code changes
 - Debug ports exposed
 - Verbose logging
@@ -779,12 +818,14 @@ docker compose -f docker-compose.dev.yml up -d
 ### Production Deployment
 
 **Full stack:**
+
 ```bash
 cd infrastructure/docker
 docker compose -f docker-compose.yml up -d
 ```
 
 **What it includes:**
+
 - Nginx with SSL
 - API (production build)
 - Web dashboard (production build)
@@ -796,6 +837,7 @@ docker compose -f docker-compose.yml up -d
 - Monitoring stack
 
 **Production features:**
+
 - Multi-stage builds (smaller images)
 - Health checks
 - Resource limits
@@ -808,6 +850,7 @@ docker compose -f docker-compose.yml up -d
 **Strategy:** Run two identical environments, switch traffic
 
 **Setup:**
+
 ```bash
 # Current production (blue)
 docker compose -f docker-compose.yml up -d
@@ -830,6 +873,7 @@ curl http://green.chatbuilds.com/health
 **Strategy:** Update containers one at a time
 
 **Example:**
+
 ```bash
 # Update API (zero downtime with multiple instances)
 docker compose up -d --no-deps --build api-1
@@ -842,6 +886,7 @@ docker compose up -d --no-deps --build api-3
 ### Deployment Checklist
 
 **Pre-deployment:**
+
 - [ ] Code reviewed and tested
 - [ ] Environment variables updated
 - [ ] Secrets rotated if needed
@@ -849,6 +894,7 @@ docker compose up -d --no-deps --build api-3
 - [ ] Backup current state
 
 **Deployment:**
+
 - [ ] Build new images
 - [ ] Run database migrations
 - [ ] Deploy services
@@ -856,6 +902,7 @@ docker compose up -d --no-deps --build api-3
 - [ ] Test critical paths
 
 **Post-deployment:**
+
 - [ ] Monitor logs for errors
 - [ ] Check metrics (CPU, memory, response times)
 - [ ] Verify all services healthy
@@ -871,12 +918,14 @@ docker compose up -d --no-deps --build api-3
 **Location:** `infrastructure/monitoring/`
 
 **Components:**
+
 1. **Prometheus** - Metrics collection
 2. **Grafana** - Visualization
 3. **AlertManager** - Alerting
 4. **Promtail** - Log aggregation
 
 **Setup:**
+
 ```bash
 cd infrastructure/docker
 docker compose -f docker-compose.monitoring.yml up -d
@@ -885,23 +934,25 @@ docker compose -f docker-compose.monitoring.yml up -d
 ### Prometheus
 
 **What it monitors:**
+
 - Container CPU, memory, disk usage
 - Request rates, response times
 - Error rates
 - Custom application metrics
 
 **Configuration:** `infrastructure/monitoring/prometheus/prometheus.yml`
+
 ```yaml
 scrape_configs:
   - job_name: 'nginx'
     static_configs:
       - targets: ['nginx:9113']
-  
+
   - job_name: 'api'
     static_configs:
       - targets: ['api:3000']
     metrics_path: '/metrics'
-  
+
   - job_name: 'postgres'
     static_configs:
       - targets: ['postgres-exporter:9187']
@@ -912,6 +963,7 @@ scrape_configs:
 ### Grafana
 
 **Pre-built dashboards:**
+
 - Docker containers overview
 - Nginx metrics
 - API performance
@@ -921,21 +973,24 @@ scrape_configs:
 **Configuration:** `infrastructure/monitoring/grafana/`
 
 **Access:** http://localhost:3000
+
 - User: admin
 - Password: (set in secrets)
 
 ### Logging
 
 **Centralized logging:**
+
 ```yaml
 logging:
-  driver: "json-file"
+  driver: 'json-file'
   options:
-    max-size: "10m"
-    max-file: "3"
+    max-size: '10m'
+    max-file: '3'
 ```
 
 **View logs:**
+
 ```bash
 # Single service
 docker logs vpn-api
@@ -958,16 +1013,18 @@ docker logs -t vpn-api
 **Purpose:** Ensure services are running correctly
 
 **Example:**
+
 ```yaml
 healthcheck:
-  test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-  interval: 30s      # Check every 30 seconds
-  timeout: 10s       # Timeout after 10 seconds
-  retries: 3         # Try 3 times before marking unhealthy
-  start_period: 40s  # Give 40s to start before first check
+  test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+  interval: 30s # Check every 30 seconds
+  timeout: 10s # Timeout after 10 seconds
+  retries: 3 # Try 3 times before marking unhealthy
+  start_period: 40s # Give 40s to start before first check
 ```
 
 **Check health status:**
+
 ```bash
 docker ps
 # HEALTHY if passing
@@ -979,6 +1036,7 @@ docker inspect vpn-api | grep Health -A 10
 ### Alerting
 
 **AlertManager configuration:**
+
 ```yaml
 route:
   receiver: 'team-email'
@@ -995,6 +1053,7 @@ receivers:
 ```
 
 **Common alerts:**
+
 - Service down
 - High CPU/memory usage
 - Disk space low
@@ -1008,13 +1067,14 @@ receivers:
 ### Secret Management
 
 **Docker Secrets:**
+
 ```yaml
 secrets:
   postgres_password:
     file: ./secrets/postgres_password.txt
   api_key:
     file: ./secrets/api_key.txt
-  
+
 services:
   postgres:
     secrets:
@@ -1024,6 +1084,7 @@ services:
 ```
 
 **Creating secrets:**
+
 ```bash
 # Create secrets directory
 mkdir -p infrastructure/docker/secrets
@@ -1038,17 +1099,21 @@ echo "secrets/*.txt" >> .gitignore
 ```
 
 **In code:**
+
 ```javascript
 // Read secret from file
 const fs = require('fs')
-const password = fs.readFileSync('/run/secrets/postgres_password', 'utf8').trim()
+const password = fs
+  .readFileSync('/run/secrets/postgres_password', 'utf8')
+  .trim()
 ```
 
 ### Environment Variables
 
 **Security levels:**
 
-**Public (NEXT_PUBLIC_*):**
+**Public (NEXT*PUBLIC*\*):**
+
 ```bash
 # Exposed to browser, not sensitive
 NEXT_PUBLIC_API_URL=https://chatbuilds.com
@@ -1056,6 +1121,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 ```
 
 **Private (backend only):**
+
 ```bash
 # Never sent to browser
 SUPABASE_SERVICE_ROLE_KEY=secret-key
@@ -1063,6 +1129,7 @@ DATABASE_URL=postgresql://...
 ```
 
 **Best practices:**
+
 - Never commit secrets to Git
 - Use `.env` files (in `.gitignore`)
 - Rotate secrets regularly
@@ -1071,6 +1138,7 @@ DATABASE_URL=postgresql://...
 ### SSL/TLS Certificates
 
 **Let's Encrypt (automated):**
+
 ```bash
 # Install certbot
 apt-get install certbot python3-certbot-nginx
@@ -1083,6 +1151,7 @@ certbot renew --dry-run
 ```
 
 **Manual certificates:**
+
 ```bash
 # Generate self-signed (development)
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -1091,13 +1160,14 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 ```
 
 **Nginx SSL config:**
+
 ```nginx
 server {
     listen 443 ssl http2;
-    
+
     ssl_certificate /etc/nginx/ssl/cert.pem;
     ssl_certificate_key /etc/nginx/ssl/key.pem;
-    
+
     # Strong SSL settings
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
@@ -1109,6 +1179,7 @@ server {
 ### Container Security
 
 **Non-root users:**
+
 ```dockerfile
 RUN addgroup -g 1001 nodejs && \
     adduser -S nodejs -u 1001
@@ -1116,6 +1187,7 @@ USER nodejs
 ```
 
 **Read-only filesystem:**
+
 ```yaml
 security_opt:
   - no-new-privileges:true
@@ -1126,6 +1198,7 @@ tmpfs:
 ```
 
 **Resource limits:**
+
 ```yaml
 deploy:
   resources:
@@ -1141,6 +1214,7 @@ deploy:
 ### Horizontal Scaling
 
 **Scale services:**
+
 ```bash
 # Start 3 API instances
 docker compose up -d --scale api=3
@@ -1149,6 +1223,7 @@ docker compose up -d --scale api=3
 ```
 
 **Compose config for scaling:**
+
 ```yaml
 api:
   deploy:
@@ -1158,20 +1233,22 @@ api:
 ### Vertical Scaling
 
 **Increase resources:**
+
 ```yaml
 deploy:
   resources:
     limits:
-      cpus: '2'        # 2 CPU cores
-      memory: 2G       # 2GB RAM
+      cpus: '2' # 2 CPU cores
+      memory: 2G # 2GB RAM
     reservations:
-      cpus: '0.5'      # Guaranteed 0.5 cores
-      memory: 512M     # Guaranteed 512MB
+      cpus: '0.5' # Guaranteed 0.5 cores
+      memory: 512M # Guaranteed 512MB
 ```
 
 ### Caching
 
 **Redis caching:**
+
 ```javascript
 const redis = require('redis')
 const client = redis.createClient({ url: 'redis://redis:6379' })
@@ -1181,18 +1258,19 @@ async function getServers() {
   // Try cache first
   const cached = await client.get('servers')
   if (cached) return JSON.parse(cached)
-  
+
   // Fetch from database
   const servers = await db.query('SELECT * FROM servers')
-  
+
   // Store in cache (5 minutes)
   await client.setex('servers', 300, JSON.stringify(servers))
-  
+
   return servers
 }
 ```
 
 **Nginx caching:**
+
 ```nginx
 proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m max_size=1g inactive=60m;
 
@@ -1206,18 +1284,20 @@ location /api/static/ {
 ### Database Optimization
 
 **Connection pooling:**
+
 ```javascript
 const { Pool } = require('pg')
 
 const pool = new Pool({
   host: 'postgres',
-  max: 20,          // Max 20 connections
+  max: 20, // Max 20 connections
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 })
 ```
 
 **Indexes:**
+
 ```sql
 -- Speed up queries
 CREATE INDEX idx_users_email ON users(email);
@@ -1227,6 +1307,7 @@ CREATE INDEX idx_servers_status ON servers(status);
 ### Performance Monitoring
 
 **Key metrics:**
+
 - Request rate (requests/second)
 - Response time (p50, p95, p99)
 - Error rate (%)
@@ -1235,6 +1316,7 @@ CREATE INDEX idx_servers_status ON servers(status);
 - Disk I/O (MB/s)
 
 **Tools:**
+
 - Prometheus metrics
 - Grafana dashboards
 - Docker stats
@@ -1247,6 +1329,7 @@ CREATE INDEX idx_servers_status ON servers(status);
 ### Common Issues
 
 **Issue: Container won't start**
+
 ```bash
 # Check logs
 docker logs vpn-api
@@ -1259,6 +1342,7 @@ docker logs vpn-api
 ```
 
 **Issue: Service unreachable**
+
 ```bash
 # Check if running
 docker ps | grep vpn-api
@@ -1271,6 +1355,7 @@ docker exec vpn-nginx curl http://api:3000/health
 ```
 
 **Issue: Out of memory**
+
 ```bash
 # Check resource usage
 docker stats
@@ -1283,6 +1368,7 @@ deploy:
 ```
 
 **Issue: Slow performance**
+
 ```bash
 # Check logs for errors
 docker logs vpn-api | grep ERROR
@@ -1297,6 +1383,7 @@ docker exec vpn-redis redis-cli INFO stats
 ### Debugging Commands
 
 **Container inspection:**
+
 ```bash
 # Detailed info
 docker inspect vpn-api
@@ -1309,6 +1396,7 @@ docker exec vpn-api env
 ```
 
 **Network debugging:**
+
 ```bash
 # Test DNS resolution
 docker exec vpn-api nslookup postgres
@@ -1321,6 +1409,7 @@ docker exec vpn-api netstat -tulpn
 ```
 
 **Resource usage:**
+
 ```bash
 # Real-time stats
 docker stats
@@ -1335,6 +1424,7 @@ docker system prune -a --volumes
 ### Log Analysis
 
 **Search logs:**
+
 ```bash
 # Find errors
 docker logs vpn-api 2>&1 | grep -i error
@@ -1347,6 +1437,7 @@ docker logs vpn-api 2>&1 | grep -c ERROR
 ```
 
 **Export logs:**
+
 ```bash
 # Save to file
 docker logs vpn-api > api-logs.txt
@@ -1362,6 +1453,7 @@ docker logs -t vpn-api > api-logs-timestamped.txt
 ### Regular Maintenance
 
 **Weekly tasks:**
+
 ```bash
 # Check logs for errors
 docker compose logs | grep ERROR
@@ -1375,6 +1467,7 @@ docker system df
 ```
 
 **Monthly tasks:**
+
 ```bash
 # Update images
 docker compose pull
@@ -1390,6 +1483,7 @@ docker logs --since 30d vpn-api > archive.log
 ### Backup Strategy
 
 **Database backups:**
+
 ```bash
 # Automated daily backup script
 #!/bin/bash
@@ -1401,6 +1495,7 @@ find . -name "backup_*.sql" -mtime +7 -delete
 ```
 
 **Volume backups:**
+
 ```bash
 # Backup postgres data
 docker run --rm -v postgres-data:/data -v $(pwd):/backup alpine tar czf /backup/postgres-backup.tar.gz /data
@@ -1410,6 +1505,7 @@ docker run --rm -v postgres-data:/data -v $(pwd):/backup alpine tar xzf /backup/
 ```
 
 **Configuration backups:**
+
 ```bash
 # Backup all configs
 tar czf configs-backup.tar.gz infrastructure/docker/
@@ -1425,6 +1521,7 @@ git push
 **Recovery plan:**
 
 **1. Data loss:**
+
 ```bash
 # Stop services
 docker compose down
@@ -1441,6 +1538,7 @@ docker exec vpn-postgres psql -U postgres -c "SELECT count(*) FROM users;"
 ```
 
 **2. Complete server failure:**
+
 ```bash
 # On new server:
 # 1. Install Docker
@@ -1545,4 +1643,4 @@ http://localhost:5001/health         - Python AI
 
 ---
 
-*Master this guide and you'll confidently manage infrastructure for years to come!* 🏗️
+_Master this guide and you'll confidently manage infrastructure for years to come!_ 🏗️

@@ -1,0 +1,414 @@
+# ==============================================
+# RELEASE AUTOMATION
+# ==============================================
+# Automated release creation with semantic versioning
+# Generates changelogs, tags, and GitHub releases
+
+name: Release Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+      changelog_only:
+        description: 'Only generate changelog (no release)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
+jobs:
+  # ==============================================
+  # VERSION CALCULATION
+  # ==============================================
+  calculate-version:
+    name: Calculate Next Version
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      previous_version: ${{ steps.version.outputs.previous_version }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for changelog
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get latest version
+        id: get-version
+        run: |
+          # Get latest git tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "Latest version: ${LATEST_TAG}"
+
+      - name: Calculate new version
+        id: version
+        run: |
+          LATEST_TAG="${{ steps.get-version.outputs.latest_tag }}"
+          VERSION=${LATEST_TAG#v}  # Remove 'v' prefix
+
+          # Split version into parts
+          IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
+          MAJOR=${VERSION_PARTS[0]:-0}
+          MINOR=${VERSION_PARTS[1]:-0}
+          PATCH=${VERSION_PARTS[2]:-0}
+
+          # Bump version based on input
+          case "${{ inputs.version_bump }}" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+
+          echo "previous_version=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "new_version=v${NEW_VERSION}" >> $GITHUB_OUTPUT
+
+          echo "Previous version: ${LATEST_TAG}"
+          echo "New version: v${NEW_VERSION}"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREVIOUS_TAG="${{ steps.version.outputs.previous_version }}"
+
+          echo "## What's Changed" > changelog.md
+          echo "" >> changelog.md
+
+          # Get commits since last tag
+          git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" >> changelog.md
+
+          echo "" >> changelog.md
+          echo "" >> changelog.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...v${{ steps.version.outputs.new_version }}" >> changelog.md
+
+          # Save changelog for later use
+          CHANGELOG=$(cat changelog.md)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          cat changelog.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          cat changelog.md
+
+      - name: Upload changelog
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: changelog.md
+          retention-days: 30
+
+  # ==============================================
+  # BUILD RELEASE ASSETS
+  # ==============================================
+  build-assets:
+    name: Build Release Assets
+    runs-on: ubuntu-latest
+    needs: calculate-version
+    if: inputs.changelog_only != true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build packages
+        run: |
+          # Build API
+          cd packages/api
+          npm run build
+          cd ../..
+
+          # Build Web Dashboard
+          cd apps/web-dashboard
+          npm run build
+          cd ../..
+
+      - name: Create release archives
+        run: |
+          mkdir -p release-assets
+
+          # API release
+          tar -czf release-assets/vpn-enterprise-api-${{ needs.calculate-version.outputs.new_version }}.tar.gz \
+            packages/api/dist \
+            packages/api/package.json \
+            packages/api/README.md
+
+          # Web Dashboard release
+          tar -czf release-assets/vpn-enterprise-web-${{ needs.calculate-version.outputs.new_version }}.tar.gz \
+            apps/web-dashboard/.next \
+            apps/web-dashboard/public \
+            apps/web-dashboard/package.json \
+            apps/web-dashboard/README.md
+
+      - name: Generate checksums
+        run: |
+          cd release-assets
+          sha256sum *.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: release-assets/
+          retention-days: 30
+
+  # ==============================================
+  # BUILD AND PUSH DOCKER IMAGES
+  # ==============================================
+  build-images:
+    name: Build Release Images
+    runs-on: ubuntu-latest
+    needs: calculate-version
+    if: inputs.changelog_only != true
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        service: [api, web, python-api]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service == 'python-api' && 'flask' || '.' }}
+          file: ${{ matrix.service == 'python-api' && 'flask/Dockerfile' || format('infrastructure/docker/Dockerfile.{0}', matrix.service) }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/${{ matrix.service }}:${{ needs.calculate-version.outputs.new_version }}
+            ghcr.io/${{ github.repository }}/${{ matrix.service }}:latest
+          labels: |
+            org.opencontainers.image.version=${{ needs.calculate-version.outputs.new_version }}
+            org.opencontainers.image.created=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ==============================================
+  # CREATE GITHUB RELEASE
+  # ==============================================
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [calculate-version, build-assets, build-images]
+    if: inputs.changelog_only != true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release-assets/
+
+      - name: Download changelog
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog
+
+      - name: Update package.json versions
+        run: |
+          NEW_VERSION="${{ needs.calculate-version.outputs.new_version }}"
+          VERSION_NUM=${NEW_VERSION#v}  # Remove 'v' prefix
+
+          # Update root package.json
+          npm version $VERSION_NUM --no-git-tag-version
+
+          # Update all workspace packages
+          npm version $VERSION_NUM --workspaces --no-git-tag-version || true
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add package*.json */package.json */*/package.json
+          git commit -m "chore: bump version to ${{ needs.calculate-version.outputs.new_version }}" || true
+          git push origin main
+
+      - name: Create git tag
+        run: |
+          git tag -a "${{ needs.calculate-version.outputs.new_version }}" \
+            -m "Release ${{ needs.calculate-version.outputs.new_version }}"
+          git push origin "${{ needs.calculate-version.outputs.new_version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.calculate-version.outputs.new_version }}
+          name: Release ${{ needs.calculate-version.outputs.new_version }}
+          body: ${{ needs.calculate-version.outputs.changelog }}
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+          files: |
+            release-assets/*.tar.gz
+            release-assets/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release summary
+        run: |
+          echo "## 🎉 Release Created!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.calculate-version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Type:** ${{ inputs.version_bump }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Pre-release:** ${{ inputs.prerelease }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Docker Images" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ github.repository }}/api:${{ needs.calculate-version.outputs.new_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ github.repository }}/web:${{ needs.calculate-version.outputs.new_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ github.repository }}/python-api:${{ needs.calculate-version.outputs.new_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Release Assets" >> $GITHUB_STEP_SUMMARY
+          ls -lh release-assets/ >> $GITHUB_STEP_SUMMARY
+
+  # ==============================================
+  # POST-RELEASE TASKS
+  # ==============================================
+  post-release:
+    name: Post-Release Tasks
+    runs-on: ubuntu-latest
+    needs: [calculate-version, create-release]
+    if: inputs.changelog_only != true
+
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: |
+            🎉 New release published!
+
+            **Version:** ${{ needs.calculate-version.outputs.new_version }}
+            **Type:** ${{ inputs.version_bump }}
+
+            View release: https://github.com/${{ github.repository }}/releases/tag/${{ needs.calculate-version.outputs.new_version }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Trigger deployment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Trigger deployment to staging first
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy-env.yml',
+              ref: 'main',
+              inputs: {
+                environment: 'staging',
+                services: 'all',
+                version: '${{ needs.calculate-version.outputs.new_version }}'
+              }
+            });
+
+      - name: Create next milestone
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const version = '${{ needs.calculate-version.outputs.new_version }}';
+            const versionParts = version.replace('v', '').split('.');
+            const nextMinor = `v${versionParts[0]}.${parseInt(versionParts[1]) + 1}.0`;
+
+            try {
+              await github.rest.issues.createMilestone({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: nextMinor,
+                description: `Next release milestone`
+              });
+              console.log(`Created milestone: ${nextMinor}`);
+            } catch (error) {
+              console.log(`Milestone ${nextMinor} might already exist`);
+            }
+
+  # ==============================================
+  # CHANGELOG ONLY MODE
+  # ==============================================
+  changelog-only:
+    name: Generate Changelog Only
+    runs-on: ubuntu-latest
+    needs: calculate-version
+    if: inputs.changelog_only == true
+
+    steps:
+      - name: Download changelog
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog
+
+      - name: Display changelog
+        run: |
+          echo "## Generated Changelog" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat changelog.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Create PR with changelog
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: 'docs: update changelog for ${{ needs.calculate-version.outputs.new_version }}'
+          title: 'docs: Changelog for ${{ needs.calculate-version.outputs.new_version }}'
+          body: ${{ needs.calculate-version.outputs.changelog }}
+          branch: changelog-${{ needs.calculate-version.outputs.new_version }}
+          delete-branch: true

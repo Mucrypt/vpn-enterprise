@@ -40,6 +40,7 @@ docker ps | grep nginx
 ```
 
 **Example:**
+
 ```
 Request: /api/ai/generate
 
@@ -91,13 +92,13 @@ return 301 https://$host$request_uri;
 
 ## 🐛 Error Codes Cheat Sheet
 
-| Code | Meaning | Common Cause | Fix |
-|------|---------|--------------|-----|
-| 502 | Bad Gateway | Backend down/wrong port | Check container, restart nginx |
-| 504 | Gateway Timeout | Backend slow | Increase `proxy_read_timeout` |
-| 413 | Request Too Large | Upload too big | Increase `client_max_body_size` |
-| 400 | Bad Request | Missing headers | Add `proxy_set_header Host` |
-| 301 | Moved Permanently | Redirect | Check `return 301` or `rewrite` |
+| Code | Meaning           | Common Cause            | Fix                             |
+| ---- | ----------------- | ----------------------- | ------------------------------- |
+| 502  | Bad Gateway       | Backend down/wrong port | Check container, restart nginx  |
+| 504  | Gateway Timeout   | Backend slow            | Increase `proxy_read_timeout`   |
+| 413  | Request Too Large | Upload too big          | Increase `client_max_body_size` |
+| 400  | Bad Request       | Missing headers         | Add `proxy_set_header Host`     |
+| 301  | Moved Permanently | Redirect                | Check `return 301` or `rewrite` |
 
 ---
 
@@ -152,6 +153,7 @@ keepalive_timeout 65;
 ## 🔍 Debugging Snippets
 
 ### Add location identifier
+
 ```nginx
 location ^~ /api/ {
     add_header X-Nginx-Location "api-block" always;
@@ -160,18 +162,21 @@ location ^~ /api/ {
 ```
 
 ### Log variables
+
 ```nginx
 error_log /var/log/nginx/error.log debug;
 access_log /var/log/nginx/access.log;
 ```
 
 ### Test DNS resolution
+
 ```bash
 docker exec vpn-nginx nslookup web
 docker exec vpn-nginx nslookup api
 ```
 
 ### Test backend directly
+
 ```bash
 docker exec vpn-nginx curl http://web:3000/health
 docker exec vpn-nginx curl http://api:5000/health
@@ -202,23 +207,23 @@ Domain: chatbuilds.com
 # In prod/conf.d/00-router.conf
 location ^~ /myservice/ {
     set $myservice_upstream myservice:8080;
-    
+
     # Strip prefix if needed
     rewrite ^/myservice/(.*)$ /$1 break;
-    
+
     proxy_pass http://$myservice_upstream;
     proxy_http_version 1.1;
-    
+
     # Standard headers
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    
+
     # WebSocket support
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
-    
+
     # Timeouts
     proxy_connect_timeout 60s;
     proxy_read_timeout 300s;
@@ -256,12 +261,12 @@ location /api/ {
     add_header Access-Control-Allow-Origin "*" always;
     add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE" always;
     add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
-    
+
     # Handle preflight
     if ($request_method = OPTIONS) {
         return 204;
     }
-    
+
     proxy_pass http://api:5000;
 }
 ```
@@ -297,6 +302,7 @@ git push
 ## 🆘 Emergency Fixes
 
 ### Nginx won't start
+
 ```bash
 # Check config syntax
 docker exec vpn-nginx nginx -t
@@ -311,6 +317,7 @@ docker logs vpn-nginx
 ```
 
 ### 502 Bad Gateway
+
 ```bash
 # Check backend is running
 docker ps | grep web
@@ -329,6 +336,7 @@ docker exec vpn-nginx curl http://web:3000/
 ```
 
 ### Can't reach container
+
 ```bash
 # Check Docker network
 docker network ls
@@ -342,6 +350,7 @@ docker exec web netstat -tlnp
 ```
 
 ### Logs filling up disk
+
 ```bash
 # Check log size
 docker exec vpn-nginx du -sh /var/log/nginx/
@@ -363,10 +372,12 @@ docker compose restart nginx
 **Official Docs:** https://nginx.org/en/docs/
 
 **Your Config Files:**
+
 - `prod/nginx.conf` - Main config
 - `prod/conf.d/00-router.conf` - Routing logic
 
 **Test Configs:**
+
 - SSL Test: https://www.ssllabs.com/ssltest/
 - Headers: https://securityheaders.com/
 
@@ -386,4 +397,4 @@ docker compose restart nginx
 
 **Keep this card handy!** 🎯
 
-*Last updated: February 1, 2026*
+_Last updated: February 1, 2026_
