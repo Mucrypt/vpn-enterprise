@@ -195,7 +195,7 @@ if [[ "$CHECK_STATUS" == "y" ]]; then
         curl -sf https://chatbuilds.com/ -o /dev/null && echo -e "${GREEN}✅ Healthy${NC}" || echo -e "${RED}❌ Down${NC}"
         
         echo -n "  Python API:  "
-        curl -sf https://chatbuilds.com/api/ai/health -o /dev/null && echo -e "${GREEN}✅ Healthy${NC}" || echo -e "${RED}❌ Down${NC}"
+        ssh $SERVER_USER@$SERVER_HOST "docker exec vpn-python-api curl -sf http://localhost:5001/health" > /dev/null && echo -e "${GREEN}✅ Healthy${NC}" || echo -e "${RED}❌ Down${NC}"
         
         echo -n "  NexusAI:     "
         curl -sf https://chatbuilds.com/nexusai/ -o /dev/null && echo -e "${GREEN}✅ Healthy${NC}" || echo -e "${RED}❌ Down${NC}"
