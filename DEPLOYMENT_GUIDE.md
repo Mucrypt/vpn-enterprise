@@ -9,6 +9,7 @@ npm run deploy
 ```
 
 This will:
+
 1. ✅ Check your current branch and uncommitted changes
 2. 📝 Commit and push your changes to GitHub
 3. 🔄 Trigger the CI/CD pipeline automatically
@@ -18,17 +19,20 @@ This will:
 ## What Happens During Deployment
 
 ### Step 1: Pre-flight Checks
+
 - Verifies GitHub CLI is installed
 - Checks current branch (switches to `main` if needed)
 - Validates environment
 
 ### Step 2: Commit & Push
+
 - Prompts for commit message
 - Stages all changes (`git add .`)
 - Commits and pushes to GitHub
 - Triggers CI automatically on push
 
 ### Step 3: CI/CD Pipeline
+
 - Runs linting (API, Web, Python)
 - Runs tests (non-blocking)
 - Runs security scans (non-blocking)
@@ -36,6 +40,7 @@ This will:
 - All workflows run in parallel
 
 ### Step 4: Deploy to Live Server
+
 - Triggers `deploy-hetzner.yml` workflow
 - SSHs to server at 157.180.123.240
 - Pulls latest code
@@ -43,6 +48,7 @@ This will:
 - Reloads nginx configuration
 
 ### Step 5: Verification
+
 - Checks container health
 - Verifies service endpoints:
   - API: https://chatbuilds.com/api/health
@@ -87,7 +93,7 @@ Commit & Push → GitHub
      ↓
 CI Pipeline (Auto-triggered)
   ├─ Lint
-  ├─ Test  
+  ├─ Test
   ├─ Security Scan
   └─ Build
      ↓
@@ -111,6 +117,7 @@ export HETZNER_USER="root"
 ```
 
 Or they default to:
+
 - Host: 157.180.123.240
 - User: root
 
@@ -118,11 +125,11 @@ Or they default to:
 
 The deployment triggers these workflows automatically:
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `ci.yml` | Push to main | Lint, test, build |
-| `security-scan.yml` | Push to main | Security checks (non-blocking) |
-| `deploy-hetzner.yml` | Manual/CI success | Deploy to live server |
+| Workflow             | Trigger           | Purpose                        |
+| -------------------- | ----------------- | ------------------------------ |
+| `ci.yml`             | Push to main      | Lint, test, build              |
+| `security-scan.yml`  | Push to main      | Security checks (non-blocking) |
+| `deploy-hetzner.yml` | Manual/CI success | Deploy to live server          |
 
 ## Rollback
 
@@ -169,12 +176,14 @@ curl https://chatbuilds.com/nexusai/
 ## Troubleshooting
 
 ### "GitHub CLI not found"
+
 ```bash
 sudo apt install gh
 gh auth login
 ```
 
 ### "Could not connect to server"
+
 ```bash
 # Test SSH connection
 ssh root@157.180.123.240
@@ -184,11 +193,13 @@ ls -la ~/.ssh/id_ed25519
 ```
 
 ### "CI/CD failing"
+
 - Check: https://github.com/Mucrypt/vpn-enterprise/actions
 - Security scans are non-blocking - deployment continues even if they fail
 - Tests are non-blocking - deployment continues even if tests fail
 
 ### "Deployment stuck"
+
 ```bash
 # Check deployment status
 gh run list --workflow=deploy-hetzner.yml --limit 5
@@ -205,7 +216,7 @@ gh run view <run-id> --log
 ✅ **Health verification** - Automatic checks after deployment  
 ✅ **Interactive prompts** - Control each step  
 ✅ **Rollback support** - Quick recovery options  
-✅ **Real-time monitoring** - Watch progress live  
+✅ **Real-time monitoring** - Watch progress live
 
 ## Best Practices
 
@@ -219,6 +230,7 @@ gh run view <run-id> --log
 ---
 
 **Quick Reference:**
+
 ```bash
 npm run deploy              # Full deployment pipeline
 npm run hetzner:status      # Check server status
