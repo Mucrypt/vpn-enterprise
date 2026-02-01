@@ -13,6 +13,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "bash ./scripts/deploy-production.sh",
     "dev": "bash ./scripts/start-dev.sh",
     "dev:stop": "bash ./scripts/stop-dev.sh",
     "dev:all": "bash ./scripts/start-all.sh",
