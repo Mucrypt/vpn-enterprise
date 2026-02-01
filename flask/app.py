@@ -85,27 +85,21 @@ RATE_LIMITS = {
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    global redis_client
+    global http_client
     logger.info("🚀 FastAPI Python Service Starting...")
     logger.info(f"📡 Service Discovery: {len(SERVICES)} services configured")
     for name, url in SERVICES.items():
         logger.info(f"   • {name}: {url}")
     
-    # Initialize Redis connection
-    try:
-        redis_url = SERVICES["redis"]
-        redis_client = await redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
-        await redis_client.ping()
-        logger.info("✅ Redis connected successfully")
-    except Exception as e:
-        logger.error(f"❌ Redis connection failed: {e}")
-        redis_client = None
+    # Initialize HTTP client
+    http_client = httpx.AsyncClient(timeout=30.0)
+    logger.info("✅ HTTP client initialized successfully")
     
     yield
     
     # Shutdown
-    if redis_client:
-        await redis_client.close()
+    if http_client:
+        await http_client.aclose()
     logger.info("🛑 FastAPI Python Service Shutting Down...")
 
 app = FastAPI(
@@ -377,9 +371,10 @@ Provide the corrected query and explain what was wrong."""
             )
             
             if response.status_code != 200:
+                detail = f"AI service error: {response.text}"
                 raise HTTPException(
                     status_code=response.status_code,
-                    detail="AI service error"
+                    detail=detail
                 )
             
             data = response.json()
