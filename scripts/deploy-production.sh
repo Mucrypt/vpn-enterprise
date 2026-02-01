@@ -155,6 +155,10 @@ if [[ "$DEPLOY_NOW" == "y" ]]; then
             gh run watch $DEPLOY_RUN_ID --repo $REPO --exit-status
         fi
     fi
+    
+    # Wait a bit for deployment to start
+    echo -e "${BLUE}⏳ Waiting for deployment to start...${NC}"
+    sleep 10
 else
     echo -e "${YELLOW}⏭️  Skipping immediate deployment${NC}"
     echo "Deployment will auto-trigger when CI completes successfully"
@@ -191,7 +195,7 @@ if [[ "$CHECK_STATUS" == "y" ]]; then
         curl -sf https://chatbuilds.com/ -o /dev/null && echo -e "${GREEN}✅ Healthy${NC}" || echo -e "${RED}❌ Down${NC}"
         
         echo -n "  Python API:  "
-        curl -sf https://python-api.chatbuilds.com/health -o /dev/null && echo -e "${GREEN}✅ Healthy${NC}" || echo -e "${RED}❌ Down${NC}"
+        curl -sf https://chatbuilds.com/api/ai/health -o /dev/null && echo -e "${GREEN}✅ Healthy${NC}" || echo -e "${RED}❌ Down${NC}"
         
         echo -n "  NexusAI:     "
         curl -sf https://chatbuilds.com/nexusai/ -o /dev/null && echo -e "${GREEN}✅ Healthy${NC}" || echo -e "${RED}❌ Down${NC}"
