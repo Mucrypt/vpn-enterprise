@@ -21,6 +21,7 @@ from functools import wraps
 # AI Provider imports - Professional grade APIs
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
+from app_deployment import AppDeploymentService
 
 # Configure logging
 logging.basicConfig(
@@ -45,6 +46,10 @@ if OPENAI_API_KEY:
 if ANTHROPIC_API_KEY:
     anthropic_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     logger.info("✅ Anthropic client initialized")
+
+# Initialize deployment service
+deployment_service = AppDeploymentService()
+logger.info("✅ App deployment service initialized")
 
 # Service discovery
 SERVICES = {
@@ -370,28 +375,37 @@ async def generate_full_app(
     
     features_str = "\n".join([f"- {f}" for f in request.features]) if request.features else "- Basic CRUD operations\n- Responsive design\n- Error handling"
     
-    # Enhanced prompt for professional code generation with STRICT JSON output
-    system_prompt = """You are a code generation API that ONLY returns valid JSON. 
-You MUST respond with ONLY a JSON object - no markdown, no explanations, no additional text.
-Start your response with { and end with }."""
+    # Enhanced prompt for PLATFORM-READY code generation
+    system_prompt = """You are a code generation API for VPN Enterprise Platform.
+Generate production-ready apps that deploy directly to our platform.
+Apps have automatic database provisioning and hosting.
+ONLY return valid JSON - no markdown, no explanations.
+Start response with { and end with }."""
 
-    user_prompt = f"""Return a JSON object with the structure shown below. Generate a complete {request.framework} app for: {request.description}
+    user_prompt = f"""Generate a complete {request.framework} app: {request.description}
 
 Features: {features_str}
 Styling: {request.styling}
+Platform: VPN Enterprise (auto-provisioned Postgres database, Node.js hosting)
 
-Return ONLY this JSON (no markdown code blocks, no extra text):
+IMPORTANT - Use platform services:
+- Database: process.env.DATABASE_URL (auto-provided Postgres connection)
+- API endpoint: process.env.PLATFORM_API_URL
+- Authentication: Platform JWT tokens in headers
 
+Return ONLY this JSON structure:
 {{
   "files": [
-    {{"path": "src/App.tsx", "content": "import React from 'react';\\n\\nfunction App() {{ return <div>My App</div>; }}\\n\\nexport default App;", "language": "typescript"}},
-    {{"path": "package.json", "content": "{{\\"name\\":\\"app\\",\\"version\\":\\"1.0.0\\"}}", "language": "json"}}
+    {{"path": "src/App.tsx", "content": "import React from 'react';\\n\\nfunction App() {{\\n  return <div>My App</div>;\\n}}\\n\\nexport default App;", "language": "typescript"}},
+    {{"path": "package.json", "content": "{{\\"name\\":\\"app\\",\\"scripts\\":{{\\"dev\\":\\"vite\\",\\"build\\":\\"vite build\\"}}}}", "language": "json"}},
+    {{"path": ".env.example", "content": "DATABASE_URL=\\nPLATFORM_API_URL=\\nNODE_ENV=production", "language": "text"}}
   ],
-  "instructions": "1. npm install\\n2. npm run dev",
-  "dependencies": {{"react": "^18.3.0"}}
+  "instructions": "1. Install: npm install\\n2. Deploy: Click 'Deploy to Platform'\\n3. Database and hosting provisioned automatically",
+  "dependencies": {{"react": "^18.3.0", "vite": "^5.0.0"}},
+  "requires_database": true
 }}
 
-Generate 8-15 complete files. Your response MUST start with {{ and end with }}."""
+Generate 10-15 files. Response MUST be pure JSON starting with {{ and ending with }}."""
 
     try:
         # Call appropriate AI provider
@@ -476,6 +490,61 @@ Generate 8-15 complete files. Your response MUST start with {{ and end with }}."
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"AI service error: {str(e)}"
+        )
+
+# ============================================
+# APP DEPLOYMENT TO PLATFORM
+# ============================================
+
+class DeployAppRequest(BaseModel):
+    app_name: str = Field(..., min_length=1, max_length=50)
+    files: List[FileOutput]
+    dependencies: Dict[str, str]
+    framework: str = Field(default="react")
+    requires_database: bool = Field(default=True)
+    user_id: str  # From auth token
+
+class DeploymentResponse(BaseModel):
+    deployment_id: str
+    app_name: str
+    status: str
+    database: Optional[Dict[str, Any]] = None
+    hosting: Optional[Dict[str, Any]] = None
+    app_url: Optional[str] = None
+    environment: Optional[Dict[str, str]] = None
+    steps: List[Dict[str, str]]
+
+@app.post("/ai/deploy/app", response_model=DeploymentResponse)
+async def deploy_generated_app(request: DeployAppRequest):
+    """
+    Deploy an AI-generated app to the VPN Enterprise platform
+    - Creates tenant database (Postgres)
+    - Provisions hosting service
+    - Deploys files and dependencies
+    - Configures environment
+    - Returns live app URL
+    """
+    
+    logger.info(f"🚀 Deploying app: {request.app_name} for user: {request.user_id}")
+    
+    try:
+        # Deploy the app
+        result = await deployment_service.deploy_app(
+            user_id=request.user_id,
+            app_name=request.app_name,
+            files=[f.dict() for f in request.files],
+            dependencies=request.dependencies,
+            framework=request.framework,
+            requires_database=request.requires_database
+        )
+        
+        return DeploymentResponse(**result)
+        
+    except Exception as e:
+        logger.error(f"Deployment failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Deployment failed: {str(e)}"
         )
 
 # Legacy Ollama endpoints removed - Use OpenAI/Anthropic via /ai/generate/app

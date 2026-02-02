@@ -7,6 +7,9 @@ import {
   Download,
   Copy,
   Check,
+  Rocket,
+  Database,
+  Globe,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -25,6 +28,7 @@ import {
   useAI,
   type MultiFileGenerateResponse,
   type FileOutput,
+  type DeploymentResponse,
 } from '@/services/aiService'
 import {
   Select,
@@ -54,9 +58,12 @@ const AppBuilder = () => {
     useState<MultiFileGenerateResponse | null>(null)
   const [selectedFile, setSelectedFile] = useState<FileOutput | null>(null)
   const [copiedFile, setCopiedFile] = useState<string | null>(null)
+  const [deploying, setDeploying] = useState(false)
+  const [deployment, setDeployment] = useState<DeploymentResponse | null>(null)
+  const [appName, setAppName] = useState('')
 
   const { toast } = useToast()
-  const { generateFullApp } = useAI()
+  const { generateFullApp, deployApp } = useAI()
 
   const handleAddFeature = () => {
     if (featureInput.trim() && features.length < 10) {
@@ -162,6 +169,52 @@ const AppBuilder = () => {
     })
   }
 
+  const handleDeploy = async () => {
+    if (!generatedApp) return
+
+    const name =
+      appName.trim() ||
+      description.slice(0, 30).replace(/\s+/g, '-').toLowerCase()
+
+    if (!name) {
+      toast({
+        title: 'App Name Required',
+        description: 'Please enter an app name or description',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setDeploying(true)
+
+    try {
+      const result = await deployApp({
+        app_name: name,
+        files: generatedApp.files,
+        dependencies: generatedApp.dependencies,
+        framework: framework,
+        requires_database: generatedApp.requires_database ?? true,
+        user_id: 'demo-user', // TODO: Get from auth context
+      })
+
+      setDeployment(result)
+
+      toast({
+        title: '🚀 App Deployed!',
+        description: `Your app is live at ${result.app_url}`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Deployment Failed',
+        description:
+          error instanceof Error ? error.message : 'Failed to deploy app',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeploying(false)
+    }
+  }
+
   return (
     <>
       <Helmet>
@@ -181,15 +234,15 @@ const AppBuilder = () => {
             <div className='inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-4'>
               <Sparkles className='h-4 w-4 text-primary' />
               <span className='text-sm font-medium text-primary'>
-                Powered by DeepSeek Coder V2
+                Powered by OpenAI & Anthropic - Deploy to Platform
               </span>
             </div>
             <h1 className='text-4xl font-bold tracking-tight mb-3'>
-              Build Apps with AI
+              Build & Deploy Apps with AI
             </h1>
             <p className='text-xl text-muted-foreground max-w-2xl mx-auto'>
-              Describe your app and get production-ready code with multiple
-              files, just like Cursor and Lovable
+              Generate production-ready code and deploy instantly to your
+              platform with automatic database and hosting
             </p>
           </div>
 
@@ -349,14 +402,35 @@ const AppBuilder = () => {
                     </CardDescription>
                   </div>
                   {generatedApp && (
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={handleDownloadAll}
-                    >
-                      <Download className='mr-2 h-4 w-4' />
-                      Download All
-                    </Button>
+                    <>
+                      <Button
+                        size='sm'
+                        variant='default'
+                        onClick={handleDeploy}
+                        disabled={deploying}
+                        className='bg-primary hover:bg-primary/90'
+                      >
+                        {deploying ? (
+                          <>
+                            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                            Deploying...
+                          </>
+                        ) : (
+                          <>
+                            <Rocket className='mr-2 h-4 w-4' />
+                            Deploy to Platform
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size='sm'
+                        variant='outline'
+                        onClick={handleDownloadAll}
+                      >
+                        <Download className='mr-2 h-4 w-4' />
+                        Download All
+                      </Button>
+                    </>
                   )}
                 </div>
               </CardHeader>
@@ -386,9 +460,12 @@ const AppBuilder = () => {
 
                 {generatedApp && (
                   <Tabs defaultValue='files' className='h-full flex flex-col'>
-                    <TabsList className='grid w-full grid-cols-2'>
+                    <TabsList className='grid w-full grid-cols-3'>
                       <TabsTrigger value='files'>Files</TabsTrigger>
                       <TabsTrigger value='instructions'>Setup</TabsTrigger>
+                      <TabsTrigger value='deployment'>
+                        {deployment ? '✅ Deployed' : 'Deploy'}
+                      </TabsTrigger>
                     </TabsList>
 
                     <TabsContent
@@ -473,6 +550,166 @@ const AppBuilder = () => {
                               {generatedApp.instructions}
                             </pre>
                           </div>
+                        </div>
+                      </ScrollArea>
+                    </TabsContent>
+
+                    <TabsContent value='deployment' className='flex-1'>
+                      <ScrollArea className='h-full'>
+                        <div className='space-y-6'>
+                          {!deployment && !deploying && (
+                            <div className='text-center py-12'>
+                              <Rocket className='h-16 w-16 mx-auto mb-4 text-muted-foreground' />
+                              <h3 className='text-lg font-semibold mb-2'>
+                                Ready to Deploy
+                              </h3>
+                              <p className='text-muted-foreground mb-6'>
+                                Deploy your app to VPN Enterprise Platform with
+                                automatic database and hosting
+                              </p>
+                              <div className='flex flex-col items-center gap-4 max-w-md mx-auto'>
+                                <input
+                                  type='text'
+                                  placeholder='App name (optional)'
+                                  value={appName}
+                                  onChange={(e) => setAppName(e.target.value)}
+                                  className='w-full px-4 py-2 border rounded-md'
+                                />
+                                <Button onClick={handleDeploy} size='lg'>
+                                  <Rocket className='mr-2 h-5 w-5' />
+                                  Deploy to Platform
+                                </Button>
+                              </div>
+                              <div className='mt-8 grid grid-cols-2 gap-4 text-sm'>
+                                <div className='flex items-center gap-2 justify-center'>
+                                  <Database className='h-4 w-4 text-primary' />
+                                  <span>Auto Postgres Database</span>
+                                </div>
+                                <div className='flex items-center gap-2 justify-center'>
+                                  <Globe className='h-4 w-4 text-primary' />
+                                  <span>Managed Hosting</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {deploying && (
+                            <div className='text-center py-12'>
+                              <Loader2 className='h-16 w-16 mx-auto mb-4 animate-spin text-primary' />
+                              <h3 className='text-lg font-semibold mb-2'>
+                                Deploying Your App...
+                              </h3>
+                              <p className='text-muted-foreground'>
+                                Setting up database, hosting, and deploying
+                                files
+                              </p>
+                            </div>
+                          )}
+
+                          {deployment && (
+                            <div className='space-y-4'>
+                              <div className='bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6'>
+                                <h3 className='text-lg font-semibold text-green-900 dark:text-green-100 mb-2'>
+                                  🎉 Deployment Successful!
+                                </h3>
+                                <p className='text-green-700 dark:text-green-300 mb-4'>
+                                  Your app is live and running
+                                </p>
+                                <div className='space-y-2'>
+                                  <div className='flex items-center gap-2'>
+                                    <Globe className='h-5 w-5' />
+                                    <a
+                                      href={deployment.app_url}
+                                      target='_blank'
+                                      rel='noopener noreferrer'
+                                      className='text-blue-600 hover:underline font-medium'
+                                    >
+                                      {deployment.app_url}
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {deployment.database && (
+                                <Card>
+                                  <CardHeader>
+                                    <CardTitle className='flex items-center gap-2'>
+                                      <Database className='h-5 w-5' />
+                                      Database
+                                    </CardTitle>
+                                  </CardHeader>
+                                  <CardContent className='space-y-2 text-sm'>
+                                    <div>
+                                      <span className='font-medium'>Name:</span>{' '}
+                                      {deployment.database.database_name}
+                                    </div>
+                                    <div>
+                                      <span className='font-medium'>
+                                        Tenant ID:
+                                      </span>{' '}
+                                      {deployment.database.tenant_id}
+                                    </div>
+                                    <div>
+                                      <span className='font-medium'>
+                                        Status:
+                                      </span>{' '}
+                                      <Badge variant='default'>Active</Badge>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+
+                              {deployment.hosting && (
+                                <Card>
+                                  <CardHeader>
+                                    <CardTitle className='flex items-center gap-2'>
+                                      <Globe className='h-5 w-5' />
+                                      Hosting
+                                    </CardTitle>
+                                  </CardHeader>
+                                  <CardContent className='space-y-2 text-sm'>
+                                    <div>
+                                      <span className='font-medium'>
+                                        Service ID:
+                                      </span>{' '}
+                                      {deployment.hosting.service_id}
+                                    </div>
+                                    <div>
+                                      <span className='font-medium'>
+                                        Domain:
+                                      </span>{' '}
+                                      {deployment.hosting.domain}
+                                    </div>
+                                    <div>
+                                      <span className='font-medium'>
+                                        Status:
+                                      </span>{' '}
+                                      <Badge variant='default'>
+                                        {deployment.hosting.status}
+                                      </Badge>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+
+                              {deployment.environment && (
+                                <Card>
+                                  <CardHeader>
+                                    <CardTitle>Environment Variables</CardTitle>
+                                  </CardHeader>
+                                  <CardContent>
+                                    <pre className='bg-muted p-3 rounded text-xs font-mono overflow-x-auto'>
+                                      {Object.entries(deployment.environment)
+                                        .map(
+                                          ([key, value]) => `${key}=${value}`,
+                                        )
+                                        .join('\n')}
+                                    </pre>
+                                  </CardContent>
+                                </Card>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </ScrollArea>
                     </TabsContent>

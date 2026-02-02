@@ -42,6 +42,35 @@ export interface MultiFileGenerateResponse {
   files: FileOutput[]
   instructions: string
   dependencies: Record<string, string>
+  requires_database?: boolean
+}
+
+export interface DeployAppRequest {
+  app_name: string
+  files: FileOutput[]
+  dependencies: Record<string, string>
+  framework: string
+  requires_database: boolean
+  user_id: string
+}
+
+export interface DeploymentResponse {
+  deployment_id: string
+  app_name: string
+  status: string
+  database?: {
+    tenant_id: string
+    database_name: string
+    connection_string: string
+  }
+  hosting?: {
+    service_id: string
+    domain: string
+    status: string
+  }
+  app_url?: string
+  environment?: Record<string, string>
+  steps: Array<{ step: string; status: string }>
 }
 
 export interface SQLAssistRequest {
@@ -365,6 +394,24 @@ Return only the completion text that should be inserted at the cursor, no explan
 
     return response.response
   }
+
+  // Deploy app to VPN Enterprise Platform
+  async deployApp(request: DeployAppRequest): Promise<DeploymentResponse> {
+    const response = await fetch(`${this.baseURL}/deploy/app`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ detail: 'Deployment failed' }))
+      throw new Error(error.detail || `Deployment Error: ${response.status}`)
+    }
+
+    return response.json()
+  }
 }
 
 // Export singleton instance
@@ -394,6 +441,9 @@ export function useAI(apiKey?: string) {
     generateAPI: (desc: string) => service.generateAPI(desc),
     completeCode: (code: string, cursor: number) =>
       service.completeCode(code, cursor),
+
+    // Platform deployment
+    deployApp: (req: DeployAppRequest) => service.deployApp(req),
 
     // API key management
     setAPIKey: (key: string) => service.setAPIKey(key),
