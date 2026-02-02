@@ -50,6 +50,7 @@ from contextlib import asynccontextmanager
 import hashlib
 import json
 import time
+import redis # type: ignore
 
 # Configure logging
 logging.basicConfig(
