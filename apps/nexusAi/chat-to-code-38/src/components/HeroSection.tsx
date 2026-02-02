@@ -8,27 +8,18 @@ import {
   MessageSquare,
   Mic,
   Send,
-  Settings,
   Code,
   Database,
   Eye,
   Download,
   Copy,
-  Check,
   Sparkles,
   Zap,
+  Rocket,
+  Terminal,
+  Cloud,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AIService } from '@/services/aiService'
 
@@ -44,10 +35,7 @@ interface Message {
 const HeroSection = () => {
   const [inputValue, setInputValue] = useState('')
   const [isRecording, setIsRecording] = useState(false)
-  const [showAPIKeyDialog, setShowAPIKeyDialog] = useState(false)
-  const [apiKey, setApiKey] = useState('')
   const [aiService] = useState(() => new AIService(undefined, true))
-  const [hasApiKey, setHasApiKey] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
@@ -55,12 +43,6 @@ const HeroSection = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const stored = localStorage.getItem('nexusai_api_key')
-    setHasApiKey(!!stored)
-    if (!stored) {
-      setTimeout(() => setShowAPIKeyDialog(true), 2000)
-    }
-
     // Welcome message
     setMessages([
       {
@@ -75,14 +57,6 @@ const HeroSection = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
-
-  const handleSaveApiKey = () => {
-    if (apiKey.trim()) {
-      aiService.setAPIKey(apiKey)
-      setHasApiKey(true)
-      setShowAPIKeyDialog(false)
-    }
-  }
 
   const detectIntentAndGenerate = async (userMessage: string) => {
     const lowerMsg = userMessage.toLowerCase()
@@ -181,11 +155,6 @@ const HeroSection = () => {
   const handleSend = async () => {
     if (!inputValue.trim()) return
 
-    if (!hasApiKey) {
-      setShowAPIKeyDialog(true)
-      return
-    }
-
     const userMessage = inputValue
     setInputValue('')
     setIsGenerating(true)
@@ -255,43 +224,96 @@ const HeroSection = () => {
   return (
     <section className='relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-16'>
       {/* Background gradient effect */}
-      <div className='absolute inset-0 bg-gradient-hero animate-pulse-glow' />
+      <div className='absolute inset-0 bg-gradient-to-b from-background via-primary/5 to-purple-600/10' />
+      <div className='absolute inset-0 bg-gradient-hero animate-pulse-glow opacity-30' />
 
       {/* Content */}
       <div className='container mx-auto px-6 relative z-10 flex flex-col items-center text-center'>
         {/* Promotional Badge */}
         <div className='mb-8 animate-fade-up'>
-          <a
-            href='#'
-            className='inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/60 border border-border hover:bg-secondary/80 transition-colors group'
-          >
-            <span className='text-lg'>🎁</span>
-            <span className='text-sm text-muted-foreground group-hover:text-foreground transition-colors'>
-              Buy a NexusAI gift card
+          <div className='inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border-2 border-primary/20'>
+            <span className='text-lg'>🚀</span>
+            <span className='text-sm font-medium text-primary'>
+              More Powerful Than Cursor & Lovable Combined
             </span>
-            <ArrowRight className='w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors' />
-          </a>
+            <Sparkles className='w-4 h-4 text-primary' />
+          </div>
         </div>
 
         {/* Main Headline */}
         <h1
-          className='text-4xl md:text-6xl lg:text-7xl font-semibold leading-tight mb-6 animate-fade-up'
+          className='text-5xl md:text-6xl lg:text-8xl font-bold leading-tight mb-6 animate-fade-up'
           style={{ animationDelay: '0.1s' }}
         >
-          Build something{' '}
-          <span className='inline-flex items-center gap-2'>
-            <span className='text-primary'>🧡</span>
-            <span className='text-gradient'>NexusAI</span>
+          Build. Preview. Deploy.
+          <br />
+          <span className='bg-gradient-to-r from-primary via-purple-600 to-pink-600 bg-clip-text text-transparent'>
+            All in One Place.
           </span>
         </h1>
 
         {/* Subtitle */}
         <p
-          className='text-lg md:text-xl text-muted-foreground mb-8 animate-fade-up'
+          className='text-xl md:text-2xl text-muted-foreground mb-4 max-w-3xl animate-fade-up'
           style={{ animationDelay: '0.2s' }}
         >
-          Create apps and websites by chatting with AI
+          Generate full-stack apps with AI, preview them live, and deploy to
+          your own platform
         </p>
+        <p
+          className='text-lg text-muted-foreground/80 mb-10 max-w-2xl animate-fade-up'
+          style={{ animationDelay: '0.3s' }}
+        >
+          Complete with automatic database provisioning, hosting, and live URLs
+          - all without leaving your browser
+        </p>
+
+        {/* CTA Buttons */}
+        <div
+          className='flex flex-col sm:flex-row gap-4 mb-12 animate-fade-up'
+          style={{ animationDelay: '0.4s' }}
+        >
+          <Link to='/builder'>
+            <Button
+              size='lg'
+              className='group text-lg px-8 py-6 bg-gradient-to-r from-primary to-purple-600 text-white hover:opacity-90 shadow-lg hover:shadow-xl transition-all'
+            >
+              <Rocket className='mr-2 h-5 w-5 group-hover:translate-y-[-2px] transition-transform' />
+              Launch Builder
+            </Button>
+          </Link>
+          <Button
+            size='lg'
+            variant='outline'
+            className='text-lg px-8 py-6 border-2'
+          >
+            <Eye className='mr-2 h-5 w-5' />
+            Watch Demo
+          </Button>
+        </div>
+
+        {/* Feature Highlights */}
+        <div
+          className='grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mb-16 animate-fade-up'
+          style={{ animationDelay: '0.5s' }}
+        >
+          <div className='flex flex-col items-center p-4 rounded-lg bg-background/50 border border-primary/20 hover:border-primary/40 transition-colors'>
+            <Code className='h-8 w-8 text-primary mb-2' />
+            <span className='text-sm font-medium'>AI Generation</span>
+          </div>
+          <div className='flex flex-col items-center p-4 rounded-lg bg-background/50 border border-purple-500/20 hover:border-purple-500/40 transition-colors'>
+            <Eye className='h-8 w-8 text-purple-500 mb-2' />
+            <span className='text-sm font-medium'>Live Preview</span>
+          </div>
+          <div className='flex flex-col items-center p-4 rounded-lg bg-background/50 border border-pink-500/20 hover:border-pink-500/40 transition-colors'>
+            <Terminal className='h-8 w-8 text-pink-500 mb-2' />
+            <span className='text-sm font-medium'>Terminal</span>
+          </div>
+          <div className='flex flex-col items-center p-4 rounded-lg bg-background/50 border border-green-500/20 hover:border-green-500/40 transition-colors'>
+            <Cloud className='h-8 w-8 text-green-500 mb-2' />
+            <span className='text-sm font-medium'>One-Click Deploy</span>
+          </div>
+        </div>
 
         {/* CTA Button - App Builder */}
         <div
@@ -526,17 +548,6 @@ const HeroSection = () => {
 
               {/* Right Actions */}
               <div className='flex items-center gap-2'>
-                {/* Settings for API Key */}
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  onClick={() => setShowAPIKeyDialog(true)}
-                  className='h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary'
-                  title='API Key Settings'
-                >
-                  <Settings className='w-5 h-5' />
-                </Button>
-
                 {/* Send Button */}
                 <Button
                   onClick={handleSend}
@@ -557,58 +568,6 @@ const HeroSection = () => {
           </div>
         </div>
       </div>
-
-      {/* API Key Dialog */}
-      <Dialog open={showAPIKeyDialog} onOpenChange={setShowAPIKeyDialog}>
-        <DialogContent className='sm:max-w-md'>
-          <DialogHeader>
-            <DialogTitle className='flex items-center gap-2'>
-              <Settings className='w-5 h-5' />
-              API Key Setup
-            </DialogTitle>
-            <DialogDescription>
-              Enter your VPN Enterprise AI API key to use NexusAI features.
-            </DialogDescription>
-          </DialogHeader>
-          <div className='grid gap-4 py-4'>
-            <div className='grid gap-2'>
-              <Label htmlFor='api-key'>API Key</Label>
-              <Input
-                id='api-key'
-                type='password'
-                placeholder='vpn_...'
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className='font-mono text-sm'
-              />
-            </div>
-            {hasApiKey && (
-              <div className='flex items-center gap-2 text-sm text-green-600 dark:text-green-400'>
-                <Check className='w-4 h-4' />
-                API key is configured and active
-              </div>
-            )}
-            <div className='p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm'>
-              <p className='font-medium text-yellow-900 dark:text-yellow-200 mb-1'>
-                Demo Key:
-              </p>
-              <code className='text-xs break-all text-yellow-800 dark:text-yellow-300'>
-                vpn_U5zBa_Ze2a4g5zVcJgl1d9ZLXlDJs6uSOTtlO0QRnTg
-              </code>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type='submit'
-              onClick={handleSaveApiKey}
-              disabled={!apiKey.trim()}
-              className='w-full'
-            >
-              Save API Key
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   )
 }

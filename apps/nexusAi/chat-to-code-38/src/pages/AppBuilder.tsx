@@ -10,7 +10,11 @@ import {
   Rocket,
   Database,
   Globe,
+  Eye,
+  Terminal as TerminalIcon,
 } from 'lucide-react'
+import { CodePreview, LivePreview } from '@/components/CodePreview'
+import { Terminal } from '@/components/Terminal'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -460,8 +464,19 @@ const AppBuilder = () => {
 
                 {generatedApp && (
                   <Tabs defaultValue='files' className='h-full flex flex-col'>
-                    <TabsList className='grid w-full grid-cols-3'>
-                      <TabsTrigger value='files'>Files</TabsTrigger>
+                    <TabsList className='grid w-full grid-cols-5'>
+                      <TabsTrigger value='files'>
+                        <FileCode2 className='h-4 w-4 mr-2' />
+                        Files
+                      </TabsTrigger>
+                      <TabsTrigger value='preview'>
+                        <Eye className='h-4 w-4 mr-2' />
+                        Preview
+                      </TabsTrigger>
+                      <TabsTrigger value='terminal'>
+                        <TerminalIcon className='h-4 w-4 mr-2' />
+                        Terminal
+                      </TabsTrigger>
                       <TabsTrigger value='instructions'>Setup</TabsTrigger>
                       <TabsTrigger value='deployment'>
                         {deployment ? '✅ Deployed' : 'Deploy'}
@@ -515,10 +530,25 @@ const AppBuilder = () => {
                                   )}
                                 </Button>
                               </div>
-                              <ScrollArea className='flex-1 p-4'>
-                                <pre className='text-xs font-mono'>
-                                  <code>{selectedFile.content}</code>
-                                </pre>
+                              <ScrollArea className='flex-1'>
+                                <CodePreview
+                                  code={selectedFile.content}
+                                  language={
+                                    selectedFile.path.endsWith('.tsx') ||
+                                    selectedFile.path.endsWith('.ts')
+                                      ? 'typescript'
+                                      : selectedFile.path.endsWith('.jsx') ||
+                                          selectedFile.path.endsWith('.js')
+                                        ? 'javascript'
+                                        : selectedFile.path.endsWith('.css')
+                                          ? 'css'
+                                          : selectedFile.path.endsWith('.json')
+                                            ? 'json'
+                                            : selectedFile.path.endsWith('.py')
+                                              ? 'python'
+                                              : 'typescript'
+                                  }
+                                />
                               </ScrollArea>
                             </>
                           )}
@@ -552,6 +582,51 @@ const AppBuilder = () => {
                           </div>
                         </div>
                       </ScrollArea>
+                    </TabsContent>
+
+                    <TabsContent value='preview' className='flex-1 h-full'>
+                      <div className='h-full border rounded-md p-4'>
+                        <div className='mb-4'>
+                          <h3 className='font-semibold mb-2 flex items-center gap-2'>
+                            <Eye className='h-4 w-4' />
+                            Live Preview
+                          </h3>
+                          <p className='text-sm text-muted-foreground'>
+                            Preview your React app in real-time
+                          </p>
+                        </div>
+                        <div className='h-[calc(100%-4rem)]'>
+                          {selectedFile &&
+                          (selectedFile.path.includes('.tsx') ||
+                            selectedFile.path.includes('.jsx')) ? (
+                            <LivePreview
+                              code={selectedFile.content}
+                              framework={framework}
+                            />
+                          ) : (
+                            <div className='flex items-center justify-center h-full border-2 border-dashed rounded-lg'>
+                              <div className='text-center text-muted-foreground'>
+                                <Eye className='h-12 w-12 mx-auto mb-2 opacity-50' />
+                                <p>Select a React component to preview</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value='terminal' className='flex-1 h-full'>
+                      <div className='h-full'>
+                        <Terminal
+                          onCommand={(cmd) => {
+                            console.log('Command executed:', cmd)
+                            toast({
+                              title: 'Command Executed',
+                              description: cmd,
+                            })
+                          }}
+                        />
+                      </div>
                     </TabsContent>
 
                     <TabsContent value='deployment' className='flex-1'>
