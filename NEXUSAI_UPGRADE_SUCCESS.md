@@ -9,18 +9,21 @@ Your NexusAI has been successfully upgraded to generate **full applications** li
 ## ✅ What Was Completed
 
 ### 1. Model Installation
+
 - ✅ Installed: `deepseek-coder-v2:16b` (8.9 GB)
 - ✅ Model location: Hetzner server (157.180.123.240)
 - ✅ Context window: 128K tokens
 - ✅ Verified: Model pulled successfully
 
 ### 2. Configuration Updates
+
 - ✅ Updated: Ollama resources (8 cores, 32GB RAM)
 - ✅ Updated: Python API with new endpoints
 - ✅ Updated: Frontend service (aiService.ts)
 - ✅ Deployed: All changes to production
 
 ### 3. Services Status
+
 - ✅ Ollama: Running with new model
 - ✅ Python API: Restarted and healthy
 - ✅ Main API: Running
@@ -74,14 +77,14 @@ const app = await generateFullApp({
     'User authentication',
     'Post creation and editing',
     'Comments and likes',
-    'Real-time updates'
+    'Real-time updates',
   ],
-  styling: 'tailwind'
+  styling: 'tailwind',
 })
 
 // app.files contains all generated files!
 console.log(`Generated ${app.files.length} files`)
-app.files.forEach(file => {
+app.files.forEach((file) => {
   console.log(`- ${file.path}`)
 })
 ```
@@ -93,6 +96,7 @@ app.files.forEach(file => {
 ### What You Can Generate Now:
 
 ✅ **Full React Applications**
+
 - Complete component structure
 - Routing and navigation
 - State management
@@ -100,6 +104,7 @@ app.files.forEach(file => {
 - Styled with Tailwind/CSS
 
 ✅ **Next.js Projects**
+
 - App router or pages router
 - Server and client components
 - API routes
@@ -107,6 +112,7 @@ app.files.forEach(file => {
 - Complete configuration
 
 ✅ **Express/FastAPI Backends**
+
 - RESTful API endpoints
 - Authentication and authorization
 - Database models and migrations
@@ -114,6 +120,7 @@ app.files.forEach(file => {
 - Input validation
 
 ✅ **Complete Project Structures**
+
 - package.json with dependencies
 - Configuration files (tsconfig, vite, etc.)
 - Environment templates (.env.example)
@@ -155,6 +162,7 @@ ENDSSH
 ```
 
 Expected output:
+
 ```json
 {
   "files": [
@@ -167,7 +175,7 @@ Expected output:
       "path": "src/App.tsx",
       "content": "...",
       "language": "typescript"
-    },
+    }
     // ... more files
   ],
   "instructions": "1. npm install\n2. npm run dev\n...",
@@ -193,12 +201,12 @@ Expected output:
 
 Running locally vs cloud services:
 
-| Service | Monthly Cost | Your Cost |
-|---------|--------------|-----------|
-| **NexusAI (Self-hosted)** | $0 | Already running |
-| Cursor | $20/month | -$20 saved |
-| Lovable | $20/month | -$20 saved |
-| GitHub Copilot | $10/month | -$10 saved |
+| Service                   | Monthly Cost | Your Cost       |
+| ------------------------- | ------------ | --------------- |
+| **NexusAI (Self-hosted)** | $0           | Already running |
+| Cursor                    | $20/month    | -$20 saved      |
+| Lovable                   | $20/month    | -$20 saved      |
+| GitHub Copilot            | $10/month    | -$10 saved      |
 
 **Annual Savings:** $600/year
 
@@ -243,13 +251,13 @@ This frees up 1.3GB of storage.
 
 ### Quality Comparison:
 
-| Metric | Before (1B) | After (16B) | Improvement |
-|--------|-------------|-------------|-------------|
-| Code Quality | Basic | Professional | 5x better |
-| Context Understanding | Limited | Excellent | 10x better |
-| Multi-file Generation | ❌ No | ✅ Yes | New feature |
-| Error Handling | Poor | Excellent | 8x better |
-| Production Ready | ❌ No | ✅ Yes | New feature |
+| Metric                | Before (1B) | After (16B)  | Improvement |
+| --------------------- | ----------- | ------------ | ----------- |
+| Code Quality          | Basic       | Professional | 5x better   |
+| Context Understanding | Limited     | Excellent    | 10x better  |
+| Multi-file Generation | ❌ No       | ✅ Yes       | New feature |
+| Error Handling        | Poor        | Excellent    | 8x better   |
+| Production Ready      | ❌ No       | ✅ Yes       | New feature |
 
 ---
 
@@ -300,6 +308,7 @@ cat my-app.json | jq '.files[].path'
 ### Issue: Generation Takes Too Long
 
 **Solution:** Use smaller model for faster results:
+
 ```bash
 # Use qwen2.5-coder:7b (4GB, faster)
 ssh root@157.180.123.240 'docker exec vpn-ollama ollama pull qwen2.5-coder:7b'
@@ -310,6 +319,7 @@ Then update default in API.
 ### Issue: Out of Memory
 
 **Solution:** Monitor and adjust:
+
 ```bash
 # Check memory usage
 ssh root@157.180.123.240 'free -h'
@@ -321,6 +331,7 @@ ssh root@157.180.123.240 'free -h'
 ### Issue: Model Not Found
 
 **Solution:** Verify installation:
+
 ```bash
 ssh root@157.180.123.240 'docker exec vpn-ollama ollama list'
 
@@ -375,6 +386,7 @@ ssh root@157.180.123.240 'docker exec vpn-ollama ollama list'
 Your NexusAI is now capable of generating **complete, production-ready applications**!
 
 **Try it now:**
+
 ```bash
 ./scripts/test-nexusai-fullapp.sh
 ```
