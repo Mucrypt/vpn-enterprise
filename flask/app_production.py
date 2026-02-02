@@ -437,7 +437,7 @@ RESPOND ONLY WITH THE JSON OBJECT - NO ADDITIONAL TEXT BEFORE OR AFTER."""
             ai_response = response.choices[0].message.content
             
         elif provider == "anthropic":
-            model = request.model or "claude-3-5-sonnet-20241022"  # Claude 3.5 Sonnet - Best for coding
+            model = request.model or "claude-3-5-sonnet-20240620"  # Claude 3.5 Sonnet - Best for coding
             logger.info(f"🤖 Generating app with Anthropic {model}...")
             
             response = await anthropic_client.messages.create(
