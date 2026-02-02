@@ -440,22 +440,22 @@ Generate at least 5-10 files for a complete application. Make it production-read
         async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 f"{SERVICES['ollama']}/api/generate",
-                json={{
+                json={
                     "model": request.model,
                     "prompt": prompt,
                     "stream": False,
-                    "options": {{
+                    "options": {
                         "temperature": 0.7,
                         "num_ctx": 32768,  # 32K context window
                         "num_predict": 8192  # 8K output tokens
-                    }}
-                }}
+                    }
+                }
             )
             
             if response.status_code != 200:
                 raise HTTPException(
                     status_code=response.status_code,
-                    detail=f"Ollama error: {{response.text}}"
+                    detail=f"Ollama error: {response.text}"
                 )
             
             data = response.json()
@@ -478,10 +478,10 @@ Generate at least 5-10 files for a complete application. Make it production-read
                 return MultiFileGenerateResponse(
                     files=[FileOutput(**f) for f in result.get("files", [])],
                     instructions=result.get("instructions", "No instructions provided"),
-                    dependencies=result.get("dependencies", {{}})
+                    dependencies=result.get("dependencies", {})
                 )
             except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse AI response as JSON: {{e}}")
+                logger.error(f"Failed to parse AI response as JSON: {e}")
                 # Fallback: create a single file with the response
                 return MultiFileGenerateResponse(
                     files=[FileOutput(
@@ -490,11 +490,11 @@ Generate at least 5-10 files for a complete application. Make it production-read
                         language="typescript"
                     )],
                     instructions="AI response could not be parsed. Raw output provided.",
-                    dependencies={{}}
+                    dependencies={}
                 )
             
     except httpx.RequestError as e:
-        logger.error(f"Ollama request failed: {{e}}")
+        logger.error(f"Ollama request failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI service temporarily unavailable"
