@@ -147,7 +147,7 @@ export class AIService {
         framework: request.framework || 'react',
         features: request.features || [],
         styling: request.styling || 'tailwind',
-        model: 'codellama:7b',  // Use smaller model that fits in 8GB RAM
+        model: 'llama3.2:1b',  // Very small model that fits in 6GB RAM limit
       }),
     })
 
