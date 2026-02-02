@@ -442,7 +442,7 @@ RESPOND ONLY WITH THE JSON OBJECT - NO ADDITIONAL TEXT BEFORE OR AFTER."""
             
             response = await anthropic_client.messages.create(
                 model=model,
-                max_tokens=8192,
+                max_tokens=4096,  # Claude 3 Haiku max
                 system=system_prompt,
                 messages=[
                     {"role": "user", "content": user_prompt}
