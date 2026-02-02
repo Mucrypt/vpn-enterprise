@@ -321,8 +321,11 @@ services:
       - REDIS_HOST=vpn-redis
       - REDIS_PORT=6379
       - N8N_URL=http://vpn-n8n:5678
-      - OLLAMA_URL=http://vpn-ollama:11434
       - POSTGRES_URL=postgresql://postgres:postgres@vpn-postgres:5432/postgres
+      # External AI API Keys (set these in production)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - AI_PROVIDER=${AI_PROVIDER:-openai}
       - CACHE_TTL=3600
       - WORKERS=2
     secrets:
@@ -337,8 +340,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      ollama:
         condition: service_healthy
     deploy:
       resources:
@@ -361,47 +362,8 @@ services:
         max-size: '10m'
         max-file: '3'
   # ============================================
-  # OLLAMA - AI Model Hosting (Production)
-  # Configured for larger models and full app generation
-  # Optimized for 8GB RAM / 4 CPU server
-  # ============================================
-  ollama:
-    image: ollama/ollama:latest
-    container_name: vpn-ollama
-    restart: always
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0:11434
-      - OLLAMA_NUM_PARALLEL=2
-      - OLLAMA_MAX_LOADED_MODELS=1
-      # Increase context window and output for full app generation
-      - OLLAMA_NUM_CTX=32768 # 32K context window
-      - OLLAMA_NUM_PREDICT=8192 # 8K max output tokens
-    networks:
-      - vpn-network
-    deploy:
-      resources:
-        limits:
-          cpus: '3.5' # Max 3.5 CPUs (leave 0.5 for system)
-          memory: 6G # Max 6GB RAM (leave 2GB for system)
-        reservations:
-          cpus: '2.0' # Reserve 2 CPUs
-          memory: 4G # Reserve 4GB RAM
-    healthcheck:
-      test: ['CMD-SHELL', 'ollama list >/dev/null 2>&1 || exit 1']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    logging:
-      driver: 'json-file'
-      options:
-        max-size: '10m'
-        max-file: '3'
-
-  # ============================================
   # NEXUSAI - Chat-to-Code AI Builder (Production)
-  # App generation like Lovable/Cursor
+  # App generation powered by OpenAI/Anthropic - MORE POWERFUL than Cursor/Lovable
   # ============================================
   nexusai:
     build:
@@ -459,7 +421,6 @@ services:
       - web
       - python-api
       - n8n
-      - ollama
       - pgadmin
       # Optional; enabled via `--profile nexusai`
       # - nexusai
@@ -501,8 +462,6 @@ volumes:
   n8n_data:
     driver: local
   python_api_data:
-    driver: local
-  ollama_data:
     driver: local
   nginx_logs:
     driver: local

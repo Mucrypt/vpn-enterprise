@@ -135,7 +135,8 @@ export class AIService {
     return response.json()
   }
 
-  // Generate full application with multiple files (Like Cursor/Lovable)
+  // Generate full application with multiple files (MORE POWERFUL than Cursor/Lovable)
+  // Uses OpenAI GPT-4o or Anthropic Claude 3.7 Sonnet
   async generateFullApp(
     request: MultiFileGenerateRequest,
   ): Promise<MultiFileGenerateResponse> {
@@ -147,7 +148,8 @@ export class AIService {
         framework: request.framework || 'react',
         features: request.features || [],
         styling: request.styling || 'tailwind',
-        model: 'llama3.2:1b',  // Very small model that fits in 6GB RAM limit
+        provider: 'openai', // Use OpenAI GPT-4o by default (more powerful than any local model)
+        model: 'gpt-4o', // GPT-4o is excellent for code generation
       }),
     })
 

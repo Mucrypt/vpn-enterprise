@@ -1,5 +1,6 @@
 """
 VPN Enterprise - Production-Ready AI API
+Powered by OpenAI & Anthropic - MORE POWERFUL than Cursor/Lovable
 Scalable FastAPI microservice with authentication, rate limiting, and caching
 """
 from fastapi import FastAPI, HTTPException, status, Depends, Header, Request
@@ -17,12 +18,33 @@ import time
 import asyncio
 from functools import wraps
 
+# AI Provider imports - Professional grade APIs
+from openai import AsyncOpenAI
+from anthropic import AsyncAnthropic
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s] %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# AI Provider Configuration
+AI_PROVIDER = os.getenv("AI_PROVIDER", "openai")  # openai or anthropic
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+
+# Initialize AI clients
+openai_client = None
+anthropic_client = None
+
+if OPENAI_API_KEY:
+    openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    logger.info("✅ OpenAI client initialized")
+    
+if ANTHROPIC_API_KEY:
+    anthropic_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    logger.info("✅ Anthropic client initialized")
 
 # Service discovery
 SERVICES = {
@@ -31,7 +53,6 @@ SERVICES = {
     "redis_host": os.getenv("REDIS_HOST", "vpn-redis"),
     "redis_port": int(os.getenv("REDIS_PORT", "6379")),
     "n8n": os.getenv("N8N_URL", "http://vpn-n8n:5678"),
-    "ollama": os.getenv("OLLAMA_URL", "http://vpn-ollama:11434"),
     "postgres": os.getenv("POSTGRES_URL", "postgresql://postgres:postgres@vpn-postgres:5432/postgres")
 }
 
@@ -55,10 +76,14 @@ RATE_LIMITS = {
 async def lifespan(app: FastAPI):
     """Application lifespan handler"""
     logger.info("🚀 VPN Enterprise AI API Starting (Production Mode)...")
-    logger.info(f"📡 {len(SERVICES)} services configured")
+    logger.info(f"🤖 AI Provider: {AI_PROVIDER.upper()}")
+    logger.info(f"📡 {len(SERVICES)} backend services configured")
     for name, url in SERVICES.items():
         if isinstance(url, str):
             logger.info(f"   • {name}: {url}")
+    
+    if not openai_client and not anthropic_client:
+        logger.warning("⚠️  NO AI API KEYS SET! Set OPENAI_API_KEY or ANTHROPIC_API_KEY")
     
     yield
     
@@ -66,8 +91,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="VPN Enterprise AI API",
-    description="Production-ready AI microservice with authentication, caching & rate limiting",
-    version="2.0.0",
+    description="Production AI microservice powered by OpenAI GPT-4 & Anthropic Claude - MORE POWERFUL than Cursor/Lovable",
+    version="3.0.0",
     lifespan=lifespan
 )
 
@@ -250,10 +275,11 @@ class UsageStats(BaseModel):
 
 class MultiFileGenerateRequest(BaseModel):
     description: str = Field(..., min_length=10, max_length=2000, description="Description of the app to generate")
-    framework: str = Field(default="react", description="Framework to use (react, vue, angular, etc.)")
+    framework: str = Field(default="react", description="Framework to use (react, vue, angular, nextjs, etc.)")
     styling: str = Field(default="tailwind", description="Styling framework (tailwind, bootstrap, etc.)")
     features: Optional[List[str]] = Field(default=None, description="List of features to include")
-    model: str = Field(default="llama3.2:1b", description="AI model to use")
+    provider: str = Field(default="openai", description="AI provider: 'openai' or 'anthropic'")
+    model: Optional[str] = Field(default=None, description="Specific model (defaults to gpt-4o for OpenAI, claude-3-7-sonnet for Anthropic)")
 
 class FileOutput(BaseModel):
     path: str
@@ -305,88 +331,17 @@ async def get_usage(user: Dict[str, Any] = Depends(verify_token)):
         tier=user.get("tier", "free")
     )
 
-@app.post("/ai/generate", response_model=AIResponse)
-async def generate_ai_response(
-    request: AIRequest,
-    user: Dict[str, Any] = Depends(verify_token)
-):
-    """Generate AI response with caching and rate limiting"""
-    
-    # Rate limiting
-    rate_check = await check_rate_limit(
-        user.get("user_id", "anonymous"),
-        user.get("tier", "free")
-    )
-    
-    if not rate_check["allowed"]:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Rate limit exceeded. Reset at {rate_check['window_reset']}"
-        )
-    
-    # Check cache if enabled
-    if request.use_cache:
-        cache_key = generate_cache_key(
-            "ai:generate",
-            prompt=request.prompt,
-            model=request.model,
-            temp=request.temperature
-        )
-        cached_response = await get_from_cache(cache_key)
-        if cached_response:
-            logger.info(f"✅ Cache hit for user {user.get('user_id')}")
-            return AIResponse(**cached_response, cached=True)
-    
-    # Call Ollama
-    try:
-        full_prompt = request.prompt
-        if request.context:
-            full_prompt = f"Context: {request.context}\n\nQuestion: {request.prompt}"
-        
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                f"{SERVICES['ollama']}/api/generate",
-                json={
-                    "model": request.model,
-                    "prompt": full_prompt,
-                    "stream": False,
-                    "options": {"temperature": request.temperature}
-                }
-            )
-            
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Ollama error: {response.text}"
-                )
-            
-            data = response.json()
-            result = {
-                "response": data.get("response", ""),
-                "model": request.model,
-                "eval_count": data.get("eval_count"),
-                "total_duration_ms": data.get("total_duration", 0) / 1e6 if data.get("total_duration") else None
-            }
-            
-            # Cache result
-            if request.use_cache:
-                await set_in_cache(cache_key, result, ttl=CACHE_TTL)
-            
-            return AIResponse(**result, cached=False)
-            
-    except httpx.RequestError as e:
-        logger.error(f"Ollama request failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI service temporarily unavailable"
-        )
+# Legacy Ollama endpoint removed - Use /ai/generate/app with OpenAI/Anthropic instead
 
 @app.post("/ai/generate/app", response_model=MultiFileGenerateResponse)
 async def generate_full_app(
     request: MultiFileGenerateRequest,
     user: Dict[str, Any] = Depends(verify_token)
 ):
-    """Generate a complete application with multiple files - Like Cursor/Lovable"""
+    """
+    Generate a complete application with multiple files - MORE POWERFUL than Cursor/Lovable
+    Uses OpenAI GPT-4o or Anthropic Claude 3.7 Sonnet for superior code generation
+    """
     
     # Rate limiting
     rate_check = await check_rate_limit(
@@ -400,9 +355,27 @@ async def generate_full_app(
             detail=f"Rate limit exceeded. Reset at {rate_check['window_reset']}"
         )
     
+    # Validate AI provider availability
+    provider = request.provider.lower()
+    if provider == "openai" and not openai_client:
+        raise HTTPException(
+            status_code=503,
+            detail="OpenAI API key not configured. Set OPENAI_API_KEY environment variable."
+        )
+    elif provider == "anthropic" and not anthropic_client:
+        raise HTTPException(
+            status_code=503,
+            detail="Anthropic API key not configured. Set ANTHROPIC_API_KEY environment variable."
+        )
+    
     features_str = "\n".join([f"- {f}" for f in request.features]) if request.features else "- Basic CRUD operations\n- Responsive design\n- Error handling"
     
-    prompt = f"""You are an expert full-stack developer creating production-ready applications. Generate a complete {request.framework} application.
+    # Enhanced prompt for professional code generation
+    system_prompt = """You are an expert full-stack developer and software architect with deep expertise in modern web development.
+You create production-ready, scalable applications following industry best practices.
+Your code is clean, well-documented, type-safe, and follows SOLID principles."""
+
+    user_prompt = f"""Generate a complete, production-ready {request.framework} application.
 
 **Project Description:**
 {request.description}
@@ -412,204 +385,125 @@ async def generate_full_app(
 
 **Styling Framework:** {request.styling}
 
-**Critical Instructions:**
+**Critical Requirements:**
 1. Generate a COMPLETE, WORKING application with ALL necessary files
-2. Include proper project structure and organization
-3. Add all necessary configuration files (package.json, tsconfig.json, etc.)
-4. Include README.md with setup and running instructions
-5. Add error handling, loading states, and proper TypeScript types
-6. Make it production-ready with proper structure
+2. Follow the latest best practices for {request.framework}
+3. Include proper project structure:
+   - Source files organized in logical directories
+   - Configuration files (package.json, tsconfig.json, .env.example, etc.)
+   - README.md with comprehensive setup instructions
+4. Implement proper TypeScript types and interfaces
+5. Add error handling, loading states, and edge case handling
+6. Include proper styling with {request.styling}
+7. Add comments for complex logic
+8. Make it production-ready with security best practices
 
-**Output Format:**
-Provide your response as a JSON object with this structure:
+**Output Format (IMPORTANT - Must be valid JSON):**
 {{
     "files": [
         {{
-            "path": "path/to/file.ext",
-            "content": "file contents here",
-            "language": "javascript/typescript/html/css"
+            "path": "src/App.tsx",
+            "content": "// Full file content here",
+            "language": "typescript"
         }}
     ],
-    "instructions": "setup and running instructions",
-    "dependencies": {{"package-name": "version"}}
+    "instructions": "Step-by-step setup and running instructions",
+    "dependencies": {{
+        "react": "^18.3.0",
+        "typescript": "^5.0.0"
+    }}
 }}
 
-Generate at least 5-10 files for a complete application. Make it production-ready!"""
+Generate 8-15 files minimum for a complete, professional application.
+RESPOND ONLY WITH THE JSON OBJECT - NO ADDITIONAL TEXT BEFORE OR AFTER."""
 
     try:
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(
-                f"{SERVICES['ollama']}/api/generate",
-                json={
-                    "model": request.model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.7,
-                        "num_ctx": 32768,  # 32K context window
-                        "num_predict": 8192  # 8K output tokens
-                    }
-                }
+        # Call appropriate AI provider
+        if provider == "openai":
+            model = request.model or "gpt-4o"  # GPT-4o is excellent for code generation
+            logger.info(f"🤖 Generating app with OpenAI {model}...")
+            
+            response = await openai_client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.7,
+                max_tokens=16000,  # GPT-4o can handle large outputs
+                response_format={"type": "json_object"}  # Force JSON output
             )
             
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Ollama error: {response.text}"
-                )
+            ai_response = response.choices[0].message.content
             
-            data = response.json()
-            ai_response = data.get("response", "")
+        elif provider == "anthropic":
+            model = request.model or "claude-3-7-sonnet-20250219"  # Claude 3.7 Sonnet - Latest and most powerful
+            logger.info(f"🤖 Generating app with Anthropic {model}...")
             
-            # Parse JSON from response
-            try:
-                # Try to extract JSON if wrapped in markdown
-                if "```json" in ai_response:
-                    json_start = ai_response.find("```json") + 7
-                    json_end = ai_response.find("```", json_start)
-                    ai_response = ai_response[json_start:json_end].strip()
-                elif "```" in ai_response:
-                    json_start = ai_response.find("```") + 3
-                    json_end = ai_response.find("```", json_start)
-                    ai_response = ai_response[json_start:json_end].strip()
-                
-                result = json.loads(ai_response)
-                
-                return MultiFileGenerateResponse(
-                    files=[FileOutput(**f) for f in result.get("files", [])],
-                    instructions=result.get("instructions", "No instructions provided"),
-                    dependencies=result.get("dependencies", {})
-                )
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse AI response as JSON: {e}")
-                # Fallback: create a single file with the response
-                return MultiFileGenerateResponse(
-                    files=[FileOutput(
-                        path="App.tsx",
-                        content=ai_response,
-                        language="typescript"
-                    )],
-                    instructions="AI response could not be parsed. Raw output provided.",
-                    dependencies={}
-                )
-            
-    except httpx.RequestError as e:
-        logger.error(f"Ollama request failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI service temporarily unavailable"
-        )
-
-@app.post("/ai/sql/assist", response_model=SQLAssistResponse)
-async def sql_assistant(
-    request: SQLAssistRequest,
-    user: Dict[str, Any] = Depends(verify_token)
-):
-    """AI SQL assistance with caching"""
-    
-    # Rate limiting
-    rate_check = await check_rate_limit(
-        user.get("user_id", "anonymous"),
-        user.get("tier", "free")
-    )
-    
-    if not rate_check["allowed"]:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Rate limit exceeded. Reset at {rate_check['window_reset']}"
-        )
-    
-    # Check cache
-    cache_key = generate_cache_key(
-        "ai:sql",
-        query=request.query,
-        action=request.action
-    )
-    cached_response = await get_from_cache(cache_key)
-    if cached_response:
-        return SQLAssistResponse(**cached_response, cached=True)
-    
-    try:
-        prompts = {
-            "generate": f"""You are a PostgreSQL expert. Generate ONLY a SQL query for:
-
-{request.query}
-{f'Schema: {request.database_schema}' if request.database_schema else ''}
-
-Return only the SQL query, no explanations.""",
-            
-            "explain": f"""Explain this SQL query clearly:
-
-{request.query}
-
-Provide a concise explanation.""",
-            
-            "optimize": f"""Optimize this SQL query:
-
-{request.query}
-
-Return the optimized query and explain improvements.""",
-            
-            "fix": f"""Fix errors in this SQL:
-
-{request.query}
-
-Return the corrected query and explain what was wrong."""
-        }
-        
-        prompt = prompts.get(request.action, prompts["generate"])
-        
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{SERVICES['ollama']}/api/generate",
-                json={
-                    "model": "llama3.2:1b",
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0.3}
-                }
+            response = await anthropic_client.messages.create(
+                model=model,
+                max_tokens=8192,
+                system=system_prompt,
+                messages=[
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.7
             )
             
-            if response.status_code != 200:
-                raise HTTPException(status_code=response.status_code, detail="AI error")
+            ai_response = response.content[0].text
             
-            data = response.json()
-            ai_response = data.get("response", "").strip()
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid provider: {provider}. Use 'openai' or 'anthropic'"
+            )
+        
+        # Parse JSON from AI response
+        try:
+            # Clean up response - remove markdown code blocks if present
+            if "```json" in ai_response:
+                json_start = ai_response.find("```json") + 7
+                json_end = ai_response.find("```", json_start)
+                ai_response = ai_response[json_start:json_end].strip()
+            elif "```" in ai_response:
+                json_start = ai_response.find("```") + 3
+                json_end = ai_response.find("```", json_start)
+                ai_response = ai_response[json_start:json_end].strip()
             
-            # Parse response
-            result = {}
-            if request.action == "generate":
-                sql = ai_response.replace("```sql", "").replace("```", "").strip()
-                result = {"sql": sql}
-            elif request.action == "explain":
-                result = {"explanation": ai_response}
-            else:
-                result = {"sql": ai_response, "explanation": "Optimized version"}
+            result = json.loads(ai_response)
             
-            # Cache
-            await set_in_cache(cache_key, result, ttl=CACHE_TTL)
+            logger.info(f"✅ Successfully generated {len(result.get('files', []))} files")
             
-            return SQLAssistResponse(**result, cached=False)
+            return MultiFileGenerateResponse(
+                files=[FileOutput(**f) for f in result.get("files", [])],
+                instructions=result.get("instructions", "No instructions provided"),
+                dependencies=result.get("dependencies", {})
+            )
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse AI response as JSON: {e}")
+            logger.error(f"Raw response: {ai_response[:500]}...")
+            
+            # Fallback: create a single file with the response
+            return MultiFileGenerateResponse(
+                files=[FileOutput(
+                    path="App.tsx",
+                    content=ai_response,
+                    language="typescript"
+                )],
+                instructions="AI response could not be parsed. Raw output provided.",
+                dependencies={}
+            )
             
     except Exception as e:
-        logger.error(f"SQL assist error: {e}")
+        logger.error(f"AI request failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI service unavailable"
+            detail=f"AI service error: {str(e)}"
         )
 
-@app.get("/ai/models")
-async def list_ai_models(user: Dict[str, Any] = Depends(verify_token)):
-    """List available Ollama models"""
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(f"{SERVICES['ollama']}/api/tags")
-            if response.status_code == 200:
-                return response.json()
-            raise HTTPException(status_code=response.status_code, detail="Failed to fetch models")
-    except Exception as e:
-        logger.error(f"Failed to list models: {e}")
-        raise HTTPException(status_code=503, detail="Ollama unavailable")
+# Legacy Ollama endpoints removed - Use OpenAI/Anthropic via /ai/generate/app
+# SQL assistance and model listing deprecated
 
 # ============================================
 # AUTHENTICATION & KEY MANAGEMENT

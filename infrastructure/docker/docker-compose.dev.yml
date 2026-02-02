@@ -16,8 +16,8 @@ services:
     # Use the image-installed node_modules (preserved by anonymous volume) for faster starts
     command: npm run dev --workspace=@vpn-enterprise/api
     env_file:
-      - ../../.env                          # Root environment variables
-      - ./config/app.dev.env                # Development config
+      - ../../.env # Root environment variables
+      - ./config/app.dev.env # Development config
     environment:
       - NODE_ENV=development
       - PORT=5000
@@ -27,7 +27,7 @@ services:
     secrets:
       - api_key
     ports:
-      - "5000:5000"
+      - '5000:5000'
     volumes:
       - ../../packages/api:/app/packages/api
       - ../../packages/auth:/app/packages/auth
@@ -51,9 +51,9 @@ services:
     command: npm run dev -- -p 3000
     working_dir: /app
     env_file:
-      - ../../.env                          # Root environment variables
+      - ../../.env # Root environment variables
       - ../../apps/web-dashboard/.env.local # Web-specific env
-      - ./config/app.dev.env                # Development config
+      - ./config/app.dev.env # Development config
     environment:
       - NODE_ENV=development
       - PORT=3000
@@ -61,7 +61,7 @@ services:
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - NEXT_PUBLIC_API_URL=http://localhost:5000
     ports:
-      - "3001:3000"
+      - '3001:3000'
     volumes:
       - ../../apps/web-dashboard:/app
       - /app/node_modules
@@ -79,7 +79,7 @@ services:
     secrets:
       - redis_password
     ports:
-      - "6379:6379"
+      - '6379:6379'
     networks:
       - vpn-dev-network
 
@@ -94,8 +94,8 @@ services:
     container_name: vpn-n8n-dev
     restart: unless-stopped
     env_file:
-      - ../../.env                          # Root environment variables
-      - ./config/app.dev.env                # Development config
+      - ../../.env # Root environment variables
+      - ./config/app.dev.env # Development config
     environment:
       - N8N_ENCRYPTION_KEY_FILE=/run/secrets/n8n_encryption_key
       - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
@@ -108,7 +108,7 @@ services:
     secrets:
       - n8n_encryption_key
     ports:
-      - "5678:5678"
+      - '5678:5678'
     volumes:
       - n8n-dev-data:/home/node/.n8n
       - ../../n8n-workflows:/home/node/workflows
@@ -129,40 +129,12 @@ services:
     environment:
       - NODE_ENV=development
     ports:
-      - "8080:8080"
+      - '8080:8080'
     volumes:
       - ../../apps/nexusAi/chat-to-code-38:/app
       - /app/node_modules
     networks:
       - vpn-dev-network
-
-  # ============================================
-  # OLLAMA - Local AI Model Hosting
-  # ============================================
-  ollama-dev:
-    image: ollama/ollama:latest
-    container_name: vpn-ollama-dev
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-dev-data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0:11434
-      - OLLAMA_ORIGINS=*
-    networks:
-      - vpn-dev-network
-    mem_limit: 4g
-    memswap_limit: 4g
-    shm_size: 2g
-    # Uncomment below for GPU support (requires nvidia-docker)
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
 
   # ============================================
   # PYTHON API - FastAPI Service
@@ -174,8 +146,8 @@ services:
     container_name: vpn-python-api-dev
     restart: unless-stopped
     env_file:
-      - ../../.env                          # Root environment variables
-      - ./config/app.dev.env                # Development config
+      - ../../.env # Root environment variables
+      - ./config/app.dev.env # Development config
     environment:
       - DB_PASSWORD_FILE=/run/secrets/db_password
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
@@ -185,7 +157,7 @@ services:
       - redis_password
       - api_key
     ports:
-      - "5001:5001"
+      - '5001:5001'
     volumes:
       - ../../flask:/app
       - python-api-data:/app/data
@@ -194,7 +166,7 @@ services:
     depends_on:
       - redis-dev
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:5001/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -206,8 +178,6 @@ networks:
 
 volumes:
   n8n-dev-data:
-    driver: local
-  ollama-dev-data:
     driver: local
   python-api-data:
     driver: local

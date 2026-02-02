@@ -1,10 +1,15 @@
 
 """
-VPN Enterprise - Python FastAPI Microservice
+⚠️ DEPRECATED - Use app_production.py instead
+
+VPN Enterprise - Python FastAPI Microservice (Legacy - Ollama-based)
+This file contains the old Ollama-based implementation.
+The production system now uses OpenAI/Anthropic via app_production.py for superior code generation.
+
 This module provides a FastAPI-based microservice for the VPN Enterprise platform,
 offering AI integration, VPN configuration management, analytics, and workflow automation.
 The service integrates with multiple backend services including:
-- Ollama AI for natural language processing
+- DEPRECATED: Ollama AI (removed - use OpenAI/Anthropic instead)
 - Main VPN API for configuration management
 - N8N for workflow automation
 - Redis for caching

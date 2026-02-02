@@ -23,7 +23,7 @@ docker compose -f docker-compose.db-dev.yml up -d
 echo ""
 
 # Start main services
-echo -e "${GREEN}🔌 Starting Main Services (API, Web, Python API, Redis, N8N, Ollama, NexusAI)...${NC}"
+echo -e "${GREEN}🔌 Starting Main Services (API, Web, Python API, Redis, N8N, NexusAI)...${NC}"
 cd infrastructure/docker
 docker compose -f docker-compose.dev.yml up -d
 echo ""

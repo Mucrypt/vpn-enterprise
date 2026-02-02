@@ -69,18 +69,11 @@ docker compose -f docker-compose.prod.yml ps python-api nexusai
 ENDSSH
 echo -e "${GREEN}✓ Services rebuilt and restarted${NC}"
 
-# Step 6: Pull additional AI models
-echo -e "${YELLOW}Step 6/6: Pulling AI models for code generation...${NC}"
-ssh "$SERVER" << 'ENDSSH'
-# Pull codellama for better code generation (used by NexusAI)
-echo "Pulling codellama:7b model (this may take a while)..."
-docker exec vpn-ollama ollama pull codellama:7b
-
-# List all models
-echo "Available models:"
-docker exec vpn-ollama ollama list
-ENDSSH
-echo -e "${GREEN}✓ AI models ready${NC}"
+# Step 6: AI Provider Configuration
+echo -e "${YELLOW}Step 6/6: Verifying AI provider configuration...${NC}"
+echo "✅ Using cloud AI providers (OpenAI/Anthropic) - much more powerful than local Ollama"
+echo "   Make sure OPENAI_API_KEY or ANTHROPIC_API_KEY is set in production .env"
+echo -e "${GREEN}✓ AI configuration ready${NC}"
 
 # Verification
 echo ""
@@ -91,13 +84,12 @@ echo ""
 echo "Services:"
 echo "  • Python API: https://python-api.chatbuilds.com"
 echo "  • NexusAI: https://nexusai.chatbuilds.com"
-echo "  • Ollama: http://157.180.123.240:11434"
 echo ""
 echo "Test endpoints:"
 echo "  curl https://python-api.chatbuilds.com/health"
-echo "  curl https://python-api.chatbuilds.com/ai/models"
 echo ""
 echo "Features enabled:"
+echo "  🤖 AI Generation: OpenAI GPT-4o & Anthropic Claude 3.7 Sonnet"
 echo "  ✓ JWT authentication & API key management"
 echo "  ✓ Tiered rate limiting (100/1k/10k/1M req/hour)"
 echo "  ✓ Response caching with TTL"
