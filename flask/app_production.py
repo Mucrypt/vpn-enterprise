@@ -253,7 +253,7 @@ class MultiFileGenerateRequest(BaseModel):
     framework: str = Field(default="react", description="Framework to use (react, vue, angular, etc.)")
     styling: str = Field(default="tailwind", description="Styling framework (tailwind, bootstrap, etc.)")
     features: Optional[List[str]] = Field(default=None, description="List of features to include")
-    model: str = Field(default="deepseek-coder-v2:16b", description="AI model to use")
+    model: str = Field(default="codellama:7b", description="AI model to use")
 
 class FileOutput(BaseModel):
     path: str
