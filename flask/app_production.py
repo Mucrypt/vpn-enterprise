@@ -370,60 +370,28 @@ async def generate_full_app(
     
     features_str = "\n".join([f"- {f}" for f in request.features]) if request.features else "- Basic CRUD operations\n- Responsive design\n- Error handling"
     
-    # Enhanced prompt for professional code generation
-    system_prompt = """You are an expert full-stack developer and software architect with deep expertise in modern web development.
-You create production-ready, scalable applications following industry best practices.
-Your code is clean, well-documented, type-safe, and follows SOLID principles."""
+    # Enhanced prompt for professional code generation with STRICT JSON output
+    system_prompt = """You are a code generation API that ONLY returns valid JSON. 
+You MUST respond with ONLY a JSON object - no markdown, no explanations, no additional text.
+Start your response with { and end with }."""
 
-    user_prompt = f"""Generate a complete, production-ready {request.framework} application.
+    user_prompt = f"""Return a JSON object with the structure shown below. Generate a complete {request.framework} app for: {request.description}
 
-**Project Description:**
-{request.description}
+Features: {features_str}
+Styling: {request.styling}
 
-**Required Features:**
-{features_str}
-
-**Styling Framework:** {request.styling}
-
-**Critical Requirements:**
-1. Generate a COMPLETE, WORKING application with ALL necessary files
-2. Follow the latest best practices for {request.framework}
-3. Include proper project structure:
-   - Source files organized in logical directories
-   - Configuration files (package.json, tsconfig.json, .env.example, etc.)
-   - README.md with comprehensive setup instructions
-4. Implement proper TypeScript types and interfaces
-5. Add error handling, loading states, and edge case handling
-6. Include proper styling with {request.styling}
-7. Add comments for complex logic
-8. Make it production-ready with security best practices
-
-**Output Format (IMPORTANT - Must be valid JSON):**
-Return ONLY a valid JSON object with this EXACT structure. Do NOT include any text before or after the JSON:
+Return ONLY this JSON (no markdown code blocks, no extra text):
 
 {{
-    "files": [
-        {{
-            "path": "src/App.tsx",
-            "content": "import React from 'react';\\n\\nfunction App() {{\\n  return <div>Hello</div>;\\n}}\\n\\nexport default App;",
-            "language": "typescript"
-        }},
-        {{
-            "path": "package.json",
-            "content": "{{\\"name\\":\\"my-app\\",\\"version\\":\\"1.0.0\\"}}",
-            "language": "json"
-        }}
-    ],
-    "instructions": "1. Run npm install\\n2. Run npm run dev\\n3. Open http://localhost:3000",
-    "dependencies": {{
-        "react": "^18.3.0",
-        "typescript": "^5.0.0"
-    }}
+  "files": [
+    {{"path": "src/App.tsx", "content": "import React from 'react';\\n\\nfunction App() {{ return <div>My App</div>; }}\\n\\nexport default App;", "language": "typescript"}},
+    {{"path": "package.json", "content": "{{\\"name\\":\\"app\\",\\"version\\":\\"1.0.0\\"}}", "language": "json"}}
+  ],
+  "instructions": "1. npm install\\n2. npm run dev",
+  "dependencies": {{"react": "^18.3.0"}}
 }}
 
-CRITICAL: Your entire response must be ONLY the JSON object above. No markdown code blocks, no explanations, no additional text.
-Start your response with {{ and end with }}.
-Generate 8-15 files minimum for a complete application."""
+Generate 8-15 complete files. Your response MUST start with {{ and end with }}."""
 
     try:
         # Call appropriate AI provider
