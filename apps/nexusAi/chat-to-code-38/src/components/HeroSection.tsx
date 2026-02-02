@@ -1,62 +1,27 @@
-import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   Plus,
   Paperclip,
   Palette,
-  MessageSquare,
-  Mic,
   Send,
   Code,
   Database,
-  Eye,
-  Download,
-  Copy,
   Sparkles,
   Zap,
   Rocket,
   Terminal,
   Cloud,
+  Eye,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AIService } from '@/services/aiService'
-
-interface Message {
-  role: 'user' | 'assistant' | 'error' | 'system'
-  content: string
-  code?: string
-  sql?: string
-  language?: string
-  type?: 'text' | 'component' | 'app' | 'sql' | 'api'
-}
+import { aiService, AIService } from '@/services/aiService'
 
 const HeroSection = () => {
+  const navigate = useNavigate()
   const [inputValue, setInputValue] = useState('')
-  const [isRecording, setIsRecording] = useState(false)
-  const [aiService] = useState(() => new AIService(undefined, true))
-  const [messages, setMessages] = useState<Message[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
-  const [previewHtml, setPreviewHtml] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    // Welcome message
-    setMessages([
-      {
-        role: 'system',
-        content:
-          '👋 Welcome to NexusAI! I can help you:\n\n• Generate React components\n• Build complete applications\n• Create database schemas\n• Generate APIs\n• Fix and optimize code\n\nTry: "Create a todo app with React" or "Generate a user database schema"',
-        type: 'text',
-      },
-    ])
-  }, [])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
 
   const detectIntentAndGenerate = async (userMessage: string) => {
     const lowerMsg = userMessage.toLowerCase()
@@ -153,79 +118,21 @@ const HeroSection = () => {
   }
 
   const handleSend = async () => {
-    if (!inputValue.trim()) return
+    if (!inputValue.trim() || isGenerating) return
 
     const userMessage = inputValue
-    setInputValue('')
     setIsGenerating(true)
 
-    setMessages((prev) => [
-      ...prev,
-      { role: 'user', content: userMessage, type: 'text' },
-    ])
-
-    try {
-      const aiMessage = await detectIntentAndGenerate(userMessage)
-      setMessages((prev) => [...prev, aiMessage])
-
-      // Generate preview for components
-      if (aiMessage.code && aiMessage.type === 'component') {
-        generatePreview(aiMessage.code)
-      }
-    } catch (error: any) {
-      console.error('❌ Failed to generate:', error)
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'error',
-          content: `Error: ${error.message || 'Failed to connect to AI service. Make sure you have a valid API key.'}`,
-          type: 'text',
-        },
-      ])
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  const generatePreview = (code: string) => {
-    // Simple preview generation (wrap component in basic HTML)
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-          <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-          <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body class="p-8">
-          <div id="root"></div>
-          <script type="module">
-            ${code}
-          </script>
-        </body>
-      </html>
-    `
-    setPreviewHtml(html)
-  }
-
-  const copyToClipboard = async (text: string, index: number) => {
-    await navigator.clipboard.writeText(text)
-    setCopiedIndex(index)
-    setTimeout(() => setCopiedIndex(null), 2000)
-  }
-
-  const openInDatabaseEditor = (sql: string) => {
-    // Open database editor with SQL pre-filled
-    const baseUrl = window.location.origin
-    const editorUrl = `${baseUrl}/databases?sql=${encodeURIComponent(sql)}`
-    window.open(editorUrl, '_blank')
+    // Redirect to App Description page with the prompt pre-filled
+    navigate('/describe', { state: { initialPrompt: userMessage } })
   }
 
   return (
-    <section className='relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-16'>
+    <section className='relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-16 pb-24'>
       {/* Background gradient effect */}
-      <div className='absolute inset-0 bg-gradient-to-b from-background via-primary/5 to-purple-600/10' />
-      <div className='absolute inset-0 bg-gradient-hero animate-pulse-glow opacity-30' />
+      <div className='absolute inset-0 bg-gradient-to-br from-background via-primary/5 to-purple-600/10' />
+      <div className='absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent' />
+      <div className='absolute inset-0 bg-gradient-hero animate-pulse-glow opacity-20' />
 
       {/* Content */}
       <div className='container mx-auto px-6 relative z-10 flex flex-col items-center text-center'>
@@ -273,7 +180,7 @@ const HeroSection = () => {
           className='flex flex-col sm:flex-row gap-4 mb-12 animate-fade-up'
           style={{ animationDelay: '0.4s' }}
         >
-          <Link to='/builder'>
+          <Link to='/describe'>
             <Button
               size='lg'
               className='group text-lg px-8 py-6 bg-gradient-to-r from-primary to-purple-600 text-white hover:opacity-90 shadow-lg hover:shadow-xl transition-all'
@@ -317,145 +224,39 @@ const HeroSection = () => {
 
         {/* CTA Button - App Builder */}
         <div
-          className='mb-12 animate-fade-up'
+          className='mb-16 animate-fade-up'
           style={{ animationDelay: '0.25s' }}
         >
-          <Link to='/build'>
+          <Link to='/describe'>
             <Button
               size='lg'
-              className='gap-2 text-lg px-8 py-6 rounded-xl shadow-lg hover:shadow-xl transition-all hover:scale-105'
+              className='gap-2 text-lg px-10 py-7 rounded-xl shadow-2xl hover:shadow-primary/50 transition-all hover:scale-105 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90'
             >
-              <Zap className='w-5 h-5' />
+              <Zap className='w-6 h-6' />
               Try Full App Builder
-              <ArrowRight className='w-5 h-5' />
+              <ArrowRight className='w-6 h-6' />
             </Button>
           </Link>
-          <p className='text-sm text-muted-foreground mt-3'>
+          <p className='text-sm text-muted-foreground mt-4 font-medium'>
             Generate complete applications like Cursor and Lovable
           </p>
         </div>
 
-        {/* Messages Display */}
-        {messages.length > 0 && (
-          <div
-            className='w-full max-w-4xl mb-6 animate-fade-up'
-            style={{ animationDelay: '0.25s' }}
-          >
-            <div className='bg-card rounded-2xl border border-border shadow-lg p-6 max-h-[600px] overflow-y-auto space-y-6'>
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-full rounded-lg ${
-                      msg.role === 'user'
-                        ? 'bg-primary text-primary-foreground p-4'
-                        : msg.role === 'error'
-                          ? 'bg-destructive/10 text-destructive border border-destructive/20 p-4'
-                          : msg.role === 'system'
-                            ? 'bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-4 text-sm'
-                            : 'w-full'
-                    }`}
-                  >
-                    {/* Text content */}
-                    {msg.content && (
-                      <p className='text-sm whitespace-pre-wrap mb-3'>
-                        {msg.content}
-                      </p>
-                    )}
-
-                    {/* Code block with actions */}
-                    {msg.code && (
-                      <div className='mt-3 rounded-lg overflow-hidden border border-border bg-slate-950'>
-                        {/* Code header */}
-                        <div className='flex items-center justify-between bg-slate-900 px-4 py-2 border-b border-slate-800'>
-                          <span className='text-xs font-mono text-slate-400'>
-                            {msg.language || 'code'}
-                          </span>
-                          <div className='flex gap-2'>
-                            {msg.type === 'sql' && (
-                              <Button
-                                size='sm'
-                                variant='ghost'
-                                className='h-7 text-xs text-green-400 hover:text-green-300 hover:bg-slate-800'
-                                onClick={() => openInDatabaseEditor(msg.sql!)}
-                              >
-                                <Database className='w-3 h-3 mr-1' />
-                                Open in Editor
-                              </Button>
-                            )}
-                            {msg.type === 'component' && (
-                              <Button
-                                size='sm'
-                                variant='ghost'
-                                className='h-7 text-xs text-blue-400 hover:text-blue-300 hover:bg-slate-800'
-                                onClick={() => generatePreview(msg.code!)}
-                              >
-                                <Eye className='w-3 h-3 mr-1' />
-                                Preview
-                              </Button>
-                            )}
-                            <Button
-                              size='sm'
-                              variant='ghost'
-                              className='h-7 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                              onClick={() => copyToClipboard(msg.code!, idx)}
-                            >
-                              {copiedIndex === idx ? (
-                                <>
-                                  <Check className='w-3 h-3 mr-1' />
-                                  Copied!
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className='w-3 h-3 mr-1' />
-                                  Copy
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Code content */}
-                        <pre className='p-4 overflow-x-auto text-xs text-slate-200 font-mono max-h-96'>
-                          <code>{msg.code}</code>
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {isGenerating && (
-                <div className='flex justify-start'>
-                  <div className='bg-muted rounded-lg p-4 flex items-center gap-3'>
-                    <Sparkles className='w-4 h-4 animate-pulse text-primary' />
-                    <p className='text-sm text-muted-foreground'>
-                      Generating your code...
-                    </p>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
-        )}
-
         {/* Chat Input Box */}
         <div
-          className='w-full max-w-4xl animate-scale-in'
+          className='w-full max-w-5xl mb-24 animate-scale-in'
           style={{ animationDelay: '0.3s' }}
         >
           {/* Example Prompts */}
-          {messages.length <= 1 && (
-            <div className='mb-4 flex flex-wrap gap-2 justify-center'>
+          {!isGenerating && (
+            <div className='mb-6 flex flex-wrap gap-3 justify-center'>
               <Button
                 variant='outline'
                 size='sm'
                 onClick={() =>
                   setInputValue('Create a todo app with React and TypeScript')
                 }
-                className='text-xs'
+                className='text-xs hover:bg-primary/10 hover:border-primary/50 transition-all hover:scale-105'
               >
                 <Sparkles className='w-3 h-3 mr-1' />
                 Todo App
@@ -466,7 +267,7 @@ const HeroSection = () => {
                 onClick={() =>
                   setInputValue('Generate a responsive navbar component')
                 }
-                className='text-xs'
+                className='text-xs hover:bg-purple-500/10 hover:border-purple-500/50 transition-all hover:scale-105'
               >
                 <Code className='w-3 h-3 mr-1' />
                 Navbar Component
@@ -479,7 +280,7 @@ const HeroSection = () => {
                     'Create a database schema for an e-commerce store',
                   )
                 }
-                className='text-xs'
+                className='text-xs hover:bg-pink-500/10 hover:border-pink-500/50 transition-all hover:scale-105'
               >
                 <Database className='w-3 h-3 mr-1' />
                 Database Schema
@@ -490,7 +291,7 @@ const HeroSection = () => {
                 onClick={() =>
                   setInputValue('Generate REST API for blog posts')
                 }
-                className='text-xs'
+                className='text-xs hover:bg-green-500/10 hover:border-green-500/50 transition-all hover:scale-105'
               >
                 <Code className='w-3 h-3 mr-1' />
                 Blog API
@@ -498,9 +299,9 @@ const HeroSection = () => {
             </div>
           )}
 
-          <div className='bg-card rounded-2xl border border-border shadow-lg overflow-hidden'>
+          <div className='bg-card/80 backdrop-blur-md rounded-3xl border-2 border-border hover:border-primary/50 shadow-2xl overflow-hidden transition-all hover:shadow-primary/20'>
             {/* Input Area */}
-            <div className='p-4'>
+            <div className='p-6'>
               <textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
@@ -510,28 +311,31 @@ const HeroSection = () => {
                     handleSend()
                   }
                 }}
-                placeholder='Ask NexusAI to create a landing page for my...'
-                className='w-full bg-transparent text-foreground placeholder:text-muted-foreground text-base resize-none focus:outline-none min-h-[60px]'
-                rows={2}
+                placeholder='Ask NexusAI to create anything... Try "Build a todo app" or "Create a login form"'
+                className='w-full bg-transparent text-foreground placeholder:text-muted-foreground text-lg resize-none focus:outline-none min-h-[80px] font-medium'
+                rows={3}
                 disabled={isGenerating}
+                autoFocus
               />
             </div>
 
             {/* Bottom Toolbar */}
-            <div className='flex items-center justify-between px-4 pb-4'>
+            <div className='flex items-center justify-between px-6 pb-6 border-t border-border/50 pt-4'>
               {/* Left Actions */}
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-3'>
                 <Button
                   variant='ghost'
                   size='icon'
-                  className='h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary'
+                  className='h-10 w-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all hover:scale-105'
+                  disabled={isGenerating}
                 >
                   <Plus className='w-5 h-5' />
                 </Button>
                 <Button
                   variant='ghost'
                   size='sm'
-                  className='h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary gap-2'
+                  className='h-10 px-4 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 gap-2 transition-all hover:scale-105'
+                  disabled={isGenerating}
                 >
                   <Paperclip className='w-4 h-4' />
                   Attach
@@ -539,7 +343,8 @@ const HeroSection = () => {
                 <Button
                   variant='ghost'
                   size='sm'
-                  className='h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary gap-2'
+                  className='h-10 px-4 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 gap-2 transition-all hover:scale-105'
+                  disabled={isGenerating}
                 >
                   <Palette className='w-4 h-4' />
                   Theme
@@ -547,15 +352,21 @@ const HeroSection = () => {
               </div>
 
               {/* Right Actions */}
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-3'>
+                <span className='text-xs text-muted-foreground'>
+                  {isGenerating ? 'Generating...' : 'Press Enter to send'}
+                </span>
                 {/* Send Button */}
                 <Button
                   onClick={handleSend}
                   disabled={!inputValue.trim() || isGenerating}
-                  className='h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground'
+                  className='h-10 px-6 rounded-xl bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-primary-foreground shadow-lg hover:shadow-primary/50 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed'
                 >
                   {isGenerating ? (
-                    <Sparkles className='w-5 h-5 animate-pulse' />
+                    <>
+                      <Sparkles className='w-5 h-5 mr-2 animate-pulse' />
+                      Generating
+                    </>
                   ) : (
                     <>
                       <Send className='w-4 h-4 mr-2' />

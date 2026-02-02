@@ -16,23 +16,26 @@ User → NexusAI UI → Python AI API → Deployment Service → Platform Resour
 ## Key Components
 
 ### 1. AI Generation (`/ai/generate/app`)
+
 - **Providers**: OpenAI GPT-4o, Anthropic Claude 3 Haiku
 - **Output**: Multi-file apps with:
   - Source code (React, Next.js, Vue, Express, FastAPI)
   - package.json with dependencies
   - .env.example with platform variables
   - Setup instructions
-  
+
 **Platform-Ready Code**:
+
 ```typescript
 // Generated apps automatically use platform services
-const DATABASE_URL = process.env.DATABASE_URL  // Auto-provisioned Postgres
+const DATABASE_URL = process.env.DATABASE_URL // Auto-provisioned Postgres
 const PLATFORM_API_URL = process.env.PLATFORM_API_URL
 ```
 
 ### 2. Deployment Service (`flask/app_deployment.py`)
 
 **Deployment Flow**:
+
 1. **Create Database**: POST `/api/v1/tenants/provision`
    - Creates isolated Postgres tenant database
    - Generates connection credentials
@@ -48,7 +51,7 @@ const PLATFORM_API_URL = process.env.PLATFORM_API_URL
    - Installs npm/pip dependencies
    - Runs build command
 
-4. **Configure Environment**: 
+4. **Configure Environment**:
    - Injects DATABASE_URL, PLATFORM_API_URL
    - Sets NODE_ENV=production
 
@@ -59,6 +62,7 @@ const PLATFORM_API_URL = process.env.PLATFORM_API_URL
 ### 3. NexusAI UI Updates
 
 **New Features**:
+
 - ✅ "Deploy to Platform" button
 - ✅ Deployment status tab
 - ✅ Live app URL display
@@ -66,6 +70,7 @@ const PLATFORM_API_URL = process.env.PLATFORM_API_URL
 - ✅ Environment variables viewer
 
 **User Workflow**:
+
 1. Describe app → Generate
 2. Review code files
 3. Click "Deploy to Platform"
@@ -74,6 +79,7 @@ const PLATFORM_API_URL = process.env.PLATFORM_API_URL
 ## API Endpoints
 
 ### Generate App
+
 ```bash
 POST https://chatbuilds.com/api/ai/generate/app
 Content-Type: application/json
@@ -96,6 +102,7 @@ Response:
 ```
 
 ### Deploy App
+
 ```bash
 POST https://chatbuilds.com/api/ai/deploy/app
 Content-Type: application/json
@@ -132,6 +139,7 @@ Response:
 ## Platform Services Integration
 
 ### Tenant Database Service
+
 - **Location**: `packages/tenant-provisioner/`
 - **Features**:
   - Isolated Postgres databases per app
@@ -140,6 +148,7 @@ Response:
   - Backup and restore
 
 ### Hosting Service
+
 - **Location**: `packages/api/src/routes/hosting.ts`
 - **Features**:
   - Multi-framework support (React, Next.js, Express, FastAPI)
@@ -149,6 +158,7 @@ Response:
   - SSL certificates
 
 ### API Routes (Node.js)
+
 - **Tenant Management**: `/api/v1/tenants/*`
   - POST `/provision` - Create new database
   - GET `/me` - List user's databases
@@ -165,6 +175,7 @@ Response:
 ### Environment Variables
 
 **Python API** (`.env`):
+
 ```bash
 # AI Providers
 OPENAI_API_KEY=sk-proj-...
@@ -179,6 +190,7 @@ POSTGRES_URL=postgresql://...
 ```
 
 **NexusAI Frontend** (`.env`):
+
 ```bash
 VITE_AI_API_URL=http://vpn-python-api:5001
 VITE_PUBLIC_AI_API_URL=https://chatbuilds.com/api/ai
@@ -188,6 +200,7 @@ VITE_PLATFORM_API_URL=https://chatbuilds.com/api
 ## Current Status
 
 ### ✅ Completed
+
 - [x] AI generation with OpenAI & Anthropic
 - [x] Platform-ready code prompts
 - [x] Deployment service architecture
@@ -196,6 +209,7 @@ VITE_PLATFORM_API_URL=https://chatbuilds.com/api
 - [x] Multi-tab interface (Files, Setup, Deploy)
 
 ### 🚧 In Progress
+
 - [ ] Claude 3 Haiku returning proper JSON (needs prompt refinement)
 - [ ] OpenAI JSON parsing (currently returning incomplete responses)
 - [ ] Actual hosting API implementation
@@ -209,6 +223,7 @@ VITE_PLATFORM_API_URL=https://chatbuilds.com/api
    - Consider adding response format constraints
 
 2. **Implement Hosting API**:
+
    ```typescript
    // packages/api/src/routes/hosting.ts
    router.post('/services', async (req, res) => {
@@ -219,6 +234,7 @@ VITE_PLATFORM_API_URL=https://chatbuilds.com/api
    ```
 
 3. **Implement Deployment API**:
+
    ```typescript
    router.post('/services/:id/deployments', async (req, res) => {
      // Save files to volume
@@ -244,12 +260,14 @@ VITE_PLATFORM_API_URL=https://chatbuilds.com/api
 ### Test Locally
 
 1. **Start Services**:
+
    ```bash
    cd infrastructure/docker
    docker compose -f docker-compose.dev.yml up
    ```
 
 2. **Test AI Generation**:
+
    ```bash
    curl -X POST http://localhost:5001/ai/generate/app \
      -H "Content-Type: application/json" \
@@ -283,16 +301,16 @@ docker compose -f docker-compose.prod.yml up -d --build python-api nexusai
 
 ## Advantages Over Cursor/Lovable
 
-| Feature | Cursor/Lovable | NexusAI |
-|---------|---------------|---------|
-| Code Generation | ✅ | ✅ |
-| Multiple Files | ✅ | ✅ |
-| Database Setup | ❌ Manual | ✅ Automatic |
-| Hosting | ❌ Manual | ✅ Automatic |
-| Domain | ❌ Manual | ✅ Automatic |
-| One-Click Deploy | ❌ | ✅ |
-| Platform Integration | ❌ | ✅ |
-| Live URL | ❌ | ✅ Instant |
+| Feature              | Cursor/Lovable | NexusAI      |
+| -------------------- | -------------- | ------------ |
+| Code Generation      | ✅             | ✅           |
+| Multiple Files       | ✅             | ✅           |
+| Database Setup       | ❌ Manual      | ✅ Automatic |
+| Hosting              | ❌ Manual      | ✅ Automatic |
+| Domain               | ❌ Manual      | ✅ Automatic |
+| One-Click Deploy     | ❌             | ✅           |
+| Platform Integration | ❌             | ✅           |
+| Live URL             | ❌             | ✅ Instant   |
 
 ## Security
 
