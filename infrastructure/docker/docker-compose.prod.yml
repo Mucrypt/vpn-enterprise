@@ -324,7 +324,7 @@ services:
       - OLLAMA_URL=http://vpn-ollama:11434
       - POSTGRES_URL=postgresql://postgres:postgres@vpn-postgres:5432/postgres
       - CACHE_TTL=3600
-      - WORKERS=4
+      - WORKERS=2
     secrets:
       - db_password
       - redis_password
@@ -343,11 +343,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4.0'
-          memory: 4G
+          cpus: '1.5'
+          memory: 2G
         reservations:
-          cpus: '1.0'
-          memory: 1G
+          cpus: '0.5'
+          memory: 512M
       replicas: 1
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5001/health']
@@ -363,6 +363,7 @@ services:
   # ============================================
   # OLLAMA - AI Model Hosting (Production)
   # Configured for larger models and full app generation
+  # Optimized for 8GB RAM / 4 CPU server
   # ============================================
   ollama:
     image: ollama/ollama:latest
@@ -372,8 +373,8 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
-      - OLLAMA_NUM_PARALLEL=4
-      - OLLAMA_MAX_LOADED_MODELS=2
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=1
       # Increase context window and output for full app generation
       - OLLAMA_NUM_CTX=32768 # 32K context window
       - OLLAMA_NUM_PREDICT=8192 # 8K max output tokens
@@ -382,11 +383,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '8.0' # Increased for larger models
-          memory: 32G # Increased for 13B-16B models
+          cpus: '3.5' # Max 3.5 CPUs (leave 0.5 for system)
+          memory: 6G # Max 6GB RAM (leave 2GB for system)
         reservations:
-          cpus: '4.0'
-          memory: 16G
+          cpus: '2.0' # Reserve 2 CPUs
+          memory: 4G # Reserve 4GB RAM
     healthcheck:
       test: ['CMD-SHELL', 'ollama list >/dev/null 2>&1 || exit 1']
       interval: 30s
