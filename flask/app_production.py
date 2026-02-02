@@ -399,23 +399,31 @@ Your code is clean, well-documented, type-safe, and follows SOLID principles."""
 8. Make it production-ready with security best practices
 
 **Output Format (IMPORTANT - Must be valid JSON):**
+Return ONLY a valid JSON object with this EXACT structure. Do NOT include any text before or after the JSON:
+
 {{
     "files": [
         {{
             "path": "src/App.tsx",
-            "content": "// Full file content here",
+            "content": "import React from 'react';\\n\\nfunction App() {{\\n  return <div>Hello</div>;\\n}}\\n\\nexport default App;",
             "language": "typescript"
+        }},
+        {{
+            "path": "package.json",
+            "content": "{{\\"name\\":\\"my-app\\",\\"version\\":\\"1.0.0\\"}}",
+            "language": "json"
         }}
     ],
-    "instructions": "Step-by-step setup and running instructions",
+    "instructions": "1. Run npm install\\n2. Run npm run dev\\n3. Open http://localhost:3000",
     "dependencies": {{
         "react": "^18.3.0",
         "typescript": "^5.0.0"
     }}
 }}
 
-Generate 8-15 files minimum for a complete, professional application.
-RESPOND ONLY WITH THE JSON OBJECT - NO ADDITIONAL TEXT BEFORE OR AFTER."""
+CRITICAL: Your entire response must be ONLY the JSON object above. No markdown code blocks, no explanations, no additional text.
+Start your response with {{ and end with }}.
+Generate 8-15 files minimum for a complete application."""
 
     try:
         # Call appropriate AI provider
