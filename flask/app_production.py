@@ -248,6 +248,23 @@ class UsageStats(BaseModel):
     window_reset: datetime
     tier: str
 
+class MultiFileGenerateRequest(BaseModel):
+    description: str = Field(..., min_length=10, max_length=2000, description="Description of the app to generate")
+    framework: str = Field(default="react", description="Framework to use (react, vue, angular, etc.)")
+    styling: str = Field(default="tailwind", description="Styling framework (tailwind, bootstrap, etc.)")
+    features: Optional[List[str]] = Field(default=None, description="List of features to include")
+    model: str = Field(default="deepseek-coder-v2:16b", description="AI model to use")
+
+class FileOutput(BaseModel):
+    path: str
+    content: str
+    language: str
+
+class MultiFileGenerateResponse(BaseModel):
+    files: List[FileOutput]
+    instructions: str
+    dependencies: Dict[str, str]
+
 # ============================================
 # ENDPOINTS
 # ============================================
@@ -359,6 +376,125 @@ async def generate_ai_response(
             
     except httpx.RequestError as e:
         logger.error(f"Ollama request failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service temporarily unavailable"
+        )
+
+@app.post("/ai/generate/app", response_model=MultiFileGenerateResponse)
+async def generate_full_app(
+    request: MultiFileGenerateRequest,
+    user: Dict[str, Any] = Depends(verify_token)
+):
+    """Generate a complete application with multiple files - Like Cursor/Lovable"""
+    
+    # Rate limiting
+    rate_check = await check_rate_limit(
+        user.get("user_id", "anonymous"),
+        user.get("tier", "free")
+    )
+    
+    if not rate_check["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Reset at {rate_check['window_reset']}"
+        )
+    
+    features_str = "\n".join([f"- {f}" for f in request.features]) if request.features else "- Basic CRUD operations\n- Responsive design\n- Error handling"
+    
+    prompt = f"""You are an expert full-stack developer creating production-ready applications. Generate a complete {request.framework} application.
+
+**Project Description:**
+{request.description}
+
+**Required Features:**
+{features_str}
+
+**Styling Framework:** {request.styling}
+
+**Critical Instructions:**
+1. Generate a COMPLETE, WORKING application with ALL necessary files
+2. Include proper project structure and organization
+3. Add all necessary configuration files (package.json, tsconfig.json, etc.)
+4. Include README.md with setup and running instructions
+5. Add error handling, loading states, and proper TypeScript types
+6. Make it production-ready with proper structure
+
+**Output Format:**
+Provide your response as a JSON object with this structure:
+{{
+    "files": [
+        {{
+            "path": "path/to/file.ext",
+            "content": "file contents here",
+            "language": "javascript/typescript/html/css"
+        }}
+    ],
+    "instructions": "setup and running instructions",
+    "dependencies": {{"package-name": "version"}}
+}}
+
+Generate at least 5-10 files for a complete application. Make it production-ready!"""
+
+    try:
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(
+                f"{SERVICES['ollama']}/api/generate",
+                json={{
+                    "model": request.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {{
+                        "temperature": 0.7,
+                        "num_ctx": 32768,  # 32K context window
+                        "num_predict": 8192  # 8K output tokens
+                    }}
+                }}
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Ollama error: {{response.text}}"
+                )
+            
+            data = response.json()
+            ai_response = data.get("response", "")
+            
+            # Parse JSON from response
+            try:
+                # Try to extract JSON if wrapped in markdown
+                if "```json" in ai_response:
+                    json_start = ai_response.find("```json") + 7
+                    json_end = ai_response.find("```", json_start)
+                    ai_response = ai_response[json_start:json_end].strip()
+                elif "```" in ai_response:
+                    json_start = ai_response.find("```") + 3
+                    json_end = ai_response.find("```", json_start)
+                    ai_response = ai_response[json_start:json_end].strip()
+                
+                result = json.loads(ai_response)
+                
+                return MultiFileGenerateResponse(
+                    files=[FileOutput(**f) for f in result.get("files", [])],
+                    instructions=result.get("instructions", "No instructions provided"),
+                    dependencies=result.get("dependencies", {{}})
+                )
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse AI response as JSON: {{e}}")
+                # Fallback: create a single file with the response
+                return MultiFileGenerateResponse(
+                    files=[FileOutput(
+                        path="App.tsx",
+                        content=ai_response,
+                        language="typescript"
+                    )],
+                    instructions="AI response could not be parsed. Raw output provided.",
+                    dependencies={{}}
+                )
+            
+    except httpx.RequestError as e:
+        logger.error(f"Ollama request failed: {{e}}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI service temporarily unavailable"
