@@ -452,7 +452,7 @@ jobs:
           text: |
             ⚠️ Rollback ${{ job.status }}
             Environment: ${{ inputs.environment }}
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+            webhook_url: ${{ secrets.SLACK_WEBHOOK }}
 
   # ==============================================
   # POST-DEPLOYMENT

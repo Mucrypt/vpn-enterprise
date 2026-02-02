@@ -532,7 +532,7 @@ jobs:
             Version: ${{ needs.setup.outputs.version }}
             URL: ${{ steps.deploy-info.outputs.url }}
             Commit: ${{ github.sha }}
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+            webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
 

@@ -13,6 +13,7 @@ export interface AIGenerateRequest {
   model?: string
   temperature?: number
   max_tokens?: number
+  num_ctx?: number // Context window size
   stream?: boolean
 }
 
@@ -22,6 +23,25 @@ export interface AIGenerateResponse {
   cached: boolean
   eval_count?: number
   total_duration_ms?: number
+}
+
+export interface MultiFileGenerateRequest {
+  description: string
+  framework?: 'react' | 'vue' | 'angular' | 'nextjs' | 'express' | 'fastapi'
+  features?: string[]
+  styling?: 'tailwind' | 'css' | 'styled-components' | 'sass'
+}
+
+export interface FileOutput {
+  path: string
+  content: string
+  language: string
+}
+
+export interface MultiFileGenerateResponse {
+  files: FileOutput[]
+  instructions: string
+  dependencies: Record<string, string>
 }
 
 export interface SQLAssistRequest {
@@ -98,9 +118,35 @@ export class AIService {
       headers: this.getHeaders(),
       body: JSON.stringify({
         prompt: request.prompt,
-        model: request.model || 'llama3.2:1b',
+        model: request.model || 'deepseek-coder-v2:16b',
         temperature: request.temperature || 0.7,
-        max_tokens: request.max_tokens || 2000,
+        max_tokens: request.max_tokens || 4096,
+        num_ctx: request.num_ctx || 32768,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ detail: 'Unknown error' }))
+      throw new Error(error.detail || `API Error: ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  // Generate full application with multiple files (Like Cursor/Lovable)
+  async generateFullApp(
+    request: MultiFileGenerateRequest,
+  ): Promise<MultiFileGenerateResponse> {
+    const response = await fetch(`${this.baseURL}/generate/app`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        description: request.description,
+        framework: request.framework || 'react',
+        features: request.features || [],
+        styling: request.styling || 'tailwind',
       }),
     })
 
@@ -327,6 +373,8 @@ export function useAI(apiKey?: string) {
 
   return {
     generate: (req: AIGenerateRequest) => service.generate(req),
+    generateFullApp: (req: MultiFileGenerateRequest) =>
+      service.generateFullApp(req),
     sqlAssist: (req: SQLAssistRequest) => service.sqlAssist(req),
     getUsage: () => service.getUsage(),
     listModels: () => service.listModels(),

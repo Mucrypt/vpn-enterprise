@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   Plus,
@@ -15,6 +16,7 @@ import {
   Copy,
   Check,
   Sparkles,
+  Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -285,11 +287,28 @@ const HeroSection = () => {
 
         {/* Subtitle */}
         <p
-          className='text-lg md:text-xl text-muted-foreground mb-12 animate-fade-up'
+          className='text-lg md:text-xl text-muted-foreground mb-8 animate-fade-up'
           style={{ animationDelay: '0.2s' }}
         >
           Create apps and websites by chatting with AI
         </p>
+
+        {/* CTA Button - App Builder */}
+        <div
+          className='mb-12 animate-fade-up'
+          style={{ animationDelay: '0.25s' }}
+        >
+          <Link to='/build'>
+            <Button size='lg' className='gap-2 text-lg px-8 py-6 rounded-xl shadow-lg hover:shadow-xl transition-all hover:scale-105'>
+              <Zap className='w-5 h-5' />
+              Try Full App Builder
+              <ArrowRight className='w-5 h-5' />
+            </Button>
+          </Link>
+          <p className='text-sm text-muted-foreground mt-3'>
+            Generate complete applications like Cursor and Lovable
+          </p>
+        </div>
 
         {/* Messages Display */}
         {messages.length > 0 && (

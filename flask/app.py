@@ -136,11 +136,13 @@ class ServiceStatus(BaseModel):
     response_time_ms: Optional[float] = None
 
 class AIRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=2000)
-    model: str = Field(default="llama3.2:1b")
+    prompt: str = Field(..., min_length=1, max_length=50000)  # Increased for large prompts
+    model: str = Field(default="deepseek-coder-v2:16b")      # Better default for code gen
     stream: bool = Field(default=False)
     context: Optional[str] = None
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    max_tokens: int = Field(default=4096, le=8192)            # Max output tokens
+    num_ctx: int = Field(default=32768)                        # Context window size
 
 class AIResponse(BaseModel):
     response: str
@@ -274,7 +276,7 @@ async def generate_ai_response(request: AIRequest):
         if request.context:
             full_prompt = f"Context: {request.context}\n\nQuestion: {request.prompt}"
         
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:  # Increased timeout for large generations
             response = await client.post(
                 f"{SERVICES['ollama']}/api/generate",
                 json={
@@ -282,7 +284,10 @@ async def generate_ai_response(request: AIRequest):
                     "prompt": full_prompt,
                     "stream": request.stream,
                     "options": {
-                        "temperature": request.temperature
+                        "temperature": request.temperature,
+                        "num_predict": request.max_tokens,   # Max output tokens
+                        "num_ctx": request.num_ctx,          # Context window
+                        "num_thread": 8,                      # Parallel processing
                     }
                 }
             )
@@ -441,10 +446,14 @@ Provide 2-3 different completion suggestions. Be concise and practical."""
             response = await client.post(
                 f"{SERVICES['ollama']}/api/generate",
                 json={
-                    "model": "llama3.2:1b",
+                    "model": "deepseek-coder-v2:16b",
                     "prompt": prompt,
                     "stream": False,
-                    "options": {"temperature": 0.5}
+                    "options": {
+                        "temperature": 0.5,
+                        "num_predict": 500,
+                        "num_ctx": 8192
+                    }
                 }
             )
             
@@ -467,6 +476,154 @@ Provide 2-3 different completion suggestions. Be concise and practical."""
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI service is unavailable"
+        )
+
+# ============================================
+# FULL APP GENERATION (Like Cursor/Lovable)
+# ============================================
+
+class FileOutput(BaseModel):
+    path: str
+    content: str
+    language: str
+
+class MultiFileGenerateRequest(BaseModel):
+    description: str = Field(..., min_length=10, max_length=5000)
+    framework: str = Field(default="react", pattern="^(react|vue|angular|nextjs|express|fastapi)$")
+    features: List[str] = Field(default_factory=list)
+    styling: str = Field(default="tailwind", pattern="^(tailwind|css|styled-components|sass)$")
+
+class MultiFileGenerateResponse(BaseModel):
+    files: List[FileOutput]
+    instructions: str
+    dependencies: Dict[str, str]
+
+@app.post("/ai/generate/app", response_model=MultiFileGenerateResponse)
+async def generate_full_app(request: MultiFileGenerateRequest):
+    """Generate a complete application with multiple files - Like Cursor/Lovable"""
+    
+    features_str = "\n".join([f"- {f}" for f in request.features]) if request.features else "- Basic CRUD operations\n- Responsive design\n- Error handling"
+    
+    prompt = f"""You are an expert full-stack developer creating production-ready applications. Generate a complete {request.framework} application.
+
+**Project Description:**
+{request.description}
+
+**Required Features:**
+{features_str}
+
+**Styling Framework:** {request.styling}
+
+**Critical Instructions:**
+1. Generate a COMPLETE, WORKING application with ALL necessary files
+2. Include proper project structure and organization
+3. Add comprehensive error handling and loading states
+4. Make it production-ready with proper TypeScript types
+5. Include proper documentation in comments
+
+Return ONLY a valid JSON object with this EXACT structure (no markdown, no extra text):
+
+{{
+  "files": [
+    {{
+      "path": "package.json",
+      "content": "{{...complete package.json content...}}",
+      "language": "json"
+    }},
+    {{
+      "path": "src/App.tsx",
+      "content": "import React from 'react'\\n\\nconst App = () => {{...}}",
+      "language": "typescript"
+    }}
+  ],
+  "instructions": "Complete setup instructions with all commands",
+  "dependencies": {{"react": "^18.2.0", "typescript": "^5.0.0"}}
+}}
+
+Generate at minimum:
+- package.json with ALL dependencies
+- Main application file
+- Component files (at least 3-5 components)
+- Routing setup (if applicable)
+- API service/utilities
+- CSS/Tailwind configuration
+- TypeScript configuration
+- README.md with detailed setup instructions
+- Environment variables template (.env.example)
+
+IMPORTANT: Return ONLY valid JSON, no markdown code blocks, no extra explanations."""
+
+    try:
+        logger.info(f"Generating full app: {request.framework} with features: {request.features}")
+        
+        async with httpx.AsyncClient(timeout=600.0) as client:  # 10 min timeout for large generations
+            response = await client.post(
+                f"{SERVICES['ollama']}/api/generate",
+                json={
+                    "model": "deepseek-coder-v2:16b",  # Best model for code generation
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.3,      # Lower for more consistent output
+                        "num_predict": 8192,     # Maximum output tokens
+                        "num_ctx": 32768,        # Large context for complex apps
+                        "num_thread": 8,         # Parallel processing
+                    }
+                }
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"Ollama service error: {response.text}")
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Ollama service error: {response.text}"
+                )
+            
+            data = response.json()
+            ai_response = data.get("response", "")
+            
+            logger.info(f"AI generated response length: {len(ai_response)} characters")
+            
+            # Clean up markdown code blocks if present
+            ai_response = ai_response.strip()
+            if ai_response.startswith("```json"):
+                ai_response = ai_response[7:]
+            elif ai_response.startswith("```"):
+                ai_response = ai_response[3:]
+            
+            if ai_response.endswith("```"):
+                ai_response = ai_response[:-3]
+            
+            ai_response = ai_response.strip()
+            
+            # Parse JSON response
+            result = json.loads(ai_response)
+            
+            # Validate response structure
+            if "files" not in result or "instructions" not in result or "dependencies" not in result:
+                raise ValueError("Invalid response structure from AI")
+            
+            logger.info(f"Successfully generated {len(result['files'])} files")
+            return result
+            
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse AI response as JSON: {str(e)}")
+        logger.error(f"Raw response: {ai_response[:500]}...")
+        raise HTTPException(
+            status_code=500,
+            detail="AI generated invalid response format. Try again or reduce complexity."
+        )
+    except httpx.RequestError as e:
+        logger.error(f"Full app generation request failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service is unavailable"
+        )
+    except Exception as e:
+        logger.error(f"Full app generation failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Generation failed: {str(e)}"
         )
 
 # ============================================
