@@ -28,6 +28,31 @@ function getDbPool(): Pool {
   return dbPool
 }
 
+// Ensure user exists in platform_db (for users authenticated via Supabase)
+async function ensureUserExists(pool: Pool, userId: string, userEmail: string): Promise<void> {
+  try {
+    // Check if user exists
+    const checkResult = await pool.query(
+      'SELECT id FROM "user" WHERE id = $1',
+      [userId]
+    )
+
+    if (checkResult.rows.length === 0) {
+      // User doesn't exist, create them
+      await pool.query(
+        `INSERT INTO "user" (id, email, "roleSlug", "createdAt", "updatedAt", disabled, "mfaEnabled")
+         VALUES ($1, $2, 'global:member', NOW(), NOW(), false, false)
+         ON CONFLICT (id) DO NOTHING`,
+        [userId, userEmail]
+      )
+      console.log(`[GeneratedApps] Created user in platform_db: ${userEmail} (${userId})`)
+    }
+  } catch (error) {
+    console.error('[GeneratedApps] Error ensuring user exists:', error)
+    // Don't throw - let the foreign key constraint handle it if creation fails
+  }
+}
+
 export function registerGeneratedAppsRoutes(router: Router) {
   const pool = getDbPool()
 
@@ -50,7 +75,7 @@ export function registerGeneratedAppsRoutes(router: Router) {
         GROUP BY a.id
         ORDER BY a.created_at DESC
         `,
-        [userId]
+        [userId],
       )
 
       res.json({ apps: result.rows || [] })
@@ -73,7 +98,7 @@ export function registerGeneratedAppsRoutes(router: Router) {
       // Get app details
       const appResult = await pool.query(
         'SELECT * FROM nexusai_generated_apps WHERE id = $1 AND user_id = $2',
-        [appId, userId]
+        [appId, userId],
       )
 
       if (appResult.rows.length === 0) {
@@ -83,7 +108,7 @@ export function registerGeneratedAppsRoutes(router: Router) {
       // Get app files
       const filesResult = await pool.query(
         'SELECT * FROM nexusai_app_files WHERE app_id = $1 ORDER BY file_path',
-        [appId]
+        [appId],
       )
 
       res.json({
@@ -102,7 +127,8 @@ export function registerGeneratedAppsRoutes(router: Router) {
   router.post('/', async (req: AuthRequest, res) => {
     try {
       const userId = req.user?.id
-      if (!userId) {
+      const userEmail = req.user?.email
+      if (!userId || !userEmail) {
         return res.status(401).json({ error: 'Unauthorized' })
       }
 
@@ -121,6 +147,9 @@ export function registerGeneratedAppsRoutes(router: Router) {
       if (!app_name || !description || !framework) {
         return res.status(400).json({ error: 'Missing required fields' })
       }
+
+      // Ensure user exists in platform_db before inserting app
+      await ensureUserExists(pool, userId, userEmail)
 
       const client = await pool.connect()
       try {
@@ -145,7 +174,7 @@ export function registerGeneratedAppsRoutes(router: Router) {
             JSON.stringify(features),
             JSON.stringify(dependencies),
             requires_database,
-          ]
+          ],
         )
 
         const app = appResult.rows[0]
@@ -164,10 +193,12 @@ export function registerGeneratedAppsRoutes(router: Router) {
           const fileQuery = `
             INSERT INTO nexusai_app_files (
               app_id, file_path, content, language, file_size, is_entry_point
-            ) VALUES ${fileValues.map((_: any, i: number) => {
-              const base = i * 6
-              return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`
-            }).join(', ')}
+            ) VALUES ${fileValues
+              .map((_: any, i: number) => {
+                const base = i * 6
+                return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`
+              })
+              .join(', ')}
           `
 
           await client.query(fileQuery, fileValues.flat())
@@ -200,7 +231,7 @@ export function registerGeneratedAppsRoutes(router: Router) {
 
       const result = await pool.query(
         'DELETE FROM nexusai_generated_apps WHERE id = $1 AND user_id = $2 RETURNING id',
-        [appId, userId]
+        [appId, userId],
       )
 
       if (result.rows.length === 0) {
@@ -210,7 +241,9 @@ export function registerGeneratedAppsRoutes(router: Router) {
       res.json({ message: 'App deleted successfully' })
     } catch (e: any) {
       console.error('Failed to delete app:', e)
-      res.status(500).json({ error: 'Failed to delete app', message: e.message })
+      res
+        .status(500)
+        .json({ error: 'Failed to delete app', message: e.message })
     }
   })
 
@@ -219,7 +252,9 @@ export function registerGeneratedAppsRoutes(router: Router) {
     try {
       res.json({ versions: [], message: 'Versions feature coming soon' })
     } catch (e: any) {
-      res.status(500).json({ error: 'Failed to get versions', message: e.message })
+      res
+        .status(500)
+        .json({ error: 'Failed to get versions', message: e.message })
     }
   })
 }
