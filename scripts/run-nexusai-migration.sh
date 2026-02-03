@@ -44,7 +44,7 @@ if [ "$DB_CHOICE" == "1" ]; then
     fi
     
     # Migration file
-    MIGRATION_FILE="packages/database/migrations/004_generated_apps.sql"
+    MIGRATION_FILE="packages/database/migrations/004_nexusai_generated_apps.sql"
     
     if [ ! -f "$MIGRATION_FILE" ]; then
         echo -e "${RED}Error: Migration file not found: $MIGRATION_FILE${NC}"
@@ -102,7 +102,7 @@ elif [ "$DB_CHOICE" == "2" ]; then
     echo ""
     
     # Migration file
-    MIGRATION_FILE="packages/database/migrations/004_generated_apps.sql"
+    MIGRATION_FILE="packages/database/migrations/004_nexusai_generated_apps.sql"
     
     if [ ! -f "$MIGRATION_FILE" ]; then
         echo -e "${RED}Error: Migration file not found: $MIGRATION_FILE${NC}"
