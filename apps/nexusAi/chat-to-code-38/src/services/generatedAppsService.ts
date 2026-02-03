@@ -1,5 +1,12 @@
 // Service for saving and managing generated apps in the database
 
+import type {
+  DatabaseInfo,
+  ProvisionDatabaseRequest,
+  ProvisionDatabaseResponse,
+  GetDatabaseResponse,
+} from '../types/database'
+
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || 'https://chatbuilds.com/api/v1'
 
@@ -77,12 +84,16 @@ class GeneratedAppsService {
   private handleAuthError(response: Response) {
     if (response.status === 401 || response.status === 403) {
       // Token expired or invalid - redirect to login
-      console.warn('[GeneratedAppsService] Authentication failed, redirecting to login')
+      console.warn(
+        '[GeneratedAppsService] Authentication failed, redirecting to login',
+      )
       localStorage.removeItem('access_token')
       localStorage.removeItem('authToken')
       sessionStorage.removeItem('authToken')
       // Redirect to main app login (web-dashboard)
-      window.location.href = 'https://chatbuilds.com/login?redirect=' + encodeURIComponent(window.location.pathname)
+      window.location.href =
+        'https://chatbuilds.com/login?redirect=' +
+        encodeURIComponent(window.location.pathname)
     }
   }
 
@@ -222,6 +233,92 @@ class GeneratedAppsService {
 
     const data = await response.json()
     return data.versions || []
+  }
+
+  // ==========================================
+  // DATABASE PROVISIONING METHODS
+  // ==========================================
+
+  /**
+   * Provision a database for a generated app
+   */
+  async provisionDatabase(
+    appId: string,
+    options: ProvisionDatabaseRequest = {},
+  ): Promise<ProvisionDatabaseResponse> {
+    const response = await fetch(
+      `${API_BASE_URL}/generated-apps/${appId}/database/provision`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(options),
+      },
+    )
+
+    if (!response.ok) {
+      this.handleAuthError(response)
+      const error = await response
+        .json()
+        .catch(() => ({ error: 'Failed to provision database' }))
+      throw new Error(
+        error.error || error.message || 'Failed to provision database',
+      )
+    }
+
+    return await response.json()
+  }
+
+  /**
+   * Get database info for an app
+   */
+  async getDatabaseInfo(appId: string): Promise<GetDatabaseResponse> {
+    const response = await fetch(
+      `${API_BASE_URL}/generated-apps/${appId}/database`,
+      {
+        method: 'GET',
+        headers: this.getHeaders(),
+        credentials: 'include',
+      },
+    )
+
+    if (!response.ok) {
+      this.handleAuthError(response)
+      const error = await response
+        .json()
+        .catch(() => ({ error: 'Failed to get database info' }))
+      throw new Error(
+        error.error || error.message || 'Failed to get database info',
+      )
+    }
+
+    return await response.json()
+  }
+
+  /**
+   * Deprovision database for an app
+   */
+  async deprovisionDatabase(appId: string): Promise<{ message: string }> {
+    const response = await fetch(
+      `${API_BASE_URL}/generated-apps/${appId}/database`,
+      {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+        credentials: 'include',
+      },
+    )
+
+    if (!response.ok) {
+      this.handleAuthError(response)
+      const error = await response
+        .json()
+        .catch(() => ({ error: 'Failed to deprovision database' }))
+      throw new Error(
+        error.error || error.message || 'Failed to deprovision database',
+      )
+    }
+
+    return await response.json()
   }
 }
 

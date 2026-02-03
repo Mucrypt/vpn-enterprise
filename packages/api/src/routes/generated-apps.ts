@@ -2,6 +2,7 @@ import type { Router } from 'express'
 import type { AuthRequest } from '@vpn-enterprise/auth'
 import { Pool } from 'pg'
 import { resolveSecret } from '../utils/secrets'
+import { nexusAIDatabaseProvisioner } from '../services/nexusai-database-provisioner'
 
 // Use platform database pool
 let dbPool: Pool
@@ -29,12 +30,16 @@ function getDbPool(): Pool {
 }
 
 // Ensure user exists in platform_db (for users authenticated via Supabase)
-async function ensureUserExists(pool: Pool, userId: string, userEmail: string): Promise<void> {
+async function ensureUserExists(
+  pool: Pool,
+  userId: string,
+  userEmail: string,
+): Promise<void> {
   try {
     // Check if user exists
     const checkResult = await pool.query(
       'SELECT id FROM "user" WHERE id = $1',
-      [userId]
+      [userId],
     )
 
     if (checkResult.rows.length === 0) {
@@ -43,9 +48,11 @@ async function ensureUserExists(pool: Pool, userId: string, userEmail: string): 
         `INSERT INTO "user" (id, email, "roleSlug", "createdAt", "updatedAt", disabled, "mfaEnabled")
          VALUES ($1, $2, 'global:member', NOW(), NOW(), false, false)
          ON CONFLICT (id) DO NOTHING`,
-        [userId, userEmail]
+        [userId, userEmail],
       )
-      console.log(`[GeneratedApps] Created user in platform_db: ${userEmail} (${userId})`)
+      console.log(
+        `[GeneratedApps] Created user in platform_db: ${userEmail} (${userId})`,
+      )
     }
   } catch (error) {
     console.error('[GeneratedApps] Error ensuring user exists:', error)
@@ -255,6 +262,177 @@ export function registerGeneratedAppsRoutes(router: Router) {
       res
         .status(500)
         .json({ error: 'Failed to get versions', message: e.message })
+    }
+  })
+
+  // ==========================================
+  // DATABASE PROVISIONING ENDPOINTS
+  // ==========================================
+
+  // Provision database for an app
+  router.post('/:appId/database/provision', async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.id
+      const userEmail = req.user?.email
+      if (!userId || !userEmail) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      const { appId } = req.params
+      const { initialize_schema = false } = req.body
+
+      // Get app details
+      const appResult = await pool.query(
+        'SELECT id, app_name, framework, features, requires_database FROM nexusai_generated_apps WHERE id = $1 AND user_id = $2',
+        [appId, userId],
+      )
+
+      if (appResult.rows.length === 0) {
+        return res.status(404).json({ error: 'App not found' })
+      }
+
+      const app = appResult.rows[0]
+
+      // Check if database already exists
+      const existingDb = await nexusAIDatabaseProvisioner.getDatabaseInfo(appId)
+      if (existingDb) {
+        return res.json({
+          database: existingDb,
+          message: 'Database already exists',
+          already_exists: true,
+        })
+      }
+
+      console.log(`[GeneratedApps] Provisioning database for app: ${app.app_name}`)
+
+      // Provision the database
+      const database = await nexusAIDatabaseProvisioner.provisionDatabase({
+        userId,
+        appId,
+        appName: app.app_name,
+        framework: app.framework,
+        features: app.features || [],
+      })
+
+      // Optionally initialize schema
+      let schemas: string[] = []
+      if (initialize_schema) {
+        schemas = await nexusAIDatabaseProvisioner.generateSchema({
+          appId,
+          features: app.features || [],
+          framework: app.framework,
+        })
+        console.log(`[GeneratedApps] Generated ${schemas.length} schema statements`)
+      }
+
+      // Update app status
+      await pool.query(
+        'UPDATE nexusai_generated_apps SET requires_database = true, updated_at = NOW() WHERE id = $1',
+        [appId],
+      )
+
+      res.json({
+        database: {
+          ...database,
+          password: '***REDACTED***', // Don't send password in response, user gets it once
+        },
+        connection_string: database.connectionString,
+        schemas: initialize_schema ? schemas : undefined,
+        message: 'Database provisioned successfully',
+      })
+    } catch (e: any) {
+      console.error('Failed to provision database:', e)
+      res.status(500).json({
+        error: 'Failed to provision database',
+        message: e.message,
+      })
+    }
+  })
+
+  // Get database info for an app
+  router.get('/:appId/database', async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.id
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      const { appId } = req.params
+
+      // Verify app ownership
+      const appResult = await pool.query(
+        'SELECT id FROM nexusai_generated_apps WHERE id = $1 AND user_id = $2',
+        [appId, userId],
+      )
+
+      if (appResult.rows.length === 0) {
+        return res.status(404).json({ error: 'App not found' })
+      }
+
+      const database = await nexusAIDatabaseProvisioner.getDatabaseInfo(appId)
+
+      if (!database) {
+        return res.json({
+          has_database: false,
+          message: 'No database provisioned for this app',
+        })
+      }
+
+      res.json({
+        has_database: true,
+        database: {
+          ...database,
+          password: '***REDACTED***', // Security: don't expose password
+        },
+        connection_string: database.connectionString.replace(
+          /:([^:@]+)@/,
+          ':***@',
+        ), // Redact password from connection string
+      })
+    } catch (e: any) {
+      console.error('Failed to get database info:', e)
+      res.status(500).json({
+        error: 'Failed to get database info',
+        message: e.message,
+      })
+    }
+  })
+
+  // Delete database for an app (soft delete)
+  router.delete('/:appId/database', async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.id
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      const { appId } = req.params
+
+      // Verify app ownership
+      const appResult = await pool.query(
+        'SELECT id FROM nexusai_generated_apps WHERE id = $1 AND user_id = $2',
+        [appId, userId],
+      )
+
+      if (appResult.rows.length === 0) {
+        return res.status(404).json({ error: 'App not found' })
+      }
+
+      const success = await nexusAIDatabaseProvisioner.deprovisionDatabase(appId)
+
+      if (!success) {
+        return res
+          .status(404)
+          .json({ error: 'No database found for this app' })
+      }
+
+      res.json({ message: 'Database deprovisioned successfully' })
+    } catch (e: any) {
+      console.error('Failed to deprovision database:', e)
+      res.status(500).json({
+        error: 'Failed to deprovision database',
+        message: e.message,
+      })
     }
   })
 }

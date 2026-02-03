@@ -14,9 +14,11 @@ import {
   X,
   Menu,
   ArrowLeft,
+  Database,
 } from 'lucide-react'
 import { CodePreview, LivePreview } from '@/components/CodePreview'
 import { Terminal } from '@/components/Terminal'
+import { DatabasePanel } from '@/components/DatabasePanel'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
@@ -131,10 +133,10 @@ const AppBuilder = () => {
         }
 
         setSavedAppId(savedApp.id)
-        
+
         // Update URL with appId so it persists on refresh
         navigate(`/build?appId=${savedApp.id}`, { replace: true })
-        
+
         setLoading(false)
       } else {
         // Auto-generate on mount for new apps
@@ -557,6 +559,10 @@ const AppBuilder = () => {
                         <TerminalIcon className='w-4 h-4' />
                         Terminal
                       </TabsTrigger>
+                      <TabsTrigger value='database' className='gap-2'>
+                        <Database className='w-4 h-4' />
+                        Database
+                      </TabsTrigger>
                     </TabsList>
                     <span className='text-sm text-muted-foreground'>
                       {selectedFile.path}
@@ -606,6 +612,21 @@ const AppBuilder = () => {
                 <TabsContent value='terminal' className='flex-1 m-0 p-0'>
                   <div className='h-full bg-black'>
                     <Terminal />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value='database' className='flex-1 m-0 p-4 overflow-auto'>
+                  <div className='max-w-3xl mx-auto'>
+                    <DatabasePanel
+                      appId={savedAppId}
+                      requiresDatabase={generatedApp?.requires_database}
+                      onDatabaseProvisioned={(connectionString) => {
+                        toast({
+                          title: '🎉 Database Ready!',
+                          description: 'You can now use the connection string in your app',
+                        })
+                      }}
+                    />
                   </div>
                 </TabsContent>
               </Tabs>
