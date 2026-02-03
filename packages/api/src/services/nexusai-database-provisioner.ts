@@ -219,17 +219,30 @@ export class NexusAIDatabaseProvisioner {
       const connInfo = tenant.connection_info || {}
 
       if (!connInfo.database || !connInfo.password) {
+        console.error(
+          `[NexusAIProvisioner] Incomplete connection info for app ${appId}:`,
+          {
+            hasDatabase: !!connInfo.database,
+            hasPassword: !!connInfo.password,
+          },
+        )
         return null
       }
 
-      const connectionString = this.buildConnectionString(connInfo)
+      const connectionString = this.buildConnectionString({
+        host: connInfo.host || 'vpn-postgres',
+        port: connInfo.port || 5432,
+        database: connInfo.database,
+        username: connInfo.username || connInfo.user || 'tenant_user',
+        password: connInfo.password,
+      })
 
       return {
         tenantId: tenant.tenant_id,
         database: connInfo.database,
         host: connInfo.host || 'vpn-postgres',
         port: connInfo.port || 5432,
-        username: connInfo.username || connInfo.user,
+        username: connInfo.username || connInfo.user || 'tenant_user',
         password: connInfo.password,
         connectionString,
         status: 'exists',

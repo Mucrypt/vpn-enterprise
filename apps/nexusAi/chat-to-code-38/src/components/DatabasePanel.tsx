@@ -274,12 +274,14 @@ export function DatabasePanel({
                 </div>
                 <div className='flex gap-2'>
                   <code className='flex-1 bg-muted p-3 rounded text-xs break-all font-mono'>
-                    {showConnectionString
-                      ? provisionResult.connection_string
-                      : provisionResult.connection_string.replace(
-                          /:(.*?)@/,
-                          ':***@',
-                        )}
+                    {provisionResult.connection_string
+                      ? showConnectionString
+                        ? provisionResult.connection_string
+                        : provisionResult.connection_string.replace(
+                            /:(.*?)@/,
+                            ':***@',
+                          )
+                      : 'Connection string not available'}
                   </code>
                   <Button
                     variant='outline'

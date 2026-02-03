@@ -184,7 +184,9 @@ export function registerGeneratedAppsRoutes(router: Router) {
         await client.query('BEGIN')
 
         // Insert app with the actual user ID
-        console.log('[GeneratedApps] Inserting app into nexusai_generated_apps...')
+        console.log(
+          '[GeneratedApps] Inserting app into nexusai_generated_apps...',
+        )
         const appResult = await client.query(
           `
           INSERT INTO nexusai_generated_apps (
@@ -242,7 +244,10 @@ export function registerGeneratedAppsRoutes(router: Router) {
         res.json({ app, message: 'App saved successfully' })
       } catch (e) {
         await client.query('ROLLBACK')
-        console.error('[GeneratedApps] Transaction rolled back due to error:', e)
+        console.error(
+          '[GeneratedApps] Transaction rolled back due to error:',
+          e,
+        )
         throw e
       } finally {
         client.release()
@@ -416,10 +421,9 @@ export function registerGeneratedAppsRoutes(router: Router) {
           ...database,
           password: '***REDACTED***', // Security: don't expose password
         },
-        connection_string: database.connectionString.replace(
-          /:([^:@]+)@/,
-          ':***@',
-        ), // Redact password from connection string
+        connection_string: database.connectionString
+          ? database.connectionString.replace(/:([^:@]+)@/, ':***@')
+          : undefined, // Redact password from connection string
       })
     } catch (e: any) {
       console.error('Failed to get database info:', e)
