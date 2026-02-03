@@ -202,6 +202,11 @@ class APIClient {
     try {
       const { useAuthStore } = require('./store')
       useAuthStore.getState().logout()
+
+      // Redirect to login page after logout
+      if (!window.location.pathname.startsWith('/auth/login')) {
+        window.location.href = '/auth/login?expired=true'
+      }
     } catch (e) {
       // Fallback cleanup
       localStorage.removeItem('access_token')
@@ -209,9 +214,9 @@ class APIClient {
       document.cookie = 'refresh_token=; path=/; max-age=0'
       document.cookie = 'user_role=; path=/; max-age=0'
 
-      // Redirect to home page instead of login
-      if (!window.location.pathname.startsWith('/')) {
-        window.location.href = '/'
+      // Redirect to login page
+      if (!window.location.pathname.startsWith('/auth/login')) {
+        window.location.href = '/auth/login?expired=true'
       }
     }
   }

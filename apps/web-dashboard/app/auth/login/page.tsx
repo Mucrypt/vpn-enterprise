@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,6 +18,7 @@ import { api } from '@/lib/api'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { setUser, setAccessToken, setAuth } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -25,6 +26,16 @@ export default function LoginPage() {
     password: '',
   })
   const [error, setError] = useState('')
+
+  // Show session expired message if redirected from token expiration
+  useEffect(() => {
+    if (searchParams.get('expired') === 'true') {
+      toast.error('Your session has expired. Please log in again.', {
+        duration: 5000,
+        icon: '⏰',
+      })
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

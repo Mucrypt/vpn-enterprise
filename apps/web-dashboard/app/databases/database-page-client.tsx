@@ -8,7 +8,7 @@ import React, {
   lazy,
   useCallback,
 } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryStorage } from '@/hooks/use-query-storage'
 import { Database, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -214,6 +214,7 @@ export function DatabasePageClient({
   initialTenants,
 }: DatabasePageClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   // Query storage hook
   const { addToHistory } = useQueryStorage()
@@ -240,8 +241,18 @@ export function DatabasePageClient({
   })
 
   const [activeTenant, setActiveTenant] = useState<string>(() => {
-    // Try to restore from localStorage first
+    // Check URL params first for tenant/database from NexusAI
     if (typeof window !== 'undefined') {
+      const urlTenantId = searchParams.get('tenantId')
+      if (urlTenantId) {
+        console.log(
+          '[DatabasePageClient] Switching to tenant from URL:',
+          urlTenantId,
+        )
+        return urlTenantId
+      }
+
+      // Try to restore from localStorage
       try {
         const stored = localStorage.getItem('active_tenant')
         if (stored) {
@@ -335,8 +346,62 @@ SELECT * FROM blog.posts LIMIT 5;
     if (initialTenants.length > 0) {
       setTenants(initialTenants)
 
-      // If we don't have an activeTenant yet, set the first one
-      if (!activeTenant && initialTenants[0]) {
+      // Check URL params for tenant from NexusAI
+      const urlTenantId = searchParams.get('tenantId')
+      const urlDatabase = searchParams.get('database')
+
+      if (urlTenantId) {
+        // Find the tenant in the list
+        let tenant = initialTenants.find(
+          (t) => t.tenant_id === urlTenantId || t.id === urlTenantId,
+        )
+
+        if (tenant) {
+          setActiveTenant(urlTenantId)
+          console.log(
+            '[DatabasePageClient] Loaded NexusAI database:',
+            urlDatabase,
+          )
+
+          // Show notification
+          if (typeof window !== 'undefined' && urlDatabase) {
+            setTimeout(() => {
+              const event = new CustomEvent('show-toast', {
+                detail: {
+                  title: '✅ Database Connected',
+                  description: `Connected to ${urlDatabase} with auto-generated tables`,
+                  variant: 'success',
+                },
+              })
+              window.dispatchEvent(event)
+            }, 500)
+          }
+        } else {
+          // Tenant not in list, fetch it directly
+          console.log(
+            '[DatabasePageClient] Tenant not found, fetching from API:',
+            urlTenantId,
+          )
+          fetch(`/api/v1/tenants/${urlTenantId}`, {
+            credentials: 'include',
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.tenant) {
+                setTenants((prev) => [...prev, data.tenant])
+                setActiveTenant(urlTenantId)
+                console.log(
+                  '[DatabasePageClient] Added tenant from API:',
+                  data.tenant,
+                )
+              }
+            })
+            .catch((err) => {
+              console.error('[DatabasePageClient] Failed to fetch tenant:', err)
+            })
+        }
+      } else if (!activeTenant && initialTenants[0]) {
+        // If we don't have an activeTenant yet, set the first one
         const firstTenantId =
           initialTenants[0].tenant_id || initialTenants[0].id
         setActiveTenant(firstTenantId)
@@ -346,7 +411,7 @@ SELECT * FROM blog.posts LIMIT 5;
         )
       }
     }
-  }, [initialTenants])
+  }, [initialTenants, searchParams])
 
   // Check for existing data when tenant changes - define before use
   const checkForExistingData = useCallback(async () => {

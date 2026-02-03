@@ -145,7 +145,16 @@ export const useAuthStore = create<AuthState>()(
 
       setLoading: (loading) => set({ isLoading: loading }),
       setHydrated: (hydrated) => set({ hasHydrated: hydrated }),
-      logout: () => get().clearAuth(),
+      logout: () => {
+        get().clearAuth()
+        // Redirect to login page after logout
+        if (
+          typeof window !== 'undefined' &&
+          !window.location.pathname.startsWith('/auth/login')
+        ) {
+          window.location.href = '/auth/login'
+        }
+      },
     }),
     {
       name: 'vpn-enterprise-auth-storage',

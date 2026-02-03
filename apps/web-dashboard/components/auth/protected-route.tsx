@@ -18,7 +18,14 @@ export default function ProtectedRoute({
   children,
   requiredRole,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, user, isLoading, hasHydrated } = useAuthStore()
+  const {
+    isAuthenticated,
+    user,
+    isLoading,
+    hasHydrated,
+    lastSuccessfulAuth,
+    clearAuth,
+  } = useAuthStore()
   const router = useRouter()
   const isDev = process.env.NODE_ENV === 'development'
 
@@ -27,6 +34,18 @@ export default function ProtectedRoute({
 
     // Wait until store has hydrated before making any auth-based redirects
     if (!hasHydrated) return
+
+    // Check token expiration (1 hour = 3600000ms)
+    const TOKEN_EXPIRY = 60 * 60 * 1000 // 1 hour
+    if (isAuthenticated && lastSuccessfulAuth) {
+      const elapsed = Date.now() - lastSuccessfulAuth
+      if (elapsed > TOKEN_EXPIRY) {
+        console.log('[ProtectedRoute] Token expired, redirecting to login')
+        clearAuth()
+        router.push('/auth/login?expired=true')
+        return
+      }
+    }
 
     if (!isLoading && !isAuthenticated) {
       router.push('/auth/login')
