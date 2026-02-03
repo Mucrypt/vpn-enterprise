@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SubscriptionOverview } from '@/components/billing/SubscriptionOverview'
 import { PricingPlans } from '@/components/billing/PricingPlans'
-import { ServiceManagement, DEFAULT_SERVICES } from '@/components/billing/ServiceManagement'
+import {
+  ServiceManagement,
+  DEFAULT_SERVICES,
+} from '@/components/billing/ServiceManagement'
 import { BillingHistory } from '@/components/billing/BillingHistory'
 import { api } from '@/lib/api'
 import toast from 'react-hot-toast'
@@ -27,17 +30,24 @@ export default function BillingPage() {
       setLoading(true)
 
       // Load all billing data in parallel
-      const [subData, transData, invoicesData, servicesData] = await Promise.all([
-        api.fetchAPI('/api/v1/billing/subscription').catch(() => null),
-        api.fetchAPI('/api/v1/billing/transactions').catch(() => ({ transactions: [] })),
-        api.fetchAPI('/api/v1/billing/invoices').catch(() => ({ invoices: [] })),
-        api.fetchAPI('/api/v1/billing/services').catch(() => ({ services: DEFAULT_SERVICES })),
-      ])
+      const [subData, transData, invoicesData, servicesData] =
+        await Promise.all([
+          api.fetchAPI('/api/v1/billing/subscription').catch(() => null),
+          api
+            .fetchAPI('/api/v1/billing/transactions')
+            .catch(() => ({ transactions: [] })),
+          api
+            .fetchAPI('/api/v1/billing/invoices')
+            .catch(() => ({ invoices: [] })),
+          api
+            .fetchAPI('/api/v1/billing/services')
+            .catch(() => ({ services: DEFAULT_SERVICES })),
+        ])
 
       setSubscription(subData)
       setTransactions(transData.transactions || [])
       setInvoices(invoicesData.invoices || [])
-      
+
       // Merge API services with defaults
       if (servicesData?.services) {
         setServices(servicesData.services)
@@ -54,11 +64,14 @@ export default function BillingPage() {
     try {
       if (!stripePriceId) {
         // Handle free plan or plans without Stripe
-        const response = await api.fetchAPI('/api/v1/billing/subscription/change', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ planId }),
-        })
+        const response = await api.fetchAPI(
+          '/api/v1/billing/subscription/change',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ planId }),
+          },
+        )
 
         toast.success('Plan updated successfully')
         await loadBillingData()
@@ -66,16 +79,19 @@ export default function BillingPage() {
       }
 
       // Create Stripe checkout session and redirect
-      const response = await api.fetchAPI('/api/v1/billing/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          priceId: stripePriceId,
-          planId,
-          successUrl: `${window.location.origin}/dashboard/billing?session_id={CHECKOUT_SESSION_ID}`,
-          cancelUrl: `${window.location.origin}/dashboard/billing`,
-        }),
-      })
+      const response = await api.fetchAPI(
+        '/api/v1/billing/create-checkout-session',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            priceId: stripePriceId,
+            planId,
+            successUrl: `${window.location.origin}/dashboard/billing?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `${window.location.origin}/dashboard/billing`,
+          }),
+        },
+      )
 
       if (!response.url) {
         throw new Error('Failed to create checkout session')
@@ -99,12 +115,12 @@ export default function BillingPage() {
       })
 
       // Update local state
-      setServices(prev =>
-        prev.map(service =>
+      setServices((prev) =>
+        prev.map((service) =>
           service.id === serviceId
             ? { ...service, enabled, status: enabled ? 'active' : 'inactive' }
-            : service
-        )
+            : service,
+        ),
       )
     } catch (error: any) {
       console.error('Failed to toggle service:', error)
@@ -117,11 +133,13 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className='space-y-6 p-6'>
       {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Billing & Subscriptions</h1>
-        <p className="text-muted-foreground">
+      <div className='space-y-2'>
+        <h1 className='text-3xl font-bold tracking-tight text-foreground'>
+          Billing & Subscriptions
+        </h1>
+        <p className='text-muted-foreground'>
           Manage your subscription, credits, and payment methods
         </p>
       </div>
@@ -134,26 +152,35 @@ export default function BillingPage() {
       />
 
       {/* Tabbed Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:w-fit bg-muted">
-          <TabsTrigger value="plans" className="gap-2 data-[state=active]:bg-background">
-            <Package className="w-4 h-4" />
-            <span className="hidden sm:inline">Plans & Credits</span>
-            <span className="sm:hidden">Plans</span>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className='w-full'>
+        <TabsList className='grid w-full grid-cols-3 lg:w-fit bg-muted'>
+          <TabsTrigger
+            value='plans'
+            className='gap-2 data-[state=active]:bg-background'
+          >
+            <Package className='w-4 h-4' />
+            <span className='hidden sm:inline'>Plans & Credits</span>
+            <span className='sm:hidden'>Plans</span>
           </TabsTrigger>
-          <TabsTrigger value="services" className="gap-2 data-[state=active]:bg-background">
-            <Settings className="w-4 h-4" />
-            <span className="hidden sm:inline">Services</span>
-            <span className="sm:hidden">Services</span>
+          <TabsTrigger
+            value='services'
+            className='gap-2 data-[state=active]:bg-background'
+          >
+            <Settings className='w-4 h-4' />
+            <span className='hidden sm:inline'>Services</span>
+            <span className='sm:hidden'>Services</span>
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-2 data-[state=active]:bg-background">
-            <History className="w-4 h-4" />
-            <span className="hidden sm:inline">History</span>
-            <span className="sm:hidden">History</span>
+          <TabsTrigger
+            value='history'
+            className='gap-2 data-[state=active]:bg-background'
+          >
+            <History className='w-4 h-4' />
+            <span className='hidden sm:inline'>History</span>
+            <span className='sm:hidden'>History</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="plans" className="mt-6">
+        <TabsContent value='plans' className='mt-6'>
           <PricingPlans
             currentPlan={subscription?.plan_type}
             onSelectPlan={handleSelectPlan}
@@ -161,7 +188,7 @@ export default function BillingPage() {
           />
         </TabsContent>
 
-        <TabsContent value="services" className="mt-6">
+        <TabsContent value='services' className='mt-6'>
           <ServiceManagement
             services={services}
             onToggleService={handleToggleService}
@@ -169,7 +196,7 @@ export default function BillingPage() {
           />
         </TabsContent>
 
-        <TabsContent value="history" className="mt-6">
+        <TabsContent value='history' className='mt-6'>
           <BillingHistory
             transactions={transactions}
             invoices={invoices}

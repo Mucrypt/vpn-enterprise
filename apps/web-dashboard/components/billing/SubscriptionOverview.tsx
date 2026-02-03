@@ -61,7 +61,9 @@ export function SubscriptionOverview({
     return (
       <Card className='border-primary/20 bg-card'>
         <CardHeader>
-          <CardTitle className="text-foreground">No Active Subscription</CardTitle>
+          <CardTitle className='text-foreground'>
+            No Active Subscription
+          </CardTitle>
           <CardDescription>
             Start your journey with VPN Enterprise
           </CardDescription>
@@ -71,7 +73,11 @@ export function SubscriptionOverview({
           <p className='text-muted-foreground mb-6'>
             Choose a plan to unlock powerful features and scale your business
           </p>
-          <Button onClick={onUpgrade} size='lg' className='gap-2 bg-primary hover:bg-primary/90'>
+          <Button
+            onClick={onUpgrade}
+            size='lg'
+            className='gap-2 bg-primary hover:bg-primary/90'
+          >
             <TrendingUp className='w-4 h-4' />
             Choose Your Plan
           </Button>
@@ -93,7 +99,10 @@ export function SubscriptionOverview({
           <div>
             <CardTitle className='flex items-center gap-2 text-foreground'>
               Current Subscription
-              <Badge variant="outline" className={PLAN_COLORS[planType] || PLAN_COLORS.free}>
+              <Badge
+                variant='outline'
+                className={PLAN_COLORS[planType] || PLAN_COLORS.free}
+              >
                 {subscription.plan_type}
               </Badge>
             </CardTitle>
@@ -109,7 +118,10 @@ export function SubscriptionOverview({
         <div className='flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border'>
           <div>
             <p className='text-sm text-muted-foreground'>Status</p>
-            <Badge variant="outline" className={STATUS_COLORS[status] || STATUS_COLORS.active}>
+            <Badge
+              variant='outline'
+              className={STATUS_COLORS[status] || STATUS_COLORS.active}
+            >
               {subscription.status}
             </Badge>
           </div>

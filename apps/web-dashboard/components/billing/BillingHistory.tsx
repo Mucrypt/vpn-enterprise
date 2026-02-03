@@ -69,9 +69,19 @@ export function BillingHistory({
 
   const getTransactionBadge = (type: string) => {
     return type === 'credit' ? (
-      <Badge variant="outline" className='bg-green-500/10 text-green-400 border-green-500/20'>+ Credit</Badge>
+      <Badge
+        variant='outline'
+        className='bg-green-500/10 text-green-400 border-green-500/20'
+      >
+        + Credit
+      </Badge>
     ) : (
-      <Badge variant="outline" className='bg-red-500/10 text-red-400 border-red-500/20'>- Debit</Badge>
+      <Badge
+        variant='outline'
+        className='bg-red-500/10 text-red-400 border-red-500/20'
+      >
+        - Debit
+      </Badge>
     )
   }
 
@@ -85,9 +95,10 @@ export function BillingHistory({
 
     return (
       <Badge
-        variant="outline"
+        variant='outline'
         className={
-          statusColors[status.toLowerCase()] || 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+          statusColors[status.toLowerCase()] ||
+          'bg-slate-500/10 text-slate-400 border-slate-500/20'
         }
       >
         {status}
