@@ -132,7 +132,7 @@ export function SidebarNavigation() {
       {/* Sidebar */}
       <div
         className={cn(
-          'flex h-screen min-h-0 flex-col border-r bg-gray-50 transition-all duration-300 z-50',
+          'flex h-screen min-h-0 flex-col border-r bg-card transition-all duration-300 z-50',
           // Desktop
           'hidden md:flex',
           sidebarOpen ? 'md:w-64' : 'md:w-20',
@@ -149,7 +149,7 @@ export function SidebarNavigation() {
               </h1>
               <button
                 onClick={toggleSidebar}
-                className='md:hidden p-2 hover:bg-gray-200 rounded-lg'
+                className='md:hidden p-2 hover:bg-muted rounded-lg'
                 aria-label='Close menu'
               >
                 <X className='h-5 w-5 text-gray-700' />
@@ -186,7 +186,7 @@ export function SidebarNavigation() {
                   'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 touch-manipulation',
                   isActive
                     ? 'bg-emerald-100 text-emerald-900 border-l-4 border-emerald-700 shadow-md font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-emerald-700 border-l-4 border-transparent active:bg-gray-200',
+                    : 'text-foreground hover:bg-muted hover:text-primary border-l-4 border-transparent active:bg-muted/80',
                   !sidebarOpen && 'justify-center md:px-3',
                 )}
               >
@@ -200,7 +200,7 @@ export function SidebarNavigation() {
         {/* Toggle Button */}
         <button
           onClick={toggleSidebar}
-          className='hidden md:flex h-16 shrink-0 items-center justify-center border-t hover:bg-gray-200 transition-colors'
+          className='hidden md:flex h-16 shrink-0 items-center justify-center border-t hover:bg-muted transition-colors'
           aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {sidebarOpen ? (

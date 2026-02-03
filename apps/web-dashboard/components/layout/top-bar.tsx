@@ -135,11 +135,11 @@ export function TopBar() {
   const { toggleSidebar } = useDashboardStore()
 
   return (
-    <div className='flex h-14 md:h-16 items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6'>
+    <div className='flex h-14 md:h-16 items-center justify-between border-b bg-card px-3 sm:px-4 md:px-6'>
       {/* Mobile Menu Button */}
       <button
         onClick={toggleSidebar}
-        className='md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation'
+        className='md:hidden p-2 hover:bg-muted rounded-lg transition-colors touch-manipulation'
         aria-label='Open menu'
       >
         <svg
@@ -188,8 +188,8 @@ export function TopBar() {
           </Button>
 
           {showNotifications && (
-            <div className='absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[70vh] sm:max-h-[600px] overflow-hidden flex flex-col'>
-              <div className='px-3 sm:px-4 py-3 border-b flex items-center justify-between bg-gray-50'>
+            <div className='absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-card rounded-lg shadow-xl border z-50 max-h-[70vh] sm:max-h-[600px] overflow-hidden flex flex-col'>
+              <div className='px-3 sm:px-4 py-3 border-b flex items-center justify-between bg-muted'>
                 <h3 className='text-sm font-semibold text-gray-900'>
                   Notifications
                 </h3>
@@ -225,8 +225,8 @@ export function TopBar() {
                     {notifications.map((notif) => (
                       <div
                         key={notif.id}
-                        className={`px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${
-                          !notif.read ? 'bg-emerald-50' : ''
+                        className={`px-4 py-3 hover:bg-muted transition-colors cursor-pointer ${
+                          !notif.read ? 'bg-blue-500/10' : ''
                         }`}
                         onClick={() => {
                           if (!notif.read) markAsRead(notif.id)
@@ -243,18 +243,18 @@ export function TopBar() {
                           <div className='flex-1 min-w-0'>
                             <div className='flex items-start justify-between gap-2'>
                               <p
-                                className={`text-sm font-medium text-gray-900 ${!notif.read ? 'font-semibold' : ''}`}
+                                className={`text-sm font-medium text-foreground ${!notif.read ? 'font-semibold' : ''}`}
                               >
                                 {notif.title}
                               </p>
                               {!notif.read && (
-                                <span className='shrink-0 h-2 w-2 rounded-full bg-emerald-600'></span>
+                                <span className='shrink-0 h-2 w-2 rounded-full bg-primary'></span>
                               )}
                             </div>
-                            <p className='text-xs text-gray-600 mt-1 line-clamp-2'>
+                            <p className='text-xs text-muted-foreground mt-1 line-clamp-2'>
                               {notif.message}
                             </p>
-                            <p className='text-xs text-gray-400 mt-1'>
+                            <p className='text-xs text-muted-foreground/70 mt-1'>
                               {formatTime(notif.timestamp)}
                             </p>
                           </div>
@@ -271,7 +271,7 @@ export function TopBar() {
         <div className='relative' ref={menuRef}>
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className='flex items-center gap-2 md:gap-3 hover:bg-gray-50 rounded-lg px-2 md:px-3 py-1.5 md:py-2 transition-colors touch-manipulation'
+            className='flex items-center gap-2 md:gap-3 hover:bg-muted rounded-lg px-2 md:px-3 py-1.5 md:py-2 transition-colors touch-manipulation'
           >
             <div className='h-8 w-8 md:h-9 md:w-9 rounded-full bg-linear-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold text-sm'>
               {user?.email?.[0]?.toUpperCase() || 'U'}
@@ -295,7 +295,7 @@ export function TopBar() {
           </button>
 
           {showUserMenu && (
-            <div className='absolute right-0 mt-2 w-56 sm:w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50'>
+            <div className='absolute right-0 mt-2 w-56 sm:w-64 bg-card rounded-lg shadow-lg border py-2 z-50'>
               <div className='px-4 py-3 border-b'>
                 <p className='text-sm font-medium text-gray-900'>
                   {user?.email}
