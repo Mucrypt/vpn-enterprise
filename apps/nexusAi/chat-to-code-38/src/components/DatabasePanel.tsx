@@ -57,6 +57,18 @@ export function DatabasePanel({
     try {
       const info = await generatedAppsService.getDatabaseInfo(appId)
       setDatabaseInfo(info)
+      
+      // If database exists, populate provisionResult so "Open Editor" button works
+      if (info.has_database && info.database) {
+        setProvisionResult({
+          database: info.database,
+          connection_string: info.connection_string || '',
+          already_exists: true,
+          message: 'Database exists',
+          tables_created: info.database.tablesCreated,
+          schema_generated: info.database.schemaSQL ? true : false,
+        })
+      }
     } catch (error) {
       console.error('Failed to check database status:', error)
     } finally {
