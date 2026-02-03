@@ -24,12 +24,22 @@ read -p "Enter choice [1-2]: " DB_CHOICE
 
 if [ "$DB_CHOICE" == "1" ]; then
     # Docker Postgres Migration
-    echo -e "${GREEN}✓ Using Docker Postgres (Database Platform)${NC}"
+    echo -e "${GREEN}✓ Using Docker Postgres${NC}"
     
-    # Check if container is running
-    if ! docker ps | grep -q dbplatform-postgres-primary; then
-        echo -e "${RED}Error: dbplatform-postgres-primary container is not running${NC}"
-        echo "Start it with: docker compose -f infrastructure/docker/docker-compose.database-platform.yml up -d postgres-primary"
+    # Detect which postgres container is running
+    if docker ps | grep -q "vpn-postgres"; then
+        POSTGRES_CONTAINER="vpn-postgres"
+        POSTGRES_USER="postgres"
+        POSTGRES_DB="vpn_enterprise"
+        echo -e "${BLUE}Detected production container: $POSTGRES_CONTAINER${NC}"
+    elif docker ps | grep -q "dbplatform-postgres-primary"; then
+        POSTGRES_CONTAINER="dbplatform-postgres-primary"
+        POSTGRES_USER="platform_admin"
+        POSTGRES_DB="platform_db"
+        echo -e "${BLUE}Detected dev container: $POSTGRES_CONTAINER${NC}"
+    else
+        echo -e "${RED}Error: No postgres container is running${NC}"
+        echo "Looked for: vpn-postgres or dbplatform-postgres-primary"
         exit 1
     fi
     
@@ -45,9 +55,9 @@ if [ "$DB_CHOICE" == "1" ]; then
     echo ""
     
     # Copy migration file to container and execute
-    docker cp "$MIGRATION_FILE" dbplatform-postgres-primary:/tmp/migration.sql
+    docker cp "$MIGRATION_FILE" $POSTGRES_CONTAINER:/tmp/migration.sql
     
-    docker exec -i dbplatform-postgres-primary psql -U platform_admin -d platform_db <<EOF
+    docker exec -i $POSTGRES_CONTAINER psql -U $POSTGRES_USER -d $POSTGRES_DB <<EOF
 \i /tmp/migration.sql
 EOF
     
@@ -57,11 +67,11 @@ EOF
         echo ""
         echo "Tables created:"
         echo "  - nexusai_generated_apps"
-        echo "  - nexusai_generated_files"
+        echo "  - nexusai_app_files"
         echo ""
         
         # Verify tables exist
-        docker exec -i dbplatform-postgres-primary psql -U platform_admin -d platform_db -c "\dt nexusai_*"
+        docker exec -i $POSTGRES_CONTAINER psql -U $POSTGRES_USER -d $POSTGRES_DB -c "\dt nexusai_*"
     else
         echo -e "${RED}✗ Migration failed${NC}"
         exit 1
