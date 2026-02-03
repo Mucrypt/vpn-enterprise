@@ -175,7 +175,9 @@ class GeneratedAppsService {
       body: JSON.stringify(updates),
     })
 
-    if (!response.ok) {      this.handleAuthError(response)      const error = await response
+    if (!response.ok) {
+      this.handleAuthError(response)
+      const error = await response
         .json()
         .catch(() => ({ error: 'Failed to update app' }))
       throw new Error(error.error || error.message || 'Failed to update app')
