@@ -27,8 +27,10 @@ import {
   type FileOutput,
   type DeploymentResponse,
 } from '@/services/aiService'
+import { generatedAppsService } from '@/services/generatedAppsService'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import type { SavedApp } from '@/services/generatedAppsService'
 
 const AppBuilder = () => {
   const location = useLocation()
@@ -36,12 +38,13 @@ const AppBuilder = () => {
   const { toast } = useToast()
   const { generateFullApp, deployApp } = useAI()
 
-  // State from AppDescription page
+  // State from AppDescription page or MyApps page
   const appDetails = location.state as {
     description: string
     framework: string
     styling: string
     features: string[]
+    loadedApp?: SavedApp
   } | null
 
   const [loading, setLoading] = useState(true)
@@ -53,6 +56,7 @@ const AppBuilder = () => {
   const [deploying, setDeploying] = useState(false)
   const [deployment, setDeployment] = useState<DeploymentResponse | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [savedAppId, setSavedAppId] = useState<string | null>(null)
 
   // Redirect if no app details
   useEffect(() => {
@@ -61,8 +65,33 @@ const AppBuilder = () => {
       return
     }
 
-    // Auto-generate on mount
-    handleGenerate()
+    // If loading a saved app, populate the editor
+    if (appDetails.loadedApp) {
+      const savedApp = appDetails.loadedApp
+      const files: FileOutput[] = (savedApp.files || []).map((file) => ({
+        path: file.file_path,
+        name: file.file_path,
+        content: file.content,
+        language: file.language,
+      }))
+
+      setGeneratedApp({
+        files,
+        instructions: savedApp.description || 'Loaded from saved apps',
+        dependencies: savedApp.dependencies || {},
+        requires_database: savedApp.requires_database,
+      })
+
+      if (files.length > 0) {
+        setSelectedFile(files[0])
+      }
+
+      setSavedAppId(savedApp.id)
+      setLoading(false)
+    } else {
+      // Auto-generate on mount for new apps
+      handleGenerate()
+    }
   }, [])
 
   const handleGenerate = async () => {
@@ -94,10 +123,45 @@ const AppBuilder = () => {
         setSelectedFile(result.files[0])
       }
 
-      toast({
-        title: '✨ App Generated!',
-        description: `Created ${result.files?.length || 0} files successfully`,
-      })
+      // Save to database
+      try {
+        const appName = appDetails.description
+          .split(' ')
+          .slice(0, 5)
+          .join(' ')
+          .substring(0, 50)
+
+        const savedApp = await generatedAppsService.saveApp({
+          app_name: appName || 'Untitled App',
+          description: appDetails.description,
+          framework: appDetails.framework,
+          styling: appDetails.styling,
+          features: appDetails.features,
+          dependencies: result.dependencies || {},
+          requires_database: result.requires_database ?? false,
+          files: (result.files || []).map((file) => ({
+            file_path: file.name,
+            content: file.content,
+            language: file.language || 'text',
+            is_entry_point:
+              file.name.includes('index') || file.name.includes('main'),
+          })),
+        })
+
+        setSavedAppId(savedApp.id)
+
+        toast({
+          title: '✨ App Generated & Saved!',
+          description: `Created ${result.files?.length || 0} files and saved to your library`,
+        })
+      } catch (saveError) {
+        // Still show success for generation even if save fails
+        console.error('Failed to save app:', saveError)
+        toast({
+          title: '✨ App Generated!',
+          description: `Created ${result.files?.length || 0} files (save failed - check authentication)`,
+        })
+      }
     } catch (error) {
       toast({
         title: 'Generation Failed',
@@ -326,6 +390,15 @@ const AppBuilder = () => {
           </div>
 
           <div className='flex items-center gap-2'>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => navigate('/my-apps')}
+              className='gap-2'
+            >
+              <FileCode2 className='w-4 h-4' />
+              My Apps
+            </Button>
             {deployment ? (
               <Button
                 variant='outline'

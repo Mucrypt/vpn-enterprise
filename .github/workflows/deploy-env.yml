@@ -239,7 +239,7 @@ jobs:
             Staging deployment ${{ job.status }}
             Services: ${{ needs.pre-deploy.outputs.services_list }}
             Version: ${{ inputs.version }}
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+            webhook_url: ${{ secrets.SLACK_WEBHOOK }}
 
   # ==============================================
   # DEPLOY TO PRODUCTION
@@ -380,7 +380,7 @@ jobs:
             **Version:** ${{ inputs.version }}
             **Deploy ID:** ${{ needs.pre-deploy.outputs.deploy_id }}
             **URL:** https://chatbuilds.com
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+            webhook_url: ${{ secrets.SLACK_WEBHOOK }}
 
       - name: Create deployment record
         run: |

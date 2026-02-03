@@ -30,6 +30,7 @@ import { AuditRepository, SecurityRepository } from '@vpn-enterprise/database'
 import { DatabasePlatformClient } from './database-platform-client'
 import { hostingRouter } from './routes/hosting'
 import { tenantsRouter } from './routes/tenants'
+import { registerGeneratedAppsRoutes } from './routes/generated-apps'
 import adminUsersRouter from './routes/admin/users'
 import adminTenantsRouter from './routes/admin/tenants'
 import { ApolloServer, gql } from 'apollo-server-express'
@@ -269,6 +270,10 @@ app.get('/api/v1/debug/connections', async (req, res) => {
 app.use('/api/v1/hosting', hostingRouter)
 // Tenants routes (scaffold)
 app.use('/api/v1/tenants', tenantsRouter)
+// Generated Apps routes (NexusAI integration)
+const generatedAppsRouter = express.Router()
+registerGeneratedAppsRoutes(generatedAppsRouter)
+app.use('/api/v1', authMiddleware, generatedAppsRouter)
 // Admin routes
 app.use('/api/v1/admin', adminUsersRouter)
 app.use('/api/v1/admin/tenants', adminTenantsRouter)

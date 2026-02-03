@@ -33,6 +33,9 @@ export interface MultiFileGenerateRequest {
 }
 
 export interface FileOutput {
+  name: any
+  name: any
+  name: any
   path: string
   content: string
   language: string
