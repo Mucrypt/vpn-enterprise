@@ -132,7 +132,7 @@ export function SidebarNavigation() {
       {/* Sidebar */}
       <div
         className={cn(
-          'flex h-screen min-h-0 flex-col border-r bg-card transition-all duration-300 z-50',
+          'flex h-screen min-h-0 flex-col border-r border-slate-800 bg-slate-900 transition-all duration-300 z-50',
           // Desktop
           'hidden md:flex',
           sidebarOpen ? 'md:w-64' : 'md:w-20',
@@ -141,22 +141,22 @@ export function SidebarNavigation() {
         )}
       >
         {/* Logo */}
-        <div className='flex h-16 shrink-0 items-center justify-between border-b px-4 md:px-6'>
+        <div className='flex h-16 shrink-0 items-center justify-between border-b border-slate-800 px-4 md:px-6'>
           {sidebarOpen ? (
             <>
-              <h1 className='text-lg sm:text-xl font-bold text-gray-900'>
+              <h1 className='text-lg sm:text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent'>
                 VPN Enterprise
               </h1>
               <button
                 onClick={toggleSidebar}
-                className='md:hidden p-2 hover:bg-muted rounded-lg'
+                className='md:hidden p-2 hover:bg-slate-800 rounded-lg transition-colors'
                 aria-label='Close menu'
               >
-                <X className='h-5 w-5 text-gray-700' />
+                <X className='h-5 w-5 text-slate-400' />
               </button>
             </>
           ) : (
-            <span className='text-xl font-bold text-gray-900'>VE</span>
+            <span className='text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent'>VE</span>
           )}
         </div>
 
@@ -200,7 +200,7 @@ export function SidebarNavigation() {
         {/* Toggle Button */}
         <button
           onClick={toggleSidebar}
-          className='hidden md:flex h-16 shrink-0 items-center justify-center border-t hover:bg-muted transition-colors'
+          className='hidden md:flex h-16 shrink-0 items-center justify-center border-t border-slate-800 hover:bg-slate-800 transition-colors'
           aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {sidebarOpen ? (

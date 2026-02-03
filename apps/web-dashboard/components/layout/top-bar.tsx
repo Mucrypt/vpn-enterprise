@@ -135,11 +135,11 @@ export function TopBar() {
   const { toggleSidebar } = useDashboardStore()
 
   return (
-    <div className='flex h-14 md:h-16 items-center justify-between border-b bg-card px-3 sm:px-4 md:px-6'>
+    <div className='flex h-14 md:h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-3 sm:px-4 md:px-6'>
       {/* Mobile Menu Button */}
       <button
         onClick={toggleSidebar}
-        className='md:hidden p-2 hover:bg-muted rounded-lg transition-colors touch-manipulation'
+        className='md:hidden p-2 hover:bg-slate-800 rounded-lg transition-colors touch-manipulation'
         aria-label='Open menu'
       >
         <svg
@@ -188,16 +188,16 @@ export function TopBar() {
           </Button>
 
           {showNotifications && (
-            <div className='absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-card rounded-lg shadow-xl border z-50 max-h-[70vh] sm:max-h-[600px] overflow-hidden flex flex-col'>
-              <div className='px-3 sm:px-4 py-3 border-b flex items-center justify-between bg-muted'>
-                <h3 className='text-sm font-semibold text-gray-900'>
+            <div className='absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-slate-900 rounded-lg shadow-xl border border-slate-800 z-50 max-h-[70vh] sm:max-h-[600px] overflow-hidden flex flex-col'>
+              <div className='px-3 sm:px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-800/50'>
+                <h3 className='text-sm font-semibold text-white'>
                   Notifications
                 </h3>
                 <div className='flex items-center gap-2'>
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className='text-xs text-emerald-600 hover:text-emerald-700 font-medium'
+                      className='text-xs text-emerald-400 hover:text-emerald-300 font-medium'
                     >
                       Mark all as read
                     </button>
@@ -225,8 +225,8 @@ export function TopBar() {
                     {notifications.map((notif) => (
                       <div
                         key={notif.id}
-                        className={`px-4 py-3 hover:bg-muted transition-colors cursor-pointer ${
-                          !notif.read ? 'bg-blue-500/10' : ''
+                        className={`px-4 py-3 hover:bg-slate-800 transition-colors cursor-pointer ${
+                          !notif.read ? 'bg-emerald-500/10' : ''
                         }`}
                         onClick={() => {
                           if (!notif.read) markAsRead(notif.id)
@@ -243,18 +243,18 @@ export function TopBar() {
                           <div className='flex-1 min-w-0'>
                             <div className='flex items-start justify-between gap-2'>
                               <p
-                                className={`text-sm font-medium text-foreground ${!notif.read ? 'font-semibold' : ''}`}
+                                className={`text-sm font-medium text-white ${!notif.read ? 'font-semibold' : ''}`}
                               >
                                 {notif.title}
                               </p>
                               {!notif.read && (
-                                <span className='shrink-0 h-2 w-2 rounded-full bg-primary'></span>
+                                <span className='shrink-0 h-2 w-2 rounded-full bg-emerald-500'></span>
                               )}
                             </div>
-                            <p className='text-xs text-muted-foreground mt-1 line-clamp-2'>
+                            <p className='text-xs text-slate-400 mt-1 line-clamp-2'>
                               {notif.message}
                             </p>
-                            <p className='text-xs text-muted-foreground/70 mt-1'>
+                            <p className='text-xs text-slate-500 mt-1'>
                               {formatTime(notif.timestamp)}
                             </p>
                           </div>
@@ -271,7 +271,7 @@ export function TopBar() {
         <div className='relative' ref={menuRef}>
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className='flex items-center gap-2 md:gap-3 hover:bg-muted rounded-lg px-2 md:px-3 py-1.5 md:py-2 transition-colors touch-manipulation'
+            className='flex items-center gap-2 md:gap-3 hover:bg-slate-800 rounded-lg px-2 md:px-3 py-1.5 md:py-2 transition-colors touch-manipulation'
           >
             <div className='h-8 w-8 md:h-9 md:w-9 rounded-full bg-linear-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold text-sm'>
               {user?.email?.[0]?.toUpperCase() || 'U'}
@@ -295,12 +295,12 @@ export function TopBar() {
           </button>
 
           {showUserMenu && (
-            <div className='absolute right-0 mt-2 w-56 sm:w-64 bg-card rounded-lg shadow-lg border py-2 z-50'>
-              <div className='px-4 py-3 border-b'>
-                <p className='text-sm font-medium text-gray-900'>
+            <div className='absolute right-0 mt-2 w-56 sm:w-64 bg-slate-900 rounded-lg shadow-lg border border-slate-800 py-2 z-50'>
+              <div className='px-4 py-3 border-b border-slate-800'>
+                <p className='text-sm font-medium text-white'>
                   {user?.email}
                 </p>
-                <p className='text-xs text-gray-500 mt-1'>
+                <p className='text-xs text-slate-400 mt-1'>
                   {user?.role?.replace('_', ' ').toUpperCase()} Account
                 </p>
               </div>
@@ -309,7 +309,7 @@ export function TopBar() {
                 <Link
                   href='/dashboard/profile'
                   onClick={() => setShowUserMenu(false)}
-                  className='flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                  className='flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors'
                 >
                   <User className='h-4 w-4' />
                   My Profile
@@ -319,7 +319,7 @@ export function TopBar() {
                   <Link
                     href='/dashboard/profile/admin'
                     onClick={() => setShowUserMenu(false)}
-                    className='flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                    className='flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors'
                   >
                     <Shield className='h-4 w-4' />
                     Admin Profile
@@ -329,20 +329,20 @@ export function TopBar() {
                 <Link
                   href='/dashboard/security'
                   onClick={() => setShowUserMenu(false)}
-                  className='flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                  className='flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors'
                 >
                   <Settings className='h-4 w-4' />
                   Settings
                 </Link>
               </div>
 
-              <div className='border-t py-2'>
+              <div className='border-t border-slate-800 py-2'>
                 <button
                   onClick={() => {
                     setShowUserMenu(false)
                     logout()
                   }}
-                  className='flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full'
+                  className='flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-slate-800 hover:text-red-300 transition-colors w-full'
                 >
                   <LogOut className='h-4 w-4' />
                   Logout
