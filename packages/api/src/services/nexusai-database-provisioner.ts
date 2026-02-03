@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { DatabasePlatformClient } from '../database-platform-client'
 import { ensureTenantDatabaseProvisioned } from '../routes/tenants/provisioning'
 import { schemaExtractor } from './schema-extractor'
@@ -265,7 +265,7 @@ export class NexusAIDatabaseProvisioner {
     name: string
     framework: string
   }): Promise<string> {
-    const tenantId = randomBytes(16).toString('hex')
+    const tenantId = randomUUID()
 
     console.log(
       `[NexusAIProvisioner] Creating tenant ${tenantId} for user ${opts.userId}`,
