@@ -1,8 +1,46 @@
 import { Button } from '@/components/ui/button'
-import { ChevronDown, Flame, Sparkles } from 'lucide-react'
+import {
+  ChevronDown,
+  Flame,
+  Sparkles,
+  User,
+  LogOut,
+  CreditCard,
+  Settings,
+  LayoutDashboard,
+  Coins,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { authService, type User as AuthUser } from '@/services/authService'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Badge } from '@/components/ui/badge'
 
 const Navbar = () => {
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      await authService.syncAuthFromDashboard()
+      const authenticated = authService.isAuthenticated()
+      setIsAuthenticated(authenticated)
+      if (authenticated) {
+        setUser(authService.getCurrentUser())
+      }
+    }
+    checkAuth()
+  }, [])
+
+  const subscriptionInfo = authService.getSubscriptionInfo()
+
   return (
     <nav className='fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50'>
       <div className='container mx-auto px-6 h-16 flex items-center justify-between'>
@@ -62,25 +100,132 @@ const Navbar = () => {
 
         {/* Right Actions */}
         <div className='flex items-center gap-3'>
-          <Button
-            variant='ghost'
-            size='sm'
-            className='text-muted-foreground hover:text-foreground'
-            onClick={() =>
-              window.open('https://chatbuilds.com/login', '_blank')
-            }
-          >
-            Log in
-          </Button>
-          <Link to='/builder'>
-            <Button
-              variant='default'
-              size='sm'
-              className='bg-gradient-to-r from-primary to-purple-600 text-white hover:opacity-90 rounded-lg font-medium shadow-lg'
-            >
-              Get started
-            </Button>
-          </Link>
+          {isAuthenticated && user ? (
+            <>
+              {/* Credits Badge */}
+              {subscriptionInfo && (
+                <div className='hidden md:flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg border border-border/50'>
+                  <Coins className='w-4 h-4 text-primary' />
+                  <span className='text-sm font-medium'>
+                    {subscriptionInfo.credits} credits
+                  </span>
+                </div>
+              )}
+
+              {/* Upgrade Button (for free tier) */}
+              {subscriptionInfo?.canUpgrade && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='hidden md:flex border-primary text-primary hover:bg-primary hover:text-primary-foreground'
+                  onClick={() =>
+                    window.open(
+                      'https://chatbuilds.com/dashboard/billing',
+                      '_blank',
+                    )
+                  }
+                >
+                  <Flame className='w-4 h-4 mr-2' />
+                  Upgrade
+                </Button>
+              )}
+
+              {/* User Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    className='flex items-center gap-2'
+                  >
+                    <div className='w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold text-sm'>
+                      {user.name?.[0]?.toUpperCase() ||
+                        user.email[0].toUpperCase()}
+                    </div>
+                    <ChevronDown className='w-4 h-4 text-muted-foreground' />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align='end' className='w-56'>
+                  <DropdownMenuLabel>
+                    <div className='flex flex-col space-y-1'>
+                      <p className='text-sm font-medium leading-none'>
+                        {user.name || 'User'}
+                      </p>
+                      <p className='text-xs leading-none text-muted-foreground'>
+                        {user.email}
+                      </p>
+                      <Badge
+                        variant='secondary'
+                        className='w-fit mt-1 text-xs'
+                      >
+                        {subscriptionInfo?.planName || 'Free'} Plan
+                      </Badge>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() =>
+                      window.open('https://chatbuilds.com/dashboard', '_blank')
+                    }
+                  >
+                    <LayoutDashboard className='mr-2 h-4 w-4' />
+                    <span>My Dashboard</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      window.open(
+                        'https://chatbuilds.com/dashboard/billing',
+                        '_blank',
+                      )
+                    }
+                  >
+                    <CreditCard className='mr-2 h-4 w-4' />
+                    <span>Billing & Usage</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      window.open(
+                        'https://chatbuilds.com/dashboard/profile',
+                        '_blank',
+                      )
+                    }
+                  >
+                    <Settings className='mr-2 h-4 w-4' />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => authService.logout()}>
+                    <LogOut className='mr-2 h-4 w-4' />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            <>
+              {/* Not authenticated */}
+              <Button
+                variant='ghost'
+                size='sm'
+                className='text-muted-foreground hover:text-foreground'
+                onClick={() =>
+                  window.open('https://chatbuilds.com/auth/login?redirect=nexusai', '_blank')
+                }
+              >
+                Sign in
+              </Button>
+              <Button
+                variant='default'
+                size='sm'
+                className='bg-gradient-to-r from-primary to-purple-600 text-white hover:opacity-90 rounded-lg font-medium shadow-lg'
+                onClick={() =>
+                  window.open('https://chatbuilds.com/auth/signup?redirect=nexusai', '_blank')
+                }
+              >
+                Get started free
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </nav>

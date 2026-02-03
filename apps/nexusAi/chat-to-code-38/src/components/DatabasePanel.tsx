@@ -57,7 +57,7 @@ export function DatabasePanel({
     try {
       const info = await generatedAppsService.getDatabaseInfo(appId)
       setDatabaseInfo(info)
-      
+
       // If database exists, populate provisionResult so "Open Editor" button works
       if (info.has_database && info.database) {
         setProvisionResult({
