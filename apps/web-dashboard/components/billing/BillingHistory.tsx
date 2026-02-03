@@ -69,24 +69,25 @@ export function BillingHistory({
 
   const getTransactionBadge = (type: string) => {
     return type === 'credit' ? (
-      <Badge className='bg-green-500 text-white'>+ Credit</Badge>
+      <Badge variant="outline" className='bg-green-500/10 text-green-400 border-green-500/20'>+ Credit</Badge>
     ) : (
-      <Badge variant='secondary'>- Debit</Badge>
+      <Badge variant="outline" className='bg-red-500/10 text-red-400 border-red-500/20'>- Debit</Badge>
     )
   }
 
   const getStatusBadge = (status: string) => {
     const statusColors: Record<string, string> = {
-      paid: 'bg-green-500 text-white',
-      pending: 'bg-yellow-500 text-white',
-      failed: 'bg-red-500 text-white',
-      refunded: 'bg-gray-500 text-white',
+      paid: 'bg-green-500/10 text-green-400 border-green-500/20',
+      pending: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+      failed: 'bg-red-500/10 text-red-400 border-red-500/20',
+      refunded: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
     }
 
     return (
       <Badge
+        variant="outline"
         className={
-          statusColors[status.toLowerCase()] || 'bg-gray-500 text-white'
+          statusColors[status.toLowerCase()] || 'bg-slate-500/10 text-slate-400 border-slate-500/20'
         }
       >
         {status}

@@ -117,11 +117,11 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Billing & Subscriptions</h1>
-        <p className="text-muted-foreground mt-1">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Billing & Subscriptions</h1>
+        <p className="text-muted-foreground">
           Manage your subscription, credits, and payment methods
         </p>
       </div>
@@ -134,19 +134,19 @@ export default function BillingPage() {
       />
 
       {/* Tabbed Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 lg:w-fit">
-          <TabsTrigger value="plans" className="gap-2">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 lg:w-fit bg-muted">
+          <TabsTrigger value="plans" className="gap-2 data-[state=active]:bg-background">
             <Package className="w-4 h-4" />
             <span className="hidden sm:inline">Plans & Credits</span>
             <span className="sm:hidden">Plans</span>
           </TabsTrigger>
-          <TabsTrigger value="services" className="gap-2">
+          <TabsTrigger value="services" className="gap-2 data-[state=active]:bg-background">
             <Settings className="w-4 h-4" />
             <span className="hidden sm:inline">Services</span>
             <span className="sm:hidden">Services</span>
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-2">
+          <TabsTrigger value="history" className="gap-2 data-[state=active]:bg-background">
             <History className="w-4 h-4" />
             <span className="hidden sm:inline">History</span>
             <span className="sm:hidden">History</span>

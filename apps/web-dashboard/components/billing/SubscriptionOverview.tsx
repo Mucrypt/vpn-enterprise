@@ -26,16 +26,16 @@ interface SubscriptionOverviewProps {
 }
 
 const PLAN_COLORS: Record<string, string> = {
-  free: 'bg-gray-100 text-gray-800',
-  pro: 'bg-blue-100 text-blue-800',
-  enterprise: 'bg-purple-100 text-purple-800',
+  free: 'bg-slate-500/10 text-slate-300 border-slate-500/20',
+  pro: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
+  enterprise: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-green-100 text-green-800',
-  trialing: 'bg-blue-100 text-blue-800',
-  past_due: 'bg-yellow-100 text-yellow-800',
-  canceled: 'bg-red-100 text-red-800',
+  active: 'bg-green-500/10 text-green-300 border-green-500/20',
+  trialing: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
+  past_due: 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20',
+  canceled: 'bg-red-500/10 text-red-300 border-red-500/20',
 }
 
 export function SubscriptionOverview({
@@ -45,9 +45,9 @@ export function SubscriptionOverview({
 }: SubscriptionOverviewProps) {
   if (loading) {
     return (
-      <Card className='border-primary/20 bg-linear-to-br from-primary/5 to-primary/10'>
+      <Card className='border-primary/20 bg-card'>
         <CardHeader>
-          <div className='h-6 w-32 animate-pulse rounded bg-gray-200' />
+          <div className='h-6 w-32 animate-pulse rounded bg-muted' />
           <div className='h-4 w-48 animate-pulse rounded bg-gray-200 mt-2' />
         </CardHeader>
         <CardContent>
@@ -59,9 +59,9 @@ export function SubscriptionOverview({
 
   if (!subscription) {
     return (
-      <Card className='border-primary/20 bg-linear-to-br from-primary/5 to-primary/10'>
+      <Card className='border-primary/20 bg-card'>
         <CardHeader>
-          <CardTitle>No Active Subscription</CardTitle>
+          <CardTitle className="text-foreground">No Active Subscription</CardTitle>
           <CardDescription>
             Start your journey with VPN Enterprise
           </CardDescription>
@@ -71,7 +71,7 @@ export function SubscriptionOverview({
           <p className='text-muted-foreground mb-6'>
             Choose a plan to unlock powerful features and scale your business
           </p>
-          <Button onClick={onUpgrade} size='lg' className='gap-2'>
+          <Button onClick={onUpgrade} size='lg' className='gap-2 bg-primary hover:bg-primary/90'>
             <TrendingUp className='w-4 h-4' />
             Choose Your Plan
           </Button>
@@ -87,13 +87,13 @@ export function SubscriptionOverview({
   )
 
   return (
-    <Card className='border-primary/20 bg-linear-to-br from-primary/5 to-primary/10'>
+    <Card className='border-primary/20 bg-card'>
       <CardHeader>
         <div className='flex items-center justify-between'>
           <div>
-            <CardTitle className='flex items-center gap-2'>
+            <CardTitle className='flex items-center gap-2 text-foreground'>
               Current Subscription
-              <Badge className={PLAN_COLORS[planType] || PLAN_COLORS.free}>
+              <Badge variant="outline" className={PLAN_COLORS[planType] || PLAN_COLORS.free}>
                 {subscription.plan_type}
               </Badge>
             </CardTitle>
@@ -106,10 +106,10 @@ export function SubscriptionOverview({
       </CardHeader>
       <CardContent className='space-y-6'>
         {/* Status and Renewal */}
-        <div className='flex items-center justify-between p-4 rounded-lg bg-background/60'>
+        <div className='flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border'>
           <div>
             <p className='text-sm text-muted-foreground'>Status</p>
-            <Badge className={STATUS_COLORS[status] || STATUS_COLORS.active}>
+            <Badge variant="outline" className={STATUS_COLORS[status] || STATUS_COLORS.active}>
               {subscription.status}
             </Badge>
           </div>
