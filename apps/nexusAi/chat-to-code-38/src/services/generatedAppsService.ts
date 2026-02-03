@@ -46,16 +46,20 @@ class GeneratedAppsService {
     // Get token from cookies (set by API after login)
     const cookieToken = this.getCookie('access_token')
     // Check localStorage with both possible keys (access_token from web-dashboard, authToken for compatibility)
-    const storageToken = localStorage.getItem('access_token') || 
-                          localStorage.getItem('authToken') || 
-                          sessionStorage.getItem('authToken')
+    const storageToken =
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('authToken') ||
+      sessionStorage.getItem('authToken')
     const token = cookieToken || storageToken
-    
+
     // Debug log in development
     if (import.meta.env.DEV && !token) {
-      console.warn('[GeneratedAppsService] No auth token found. Cookies:', document.cookie)
+      console.warn(
+        '[GeneratedAppsService] No auth token found. Cookies:',
+        document.cookie,
+      )
     }
-    
+
     return {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -79,7 +83,9 @@ class GeneratedAppsService {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Failed to list apps' }))
+      const error = await response
+        .json()
+        .catch(() => ({ error: 'Failed to list apps' }))
       throw new Error(error.error || error.message || 'Failed to list apps')
     }
 
@@ -96,7 +102,9 @@ class GeneratedAppsService {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Failed to get app' }))
+      const error = await response
+        .json()
+        .catch(() => ({ error: 'Failed to get app' }))
       throw new Error(error.error || error.message || 'Failed to get app')
     }
 
@@ -124,7 +132,9 @@ class GeneratedAppsService {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Failed to save app' }))
+      const error = await response
+        .json()
+        .catch(() => ({ error: 'Failed to save app' }))
       throw new Error(error.error || error.message || 'Failed to save app')
     }
 
@@ -151,7 +161,9 @@ class GeneratedAppsService {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Failed to update app' }))
+      const error = await response
+        .json()
+        .catch(() => ({ error: 'Failed to update app' }))
       throw new Error(error.error || error.message || 'Failed to update app')
     }
   }
@@ -165,21 +177,28 @@ class GeneratedAppsService {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Failed to delete app' }))
+      const error = await response
+        .json()
+        .catch(() => ({ error: 'Failed to delete app' }))
       throw new Error(error.error || error.message || 'Failed to delete app')
     }
   }
 
   // Get app versions/history
   async getVersions(appId: string): Promise<AppVersion[]> {
-    const response = await fetch(`${API_BASE_URL}/generated-apps/${appId}/versions`, {
-      method: 'GET',
-      headers: this.getHeaders(),
-      credentials: 'include',
-    })
+    const response = await fetch(
+      `${API_BASE_URL}/generated-apps/${appId}/versions`,
+      {
+        method: 'GET',
+        headers: this.getHeaders(),
+        credentials: 'include',
+      },
+    )
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Failed to get versions' }))
+      const error = await response
+        .json()
+        .catch(() => ({ error: 'Failed to get versions' }))
       throw new Error(error.error || error.message || 'Failed to get versions')
     }
 

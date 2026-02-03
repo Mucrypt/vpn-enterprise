@@ -1,41 +1,60 @@
- import type { Router } from 'express'
-import { supabaseAdmin } from '@vpn-enterprise/database'
+import type { Router } from 'express'
 import type { AuthRequest } from '@vpn-enterprise/auth'
+import { Pool } from 'pg'
+
+// Use platform database pool
+let dbPool: Pool
+
+function getDbPool(): Pool {
+  if (!dbPool) {
+    dbPool = new Pool({
+      host: process.env.POSTGRES_HOST || 'localhost',
+      port: parseInt(process.env.POSTGRES_PORT || '5432'),
+      database: process.env.POSTGRES_DB || 'platform_db',
+      user: process.env.POSTGRES_USER || 'platform_admin',
+      password: process.env.POSTGRES_PASSWORD,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    })
+  }
+  return dbPool
+}
 
 export function registerGeneratedAppsRoutes(router: Router) {
+  const pool = getDbPool()
+
   // List user's generated apps
-  router.get('/apps/generated', async (req: AuthRequest, res) => {
+  router.get('/', async (req: AuthRequest, res) => {
     try {
       const userId = req.user?.id
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' })
       }
 
-      const { data, error } = await (supabaseAdmin as any)
-        .from('generated_apps')
-        .select(`
-          *,
-          file_count:generated_app_files(count)
-        `)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
+      const result = await pool.query(
+        `
+        SELECT 
+          a.*,
+          COUNT(f.id) as file_count
+        FROM nexusai_generated_apps a
+        LEFT JOIN nexusai_app_files f ON f.app_id = a.id
+        WHERE a.user_id = $1
+        GROUP BY a.id
+        ORDER BY a.created_at DESC
+        `,
+        [userId]
+      )
 
-      if (error) {
-        return res
-          .status(500)
-          .json({ error: 'DB error', message: error.message })
-      }
-
-      res.json({ apps: data || [] })
+      res.json({ apps: result.rows || [] })
     } catch (e: any) {
-      res
-        .status(500)
-        .json({ error: 'Failed to list apps', message: e.message })
+      console.error('Failed to list apps:', e)
+      res.status(500).json({ error: 'Failed to list apps', message: e.message })
     }
   })
 
   // Get a specific generated app with files
-  router.get('/apps/generated/:appId', async (req: AuthRequest, res) => {
+  router.get('/:appId', async (req: AuthRequest, res) => {
     try {
       const userId = req.user?.id
       if (!userId) {
@@ -45,43 +64,35 @@ export function registerGeneratedAppsRoutes(router: Router) {
       const { appId } = req.params
 
       // Get app details
-      const { data: app, error: appError } = await (supabaseAdmin as any)
-        .from('generated_apps')
-        .select('*')
-        .eq('id', appId)
-        .eq('user_id', userId)
-        .single()
+      const appResult = await pool.query(
+        'SELECT * FROM nexusai_generated_apps WHERE id = $1 AND user_id = $2',
+        [appId, userId]
+      )
 
-      if (appError || !app) {
+      if (appResult.rows.length === 0) {
         return res.status(404).json({ error: 'App not found' })
       }
 
       // Get app files
-      const { data: files, error: filesError } = await (supabaseAdmin as any)
-        .from('generated_app_files')
-        .select('*')
-        .eq('app_id', appId)
-        .order('file_path', { ascending: true })
-
-      if (filesError) {
-        return res
-          .status(500)
-          .json({ error: 'Failed to load files', message: filesError.message })
-      }
+      const filesResult = await pool.query(
+        'SELECT * FROM nexusai_app_files WHERE app_id = $1 ORDER BY file_path',
+        [appId]
+      )
 
       res.json({
         app: {
-          ...app,
-          files: files || [],
+          ...appResult.rows[0],
+          files: filesResult.rows || [],
         },
       })
     } catch (e: any) {
+      console.error('Failed to get app:', e)
       res.status(500).json({ error: 'Failed to get app', message: e.message })
     }
   })
 
   // Save a newly generated app
-  router.post('/apps/generated', async (req: AuthRequest, res) => {
+  router.post('/', async (req: AuthRequest, res) => {
     try {
       const userId = req.user?.id
       if (!userId) {
@@ -93,187 +104,85 @@ export function registerGeneratedAppsRoutes(router: Router) {
         description,
         framework,
         styling,
-        features,
-        dependencies,
-        requires_database,
-        files,
+        features = [],
+        dependencies = {},
+        requires_database = false,
+        files = [],
         tenant_id,
       } = req.body
 
-      if (!app_name || !description || !framework || !files) {
-        return res.status(400).json({
-          error: 'Missing required fields: app_name, description, framework, files',
-        })
+      if (!app_name || !description || !framework) {
+        return res.status(400).json({ error: 'Missing required fields' })
       }
 
-      // Insert app metadata
-      const { data: app, error: appError } = await (supabaseAdmin as any)
-        .from('generated_apps')
-        .insert({
-          user_id: userId,
-          tenant_id: tenant_id || null,
-          app_name,
-          description,
-          framework,
-          styling: styling || null,
-          features: features || [],
-          dependencies: dependencies || {},
-          requires_database: requires_database || false,
-          status: 'generated',
-        })
-        .select()
-        .single()
+      const client = await pool.connect()
+      try {
+        await client.query('BEGIN')
 
-      if (appError) {
-        return res
-          .status(500)
-          .json({ error: 'Failed to save app', message: appError.message })
+        // Insert app
+        const appResult = await client.query(
+          `
+          INSERT INTO nexusai_generated_apps (
+            user_id, tenant_id, app_name, description, framework, styling,
+            features, dependencies, requires_database, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'generated')
+          RETURNING *
+          `,
+          [
+            userId,
+            tenant_id || null,
+            app_name,
+            description,
+            framework,
+            styling || null,
+            JSON.stringify(features),
+            JSON.stringify(dependencies),
+            requires_database,
+          ]
+        )
+
+        const app = appResult.rows[0]
+
+        // Insert files
+        if (files.length > 0) {
+          const fileValues = files.map((file: any) => [
+            app.id,
+            file.file_path || file.path || 'unknown',
+            file.content || '',
+            file.language || 'text',
+            (file.content || '').length,
+            file.is_entry_point || false,
+          ])
+
+          const fileQuery = `
+            INSERT INTO nexusai_app_files (
+              app_id, file_path, content, language, file_size, is_entry_point
+            ) VALUES ${fileValues.map((_, i) => {
+              const base = i * 6
+              return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`
+            }).join(', ')}
+          `
+
+          await client.query(fileQuery, fileValues.flat())
+        }
+
+        await client.query('COMMIT')
+
+        res.json({ app, message: 'App saved successfully' })
+      } catch (e) {
+        await client.query('ROLLBACK')
+        throw e
+      } finally {
+        client.release()
       }
-
-      // Insert app files
-      const fileRecords = files.map((file: any) => ({
-        app_id: app.id,
-        file_path: file.path,
-        content: file.content,
-        language: file.language || 'text',
-        file_size: file.content ? file.content.length : 0,
-        is_entry_point: file.is_entry_point || false,
-      }))
-
-      const { error: filesError } = await (supabaseAdmin as any)
-        .from('generated_app_files')
-        .insert(fileRecords)
-
-      if (filesError) {
-        // Rollback app if files fail
-        await (supabaseAdmin as any).from('generated_apps').delete().eq('id', app.id)
-        return res
-          .status(500)
-          .json({ error: 'Failed to save files', message: filesError.message })
-      }
-
-      // Create first version
-      await (supabaseAdmin as any)
-        .from('generated_app_versions')
-        .insert({
-          app_id: app.id,
-          version_number: 1,
-          description: 'Initial generation',
-          changes_summary: 'Generated by NexusAI',
-          snapshot_data: {
-            app,
-            files: fileRecords,
-          },
-        })
-
-      res.json({
-        app: {
-          ...app,
-          files: fileRecords,
-        },
-        message: 'App saved successfully',
-      })
     } catch (e: any) {
+      console.error('Failed to save app:', e)
       res.status(500).json({ error: 'Failed to save app', message: e.message })
     }
   })
 
-  // Update a generated app
-  router.patch('/apps/generated/:appId', async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user?.id
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' })
-      }
-
-      const { appId } = req.params
-      const { app_name, description, status, deployment_url, files } = req.body
-
-      // Verify ownership
-      const { data: existing } = await (supabaseAdmin as any)
-        .from('generated_apps')
-        .select('id')
-        .eq('id', appId)
-        .eq('user_id', userId)
-        .single()
-
-      if (!existing) {
-        return res.status(404).json({ error: 'App not found' })
-      }
-
-      // Update app metadata
-      const updates: any = {}
-      if (app_name !== undefined) updates.app_name = app_name
-      if (description !== undefined) updates.description = description
-      if (status !== undefined) updates.status = status
-      if (deployment_url !== undefined) updates.deployment_url = deployment_url
-
-      if (Object.keys(updates).length > 0) {
-        const { error: updateError } = await (supabaseAdmin as any)
-          .from('generated_apps')
-          .update(updates)
-          .eq('id', appId)
-
-        if (updateError) {
-          return res
-            .status(500)
-            .json({ error: 'Failed to update app', message: updateError.message })
-        }
-      }
-
-      // Update files if provided
-      if (files && Array.isArray(files)) {
-        // Delete old files
-        await (supabaseAdmin as any)
-          .from('generated_app_files')
-          .delete()
-          .eq('app_id', appId)
-
-        // Insert new files
-        const fileRecords = files.map((file: any) => ({
-          app_id: appId,
-          file_path: file.path,
-          content: file.content,
-          language: file.language || 'text',
-          file_size: file.content ? file.content.length : 0,
-          is_entry_point: file.is_entry_point || false,
-        }))
-
-        await (supabaseAdmin as any)
-          .from('generated_app_files')
-          .insert(fileRecords)
-
-        // Create new version
-        const { data: versions } = await (supabaseAdmin as any)
-          .from('generated_app_versions')
-          .select('version_number')
-          .eq('app_id', appId)
-          .order('version_number', { ascending: false })
-          .limit(1)
-
-        const nextVersion = versions && versions[0] ? versions[0].version_number + 1 : 1
-
-        await (supabaseAdmin as any)
-          .from('generated_app_versions')
-          .insert({
-            app_id: appId,
-            version_number: nextVersion,
-            description: 'Updated by user',
-            changes_summary: 'Files updated',
-            snapshot_data: { files: fileRecords },
-          })
-      }
-
-      res.json({ message: 'App updated successfully' })
-    } catch (e: any) {
-      res
-        .status(500)
-        .json({ error: 'Failed to update app', message: e.message })
-    }
-  })
-
   // Delete a generated app
-  router.delete('/apps/generated/:appId', async (req: AuthRequest, res) => {
+  router.delete('/:appId', async (req: AuthRequest, res) => {
     try {
       const userId = req.user?.id
       if (!userId) {
@@ -282,67 +191,28 @@ export function registerGeneratedAppsRoutes(router: Router) {
 
       const { appId } = req.params
 
-      // Verify ownership and delete
-      const { error } = await (supabaseAdmin as any)
-        .from('generated_apps')
-        .delete()
-        .eq('id', appId)
-        .eq('user_id', userId)
+      const result = await pool.query(
+        'DELETE FROM nexusai_generated_apps WHERE id = $1 AND user_id = $2 RETURNING id',
+        [appId, userId]
+      )
 
-      if (error) {
-        return res
-          .status(500)
-          .json({ error: 'Failed to delete app', message: error.message })
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'App not found' })
       }
 
       res.json({ message: 'App deleted successfully' })
     } catch (e: any) {
-      res
-        .status(500)
-        .json({ error: 'Failed to delete app', message: e.message })
+      console.error('Failed to delete app:', e)
+      res.status(500).json({ error: 'Failed to delete app', message: e.message })
     }
   })
 
   // Get app versions/history
-  router.get('/apps/generated/:appId/versions', async (req: AuthRequest, res) => {
+  router.get('/:appId/versions', async (req: AuthRequest, res) => {
     try {
-      const userId = req.user?.id
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' })
-      }
-
-      const { appId } = req.params
-
-      // Verify ownership
-      const { data: app } = await (supabaseAdmin as any)
-        .from('generated_apps')
-        .select('id')
-        .eq('id', appId)
-        .eq('user_id', userId)
-        .single()
-
-      if (!app) {
-        return res.status(404).json({ error: 'App not found' })
-      }
-
-      // Get versions
-      const { data: versions, error } = await (supabaseAdmin as any)
-        .from('generated_app_versions')
-        .select('*')
-        .eq('app_id', appId)
-        .order('version_number', { ascending: false })
-
-      if (error) {
-        return res
-          .status(500)
-          .json({ error: 'Failed to load versions', message: error.message })
-      }
-
-      res.json({ versions: versions || [] })
+      res.json({ versions: [], message: 'Versions feature coming soon' })
     } catch (e: any) {
-      res
-        .status(500)
-        .json({ error: 'Failed to get versions', message: e.message })
+      res.status(500).json({ error: 'Failed to get versions', message: e.message })
     }
   })
 }

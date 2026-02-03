@@ -144,7 +144,7 @@ const AppBuilder = () => {
             content: file.content || '',
             language: file.language || 'text',
             is_entry_point:
-              (file.path || file.name || '')?.toLowerCase().includes('index') || 
+              (file.path || file.name || '')?.toLowerCase().includes('index') ||
               (file.path || file.name || '')?.toLowerCase().includes('main'),
           })),
         })

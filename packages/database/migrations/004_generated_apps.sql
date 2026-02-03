@@ -2,12 +2,12 @@
 -- Store AI-generated applications and their files
 
 -- =============================================
--- GENERATED_APPS TABLE
+-- NEXUSAI_GENERATED_APPS TABLE
 -- Stores metadata for AI-generated applications
 -- =============================================
-CREATE TABLE IF NOT EXISTS generated_apps (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS nexusai_generated_apps (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     app_name VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
@@ -21,16 +21,16 @@ CREATE TABLE IF NOT EXISTS generated_apps (
     deployment_url TEXT, -- URL if deployed
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT generated_apps_user_name_unique UNIQUE(user_id, app_name)
+    CONSTRAINT nexusai_apps_user_name_unique UNIQUE(user_id, app_name)
 );
 
 -- =============================================
--- GENERATED_APP_FILES TABLE
+-- NEXUSAI_APP_FILES TABLE
 -- Stores individual files for each generated app
 -- =============================================
-CREATE TABLE IF NOT EXISTS generated_app_files (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    app_id UUID NOT NULL REFERENCES generated_apps(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS nexusai_app_files (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    app_id UUID NOT NULL REFERENCES nexusai_generated_apps(id) ON DELETE CASCADE,
     file_path VARCHAR(500) NOT NULL, -- e.g., src/App.tsx, package.json
     content TEXT NOT NULL, -- File content
     language VARCHAR(50), -- typescript, javascript, json, html, css
@@ -38,16 +38,8 @@ CREATE TABLE IF NOT EXISTS generated_app_files (
     is_entry_point BOOLEAN DEFAULT false, -- Mark main files
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT app_files_unique_path UNIQUE(app_id, file_path)
+    CONSTRAINT nexusai_app_files_unique_path UNIQUE(app_id, file_path)
 );
-
--- =============================================
--- APP_VERSIONS TABLE
--- Track versions/history of generated apps
--- =============================================
-CREATE TABLE IF NOT EXISTS generated_app_versions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    app_id UUID NOT NULL REFERENCES generated_apps(id) ON DELETE CASCADE,
     version_number INTEGER NOT NULL,
     description TEXT,
     changes_summary TEXT,
