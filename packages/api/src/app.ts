@@ -270,10 +270,10 @@ app.get('/api/v1/debug/connections', async (req, res) => {
 app.use('/api/v1/hosting', hostingRouter)
 // Tenants routes (scaffold)
 app.use('/api/v1/tenants', tenantsRouter)
-// Generated Apps routes (NexusAI integration)
+// Generated Apps routes (NexusAI integration) - protected by auth
 const generatedAppsRouter = express.Router()
 registerGeneratedAppsRoutes(generatedAppsRouter)
-app.use('/api/v1', authMiddleware, generatedAppsRouter)
+app.use('/api/v1/generated-apps', authMiddleware, generatedAppsRouter)
 // Admin routes
 app.use('/api/v1/admin', adminUsersRouter)
 app.use('/api/v1/admin/tenants', adminTenantsRouter)
