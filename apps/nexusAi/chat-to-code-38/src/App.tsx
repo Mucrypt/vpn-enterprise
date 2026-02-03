@@ -9,6 +9,8 @@ import AppDescription from './pages/AppDescription'
 import AppBuilder from './pages/AppBuilder'
 import MyApps from './pages/MyApps'
 import NotFound from './pages/NotFound'
+import Landing from './pages/Landing'
+import ProtectedRoute from './components/ProtectedRoute'
 
 const queryClient = new QueryClient()
 
@@ -20,10 +22,32 @@ const App = () => (
         <Sonner />
         <BrowserRouter basename='/nexusai'>
           <Routes>
-            <Route path='/' element={<Index />} />
-            <Route path='/describe' element={<AppDescription />} />
-            <Route path='/build' element={<AppBuilder />} />
-            <Route path='/my-apps' element={<MyApps />} />
+            <Route path='/' element={<Landing />} />
+            <Route path='/start' element={<Index />} />
+            <Route
+              path='/describe'
+              element={
+                <ProtectedRoute>
+                  <AppDescription />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path='/build'
+              element={
+                <ProtectedRoute>
+                  <AppBuilder />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path='/my-apps'
+              element={
+                <ProtectedRoute>
+                  <MyApps />
+                </ProtectedRoute>
+              }
+            />
             <Route path='*' element={<NotFound />} />
           </Routes>
         </BrowserRouter>

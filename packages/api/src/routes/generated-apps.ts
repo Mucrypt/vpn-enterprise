@@ -3,6 +3,8 @@ import type { AuthRequest } from '@vpn-enterprise/auth'
 import { Pool } from 'pg'
 import { resolveSecret } from '../utils/secrets'
 import { nexusAIDatabaseProvisioner } from '../services/nexusai-database-provisioner'
+import { requireCreditsForAI, requireCreditsForDatabase } from '../middleware/billing'
+import { rateLimitPresets } from '../middleware/rate-limit'
 
 // Use platform database pool
 let dbPool: Pool
@@ -151,7 +153,11 @@ export function registerGeneratedAppsRoutes(router: Router) {
   })
 
   // Save a newly generated app
-  router.post('/', async (req: AuthRequest, res) => {
+  router.post(
+    '/',
+    rateLimitPresets.aiGeneration,
+    requireCreditsForAI(),
+    async (req: AuthRequest, res) => {
     try {
       const userId = req.user?.id
       const userEmail = req.user?.email
@@ -302,7 +308,11 @@ export function registerGeneratedAppsRoutes(router: Router) {
   // ==========================================
 
   // Provision database for an app
-  router.post('/:appId/database/provision', async (req: AuthRequest, res) => {
+  router.post(
+    '/:appId/database/provision',
+    rateLimitPresets.databaseProvisioning,
+    requireCreditsForDatabase(),
+    async (req: AuthRequest, res) => {
     try {
       const userId = req.user?.id
       const userEmail = req.user?.email
