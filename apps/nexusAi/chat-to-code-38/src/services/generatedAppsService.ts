@@ -52,7 +52,7 @@ class GeneratedAppsService {
 
   // List all user's generated apps
   async listApps(): Promise<SavedApp[]> {
-    const response = await fetch(`${API_BASE_URL}/apps/generated`, {
+    const response = await fetch(`${API_BASE_URL}/generated-apps`, {
       method: 'GET',
       headers: this.getHeaders(),
       credentials: 'include',
@@ -69,7 +69,7 @@ class GeneratedAppsService {
 
   // Get a specific app with files
   async getApp(appId: string): Promise<SavedApp> {
-    const response = await fetch(`${API_BASE_URL}/apps/generated/${appId}`, {
+    const response = await fetch(`${API_BASE_URL}/generated-apps/${appId}`, {
       method: 'GET',
       headers: this.getHeaders(),
       credentials: 'include',
@@ -96,7 +96,7 @@ class GeneratedAppsService {
     files: AppFile[]
     tenant_id?: string
   }): Promise<SavedApp> {
-    const response = await fetch(`${API_BASE_URL}/apps/generated`, {
+    const response = await fetch(`${API_BASE_URL}/generated-apps`, {
       method: 'POST',
       headers: this.getHeaders(),
       credentials: 'include',
@@ -123,7 +123,7 @@ class GeneratedAppsService {
       files?: AppFile[]
     },
   ): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/apps/generated/${appId}`, {
+    const response = await fetch(`${API_BASE_URL}/generated-apps/${appId}`, {
       method: 'PATCH',
       headers: this.getHeaders(),
       credentials: 'include',
@@ -138,7 +138,7 @@ class GeneratedAppsService {
 
   // Delete an app
   async deleteApp(appId: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/apps/generated/${appId}`, {
+    const response = await fetch(`${API_BASE_URL}/generated-apps/${appId}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
       credentials: 'include',
@@ -152,7 +152,7 @@ class GeneratedAppsService {
 
   // Get app versions/history
   async getVersions(appId: string): Promise<AppVersion[]> {
-    const response = await fetch(`${API_BASE_URL}/apps/generated/${appId}/versions`, {
+    const response = await fetch(`${API_BASE_URL}/generated-apps/${appId}/versions`, {
       method: 'GET',
       headers: this.getHeaders(),
       credentials: 'include',

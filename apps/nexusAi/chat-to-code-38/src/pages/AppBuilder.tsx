@@ -140,11 +140,12 @@ const AppBuilder = () => {
           dependencies: result.dependencies || {},
           requires_database: result.requires_database ?? false,
           files: (result.files || []).map((file) => ({
-            file_path: file.name,
-            content: file.content,
+            file_path: file.path || file.name || 'unknown',
+            content: file.content || '',
             language: file.language || 'text',
             is_entry_point:
-              file.name.includes('index') || file.name.includes('main'),
+              (file.path || file.name || '')?.toLowerCase().includes('index') || 
+              (file.path || file.name || '')?.toLowerCase().includes('main'),
           })),
         })
 
