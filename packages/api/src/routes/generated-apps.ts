@@ -34,29 +34,49 @@ async function ensureUserExists(
   pool: Pool,
   userId: string,
   userEmail: string,
-): Promise<void> {
+): Promise<string> {
   try {
-    // Check if user exists
-    const checkResult = await pool.query(
-      'SELECT id FROM "user" WHERE id = $1',
+    // First check if user exists by ID
+    const checkById = await pool.query(
+      'SELECT id, email FROM "user" WHERE id = $1',
       [userId],
     )
 
-    if (checkResult.rows.length === 0) {
-      // User doesn't exist, create them
-      await pool.query(
-        `INSERT INTO "user" (id, email, "roleSlug", "createdAt", "updatedAt", disabled, "mfaEnabled")
-         VALUES ($1, $2, 'global:member', NOW(), NOW(), false, false)
-         ON CONFLICT (id) DO NOTHING`,
-        [userId, userEmail],
-      )
-      console.log(
-        `[GeneratedApps] Created user in platform_db: ${userEmail} (${userId})`,
-      )
+    if (checkById.rows.length > 0) {
+      // User exists with this ID
+      return checkById.rows[0].id
     }
+
+    // Check if user exists by email
+    const checkByEmail = await pool.query(
+      'SELECT id, email FROM "user" WHERE email = $1',
+      [userEmail],
+    )
+
+    if (checkByEmail.rows.length > 0) {
+      // User exists with this email but different ID
+      // Return the existing user's ID to use for the app
+      console.log(
+        `[GeneratedApps] Found existing user with email ${userEmail}, using ID: ${checkByEmail.rows[0].id}`,
+      )
+      return checkByEmail.rows[0].id
+    }
+
+    // User doesn't exist by ID or email, create new user
+    const insertResult = await pool.query(
+      `INSERT INTO "user" (id, email, "roleSlug", "createdAt", "updatedAt", disabled, "mfaEnabled")
+       VALUES ($1, $2, 'global:member', NOW(), NOW(), false, false)
+       RETURNING id`,
+      [userId, userEmail],
+    )
+    console.log(
+      `[GeneratedApps] Created user in platform_db: ${userEmail} (${userId})`,
+    )
+    return insertResult.rows[0].id
   } catch (error) {
     console.error('[GeneratedApps] Error ensuring user exists:', error)
-    // Don't throw - let the foreign key constraint handle it if creation fails
+    // Return the original userId and let the foreign key constraint handle it
+    return userId
   }
 }
 
@@ -155,14 +175,14 @@ export function registerGeneratedAppsRoutes(router: Router) {
         return res.status(400).json({ error: 'Missing required fields' })
       }
 
-      // Ensure user exists in platform_db before inserting app
-      await ensureUserExists(pool, userId, userEmail)
+      // Ensure user exists in platform_db and get the actual user ID to use
+      const actualUserId = await ensureUserExists(pool, userId, userEmail)
 
       const client = await pool.connect()
       try {
         await client.query('BEGIN')
 
-        // Insert app
+        // Insert app with the actual user ID
         const appResult = await client.query(
           `
           INSERT INTO nexusai_generated_apps (
@@ -172,7 +192,7 @@ export function registerGeneratedAppsRoutes(router: Router) {
           RETURNING *
           `,
           [
-            userId,
+            actualUserId,
             tenant_id || null,
             app_name,
             description,
