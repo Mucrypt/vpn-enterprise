@@ -132,7 +132,7 @@ export function SidebarNavigation() {
       {/* Sidebar */}
       <div
         className={cn(
-          'flex h-screen min-h-0 flex-col border-r border-slate-800 bg-slate-900 transition-all duration-300 z-50',
+          'flex h-screen min-h-0 flex-col border-r border-slate-800/50 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 backdrop-blur-xl transition-all duration-300 z-50 shadow-2xl',
           // Desktop
           'hidden md:flex',
           sidebarOpen ? 'md:w-64' : 'md:w-20',
@@ -141,22 +141,22 @@ export function SidebarNavigation() {
         )}
       >
         {/* Logo */}
-        <div className='flex h-16 shrink-0 items-center justify-between border-b border-slate-800 px-4 md:px-6'>
+        <div className='flex h-16 shrink-0 items-center justify-between border-b border-slate-800/50 px-4 md:px-6 bg-slate-900/50 backdrop-blur-sm'>
           {sidebarOpen ? (
             <>
-              <h1 className='text-lg sm:text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent'>
+              <h1 className='text-lg sm:text-xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-gradient'>
                 VPN Enterprise
               </h1>
               <button
                 onClick={toggleSidebar}
-                className='md:hidden p-2 hover:bg-slate-800 rounded-lg transition-colors'
+                className='md:hidden p-2 hover:bg-slate-800/50 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95'
                 aria-label='Close menu'
               >
-                <X className='h-5 w-5 text-slate-400' />
+                <X className='h-5 w-5 text-slate-400 hover:text-white transition-colors' />
               </button>
             </>
           ) : (
-            <span className='text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent'>VE</span>
+            <span className='text-xl font-extrabold bg-gradient-to-br from-emerald-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]'>VE</span>
           )}
         </div>
 
@@ -200,7 +200,7 @@ export function SidebarNavigation() {
         {/* Toggle Button */}
         <button
           onClick={toggleSidebar}
-          className='hidden md:flex h-16 shrink-0 items-center justify-center border-t border-slate-800 hover:bg-slate-800 transition-colors'
+          className='hidden md:flex h-16 shrink-0 items-center justify-center border-t border-slate-800/50 hover:bg-slate-800/50 transition-all duration-200 hover:shadow-[0_-4px_10px_rgba(0,0,0,0.3)] backdrop-blur-sm group'
           aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {sidebarOpen ? (

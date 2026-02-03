@@ -244,7 +244,40 @@ body {
     background-position: 0% 50%;
   }
 }
+/* Premium gradient animation for logo */
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
 
+.animate-gradient {
+  background-size: 200% auto;
+  animation: gradient 3s ease infinite;
+}
+
+/* Smooth slide-in animation */
+@keyframes slide-in-from-top-5 {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.slide-in-from-top-5 {
+  animation: slide-in-from-top-5 0.2s ease-out;
+}
 /* Floating Animation */
 .float {
   animation: float 3s ease-in-out infinite;
