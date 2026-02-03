@@ -281,7 +281,7 @@ export function registerGeneratedAppsRoutes(router: Router) {
       const { appId } = req.params
       const { initialize_schema = false } = req.body
 
-      // Get app details
+      // Get app details with files
       const appResult = await pool.query(
         'SELECT id, app_name, framework, features, requires_database FROM nexusai_generated_apps WHERE id = $1 AND user_id = $2',
         [appId, userId],
@@ -293,6 +293,13 @@ export function registerGeneratedAppsRoutes(router: Router) {
 
       const app = appResult.rows[0]
 
+      // Get app files for schema extraction
+      const filesResult = await pool.query(
+        'SELECT file_path, content, language FROM nexusai_app_files WHERE app_id = $1 ORDER BY file_path',
+        [appId],
+      )
+      const appFiles = filesResult.rows
+
       // Check if database already exists
       const existingDb = await nexusAIDatabaseProvisioner.getDatabaseInfo(appId)
       if (existingDb) {
@@ -303,27 +310,22 @@ export function registerGeneratedAppsRoutes(router: Router) {
         })
       }
 
-      console.log(`[GeneratedApps] Provisioning database for app: ${app.app_name}`)
+      console.log(
+        `[GeneratedApps] Provisioning database for app: ${app.app_name}`,
+      )
+      console.log(
+        `[GeneratedApps] Analyzing ${appFiles.length} files for schema extraction`,
+      )
 
-      // Provision the database
+      // Provision the database with app files for auto-schema generation
       const database = await nexusAIDatabaseProvisioner.provisionDatabase({
         userId,
         appId,
         appName: app.app_name,
         framework: app.framework,
         features: app.features || [],
+        appFiles: appFiles.length > 0 ? appFiles : undefined,
       })
-
-      // Optionally initialize schema
-      let schemas: string[] = []
-      if (initialize_schema) {
-        schemas = await nexusAIDatabaseProvisioner.generateSchema({
-          appId,
-          features: app.features || [],
-          framework: app.framework,
-        })
-        console.log(`[GeneratedApps] Generated ${schemas.length} schema statements`)
-      }
 
       // Update app status
       await pool.query(
@@ -334,11 +336,14 @@ export function registerGeneratedAppsRoutes(router: Router) {
       res.json({
         database: {
           ...database,
-          password: '***REDACTED***', // Don't send password in response, user gets it once
+          password: '***REDACTED***', // Don't send password in response
         },
         connection_string: database.connectionString,
-        schemas: initialize_schema ? schemas : undefined,
-        message: 'Database provisioned successfully',
+        tables_created: database.tablesCreated || 0,
+        schema_generated: (database.tablesCreated || 0) > 0,
+        message: database.tablesCreated
+          ? `Database provisioned with ${database.tablesCreated} tables created automatically`
+          : 'Database provisioned successfully',
       })
     } catch (e: any) {
       console.error('Failed to provision database:', e)
@@ -418,12 +423,11 @@ export function registerGeneratedAppsRoutes(router: Router) {
         return res.status(404).json({ error: 'App not found' })
       }
 
-      const success = await nexusAIDatabaseProvisioner.deprovisionDatabase(appId)
+      const success =
+        await nexusAIDatabaseProvisioner.deprovisionDatabase(appId)
 
       if (!success) {
-        return res
-          .status(404)
-          .json({ error: 'No database found for this app' })
+        return res.status(404).json({ error: 'No database found for this app' })
       }
 
       res.json({ message: 'Database deprovisioned successfully' })

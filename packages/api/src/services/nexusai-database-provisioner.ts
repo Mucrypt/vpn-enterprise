@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { DatabasePlatformClient } from '../database-platform-client'
 import { ensureTenantDatabaseProvisioned } from '../routes/tenants/provisioning'
+import { schemaExtractor } from './schema-extractor'
 
 export interface NexusAIDatabase {
   tenantId: string
@@ -11,6 +12,8 @@ export interface NexusAIDatabase {
   password: string
   connectionString: string
   status: 'provisioned' | 'exists'
+  tablesCreated?: number
+  schemaSQL?: string
 }
 
 export interface ProvisionDatabaseOptions {
@@ -19,6 +22,7 @@ export interface ProvisionDatabaseOptions {
   appName: string
   framework: string
   features?: string[]
+  appFiles?: Array<{ file_path: string; content: string; language: string }>
 }
 
 /**
@@ -74,6 +78,41 @@ export class NexusAIDatabaseProvisioner {
       // Update nexusai_generated_apps with tenant_id
       await this.linkAppToTenant(appId, tenantId)
 
+      // Auto-generate and apply schema if app files provided
+      let tablesCreated = 0
+      let schemaSQL = ''
+      if (opts.appFiles && opts.appFiles.length > 0) {
+        try {
+          console.log(
+            `[NexusAIProvisioner] Extracting schema from app files...`,
+          )
+          const schema = schemaExtractor.extractSchema(opts.appFiles)
+          schemaSQL = schemaExtractor.generateSQL(schema)
+
+          console.log(
+            `[NexusAIProvisioner] Applying schema: ${schema.tables.length} tables`,
+          )
+
+          // Execute schema SQL on the newly provisioned database
+          await this.executeSchemaSQL(
+            provisionResult.db,
+            provisionResult.password || '',
+            schemaSQL,
+          )
+
+          tablesCreated = schema.tables.length
+          console.log(
+            `[NexusAIProvisioner] Successfully created ${tablesCreated} tables`,
+          )
+        } catch (schemaError) {
+          console.error(
+            `[NexusAIProvisioner] Schema generation failed (non-fatal):`,
+            schemaError,
+          )
+          // Non-fatal: database is still usable even if schema generation fails
+        }
+      }
+
       const connectionString = this.buildConnectionString({
         host: provisionResult.db.host,
         port: provisionResult.db.port,
@@ -95,6 +134,8 @@ export class NexusAIDatabaseProvisioner {
         password: provisionResult.password || '',
         connectionString,
         status: provisionResult.provisioned ? 'provisioned' : 'exists',
+        tablesCreated,
+        schemaSQL: tablesCreated > 0 ? schemaSQL : undefined,
       }
     } catch (error) {
       console.error(
@@ -235,7 +276,9 @@ export class NexusAIDatabaseProvisioner {
       [tenantId, appId],
     )
 
-    console.log(`[NexusAIProvisioner] Linked app ${appId} to tenant ${tenantId}`)
+    console.log(
+      `[NexusAIProvisioner] Linked app ${appId} to tenant ${tenantId}`,
+    )
   }
 
   /**
@@ -252,7 +295,37 @@ export class NexusAIDatabaseProvisioner {
   }
 
   /**
+   * Execute schema SQL on the provisioned database
+   */
+  private async executeSchemaSQL(
+    db: { host: string; port: number; database: string; username: string },
+    password: string,
+    schemaSQL: string,
+  ): Promise<void> {
+    const { Pool } = await import('pg')
+    const pool = new Pool({
+      host: db.host,
+      port: db.port,
+      database: db.database,
+      user: db.username,
+      password: password,
+      ssl: false,
+    })
+
+    try {
+      await pool.query(schemaSQL)
+      console.log(`[NexusAIProvisioner] Schema SQL executed successfully`)
+    } catch (error) {
+      console.error(`[NexusAIProvisioner] Schema SQL execution failed:`, error)
+      throw error
+    } finally {
+      await pool.end()
+    }
+  }
+
+  /**
    * Generate database schema based on app requirements
+   * @deprecated Use SchemaExtractor instead - this is kept as fallback
    * This can be called after provisioning to initialize the database
    */
   async generateSchema(opts: {

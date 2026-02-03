@@ -9,6 +9,8 @@ export interface DatabaseInfo {
   password?: string
   connectionString: string
   status: 'provisioned' | 'exists'
+  tablesCreated?: number
+  schemaSQL?: string
 }
 
 export interface ProvisionDatabaseRequest {
@@ -18,7 +20,8 @@ export interface ProvisionDatabaseRequest {
 export interface ProvisionDatabaseResponse {
   database: DatabaseInfo
   connection_string: string
-  schemas?: string[]
+  tables_created?: number
+  schema_generated?: boolean
   message: string
   already_exists?: boolean
 }
@@ -27,5 +30,6 @@ export interface GetDatabaseResponse {
   has_database: boolean
   database?: Partial<DatabaseInfo>
   connection_string?: string
+  tables_created?: number
   message?: string
 }
