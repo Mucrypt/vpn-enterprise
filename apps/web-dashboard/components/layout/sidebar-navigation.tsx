@@ -132,7 +132,7 @@ export function SidebarNavigation() {
       {/* Sidebar */}
       <div
         className={cn(
-          'flex h-screen min-h-0 flex-col border-r border-slate-800/50 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 backdrop-blur-xl transition-all duration-300 z-50 shadow-2xl',
+          'flex h-screen min-h-0 flex-col border-r border-slate-800/50 bg-linear-to-b from-slate-900 via-slate-900 to-slate-950 backdrop-blur-xl transition-all duration-300 z-50 shadow-2xl',
           // Desktop
           'hidden md:flex',
           sidebarOpen ? 'md:w-64' : 'md:w-20',
@@ -144,7 +144,7 @@ export function SidebarNavigation() {
         <div className='flex h-16 shrink-0 items-center justify-between border-b border-slate-800/50 px-4 md:px-6 bg-slate-900/50 backdrop-blur-sm'>
           {sidebarOpen ? (
             <>
-              <h1 className='text-lg sm:text-xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-gradient'>
+              <h1 className='text-lg sm:text-xl font-extrabold tracking-tight bg-linear-to-r from-emerald-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-gradient'>
                 VPN Enterprise
               </h1>
               <button
@@ -156,7 +156,9 @@ export function SidebarNavigation() {
               </button>
             </>
           ) : (
-            <span className='text-xl font-extrabold bg-gradient-to-br from-emerald-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]'>VE</span>
+            <span className='text-xl font-extrabold bg-linear-to-br from-emerald-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]'>
+              VE
+            </span>
           )}
         </div>
 

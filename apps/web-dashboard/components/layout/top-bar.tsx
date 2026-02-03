@@ -135,8 +135,8 @@ export function TopBar() {
   const { toggleSidebar } = useDashboardStore()
 
   return (
-    <div className='flex h-14 md:h-16 items-center justify-between border-b border-slate-800/50 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-900/95 backdrop-blur-xl px-3 sm:px-4 md:px-6 shadow-lg'>
-      {/* Mobile Menu Button */>
+    <div className='flex h-14 md:h-16 items-center justify-between border-b border-slate-800/50 bg-linear-to-r from-slate-900 via-slate-900 to-slate-900/95 backdrop-blur-xl px-3 sm:px-4 md:px-6 shadow-lg'>
+      {/* Mobile Menu Button */}
       <button
         onClick={toggleSidebar}
         className='md:hidden p-2 hover:bg-slate-800/60 rounded-xl transition-all duration-200 touch-manipulation hover:scale-105 active:scale-95 hover:shadow-lg'
@@ -163,9 +163,10 @@ export function TopBar() {
           <Search className='absolute left-2 md:left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-400 transition-colors duration-200 z-10' />
           <input
             type='text'
-            placeholder='Search...'\n            className='w-full rounded-xl border border-slate-700/50 bg-slate-800/40 backdrop-blur-sm pl-8 md:pl-10 pr-3 py-2 md:py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-slate-800/60 transition-all duration-200 hover:bg-slate-800/50 shadow-inner hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+            placeholder='Search...'
+            className='w-full rounded-xl border border-slate-700/50 bg-slate-800/40 backdrop-blur-sm pl-8 md:pl-10 pr-3 py-2 md:py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-slate-800/60 transition-all duration-200 hover:bg-slate-800/50 shadow-inner hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]'
           />
-          <div className='absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-500/0 via-emerald-500/0 to-emerald-500/0 opacity-0 group-focus-within:opacity-100 group-focus-within:from-emerald-500/5 group-focus-within:via-cyan-500/5 group-focus-within:to-emerald-500/5 transition-opacity duration-300 pointer-events-none' />
+          <div className='absolute inset-0 rounded-xl bg-linear-to-r from-emerald-500/0 via-emerald-500/0 to-emerald-500/0 opacity-0 group-focus-within:opacity-100 group-focus-within:from-emerald-500/5 group-focus-within:via-cyan-500/5 group-focus-within:to-emerald-500/5 transition-opacity duration-300 pointer-events-none' />
         </div>
       </div>
 
@@ -189,7 +190,7 @@ export function TopBar() {
 
           {showNotifications && (
             <div className='absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-800/50 z-50 max-h-[70vh] sm:max-h-[600px] overflow-hidden flex flex-col animate-in slide-in-from-top-5 duration-200'>
-              <div className='px-3 sm:px-4 py-4 border-b border-slate-800/50 flex items-center justify-between bg-gradient-to-r from-slate-800/50 to-slate-800/30 backdrop-blur-sm'>
+              <div className='px-3 sm:px-4 py-4 border-b border-slate-800/50 flex items-center justify-between bg-linear-to-r from-slate-800/50 to-slate-800/30 backdrop-blur-sm'>
                 <h3 className='text-sm font-bold text-white tracking-wide'>
                   Notifications
                 </h3>
@@ -226,7 +227,9 @@ export function TopBar() {
                       <div
                         key={notif.id}
                         className={`px-4 py-3 hover:bg-slate-800/60 transition-all duration-200 cursor-pointer border-l-2 hover:border-l-emerald-500/50 hover:scale-[1.01] ${
-                          !notif.read ? 'bg-gradient-to-r from-emerald-500/15 to-transparent border-l-emerald-500' : 'border-l-transparent'
+                          !notif.read
+                            ? 'bg-linear-to-r from-emerald-500/15 to-transparent border-l-emerald-500'
+                            : 'border-l-transparent'
                         }`}
                         onClick={() => {
                           if (!notif.read) markAsRead(notif.id)
@@ -296,10 +299,8 @@ export function TopBar() {
 
           {showUserMenu && (
             <div className='absolute right-0 mt-2 w-56 sm:w-64 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-800/50 py-2 z-50 animate-in slide-in-from-top-5 duration-200'>
-              <div className='px-4 py-3 border-b border-slate-800/50 bg-gradient-to-r from-slate-800/30 to-transparent'>
-                <p className='text-sm font-medium text-white'>
-                  {user?.email}
-                </p>
+              <div className='px-4 py-3 border-b border-slate-800/50 bg-linear-to-r from-slate-800/30 to-transparent'>
+                <p className='text-sm font-medium text-white'>{user?.email}</p>
                 <p className='text-xs text-slate-400 mt-1'>
                   {user?.role?.replace('_', ' ').toUpperCase()} Account
                 </p>
@@ -336,7 +337,7 @@ export function TopBar() {
                 </Link>
               </div>
 
-              <div className='border-t border-slate-800/50 py-2 bg-gradient-to-b from-transparent to-slate-900/50'>
+              <div className='border-t border-slate-800/50 py-2 bg-linear-to-b from-transparent to-slate-900/50'>
                 <button
                   onClick={() => {
                     setShowUserMenu(false)
