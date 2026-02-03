@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -16,18 +16,10 @@ import { useAuthStore } from '@/lib/store'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
 
-export default function LoginPage() {
-  const router = useRouter()
+// Component that handles session expiration notification
+function SessionExpirationNotification() {
   const searchParams = useSearchParams()
-  const { setUser, setAccessToken, setAuth } = useAuthStore()
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  })
-  const [error, setError] = useState('')
 
-  // Show session expired message if redirected from token expiration
   useEffect(() => {
     if (searchParams.get('expired') === 'true') {
       toast.error('Your session has expired. Please log in again.', {
@@ -36,6 +28,19 @@ export default function LoginPage() {
       })
     }
   }, [searchParams])
+
+  return null
+}
+
+function LoginForm() {
+  const router = useRouter()
+  const { setUser, setAccessToken, setAuth } = useAuthStore()
+  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  })
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -220,5 +225,17 @@ export default function LoginPage() {
         )}
       </div>
     </div>
+  )
+}
+
+// Main page component with Suspense boundary
+export default function LoginPage() {
+  return (
+    <>
+      <Suspense fallback={<div />}>
+        <SessionExpirationNotification />
+      </Suspense>
+      <LoginForm />
+    </>
   )
 }
