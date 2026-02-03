@@ -58,40 +58,91 @@ const AppBuilder = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [savedAppId, setSavedAppId] = useState<string | null>(null)
 
-  // Redirect if no app details
+  // Load app from database if appId is in URL
   useEffect(() => {
-    if (!appDetails) {
-      navigate('/describe')
-      return
+    const loadAppFromDatabase = async () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const appId = urlParams.get('appId')
+
+      if (appId) {
+        try {
+          setLoading(true)
+          const savedApp = await generatedAppsService.getApp(appId)
+
+          const files: FileOutput[] = (savedApp.files || []).map((file) => ({
+            path: file.file_path,
+            name: file.file_path,
+            content: file.content,
+            language: file.language,
+          }))
+
+          setGeneratedApp({
+            files,
+            instructions: savedApp.description || 'Loaded from saved apps',
+            dependencies: savedApp.dependencies || {},
+            requires_database: savedApp.requires_database,
+          })
+
+          if (files.length > 0) {
+            setSelectedFile(files[0])
+          }
+
+          setSavedAppId(savedApp.id)
+          setLoading(false)
+          return true
+        } catch (error) {
+          console.error('Failed to load app from database:', error)
+          return false
+        }
+      }
+      return false
     }
 
-    // If loading a saved app, populate the editor
-    if (appDetails.loadedApp) {
-      const savedApp = appDetails.loadedApp
-      const files: FileOutput[] = (savedApp.files || []).map((file) => ({
-        path: file.file_path,
-        name: file.file_path,
-        content: file.content,
-        language: file.language,
-      }))
+    const init = async () => {
+      // First, try to load from URL params
+      const loaded = await loadAppFromDatabase()
+      if (loaded) return
 
-      setGeneratedApp({
-        files,
-        instructions: savedApp.description || 'Loaded from saved apps',
-        dependencies: savedApp.dependencies || {},
-        requires_database: savedApp.requires_database,
-      })
-
-      if (files.length > 0) {
-        setSelectedFile(files[0])
+      // If no URL params, check if we have appDetails from navigation
+      if (!appDetails) {
+        navigate('/describe')
+        return
       }
 
-      setSavedAppId(savedApp.id)
-      setLoading(false)
-    } else {
-      // Auto-generate on mount for new apps
-      handleGenerate()
+      // If loading a saved app from navigation state
+      if (appDetails.loadedApp) {
+        const savedApp = appDetails.loadedApp
+        const files: FileOutput[] = (savedApp.files || []).map((file) => ({
+          path: file.file_path,
+          name: file.file_path,
+          content: file.content,
+          language: file.language,
+        }))
+
+        setGeneratedApp({
+          files,
+          instructions: savedApp.description || 'Loaded from saved apps',
+          dependencies: savedApp.dependencies || {},
+          requires_database: savedApp.requires_database,
+        })
+
+        if (files.length > 0) {
+          setSelectedFile(files[0])
+        }
+
+        setSavedAppId(savedApp.id)
+        
+        // Update URL with appId so it persists on refresh
+        navigate(`/build?appId=${savedApp.id}`, { replace: true })
+        
+        setLoading(false)
+      } else {
+        // Auto-generate on mount for new apps
+        handleGenerate()
+      }
     }
+
+    init()
   }, [])
 
   const handleGenerate = async () => {
@@ -150,6 +201,9 @@ const AppBuilder = () => {
         })
 
         setSavedAppId(savedApp.id)
+
+        // Update URL with appId so it persists on refresh
+        navigate(`/build?appId=${savedApp.id}`, { replace: true })
 
         toast({
           title: '✨ App Generated & Saved!',
