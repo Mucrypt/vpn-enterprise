@@ -7,7 +7,7 @@
 -- =============================================
 CREATE TABLE IF NOT EXISTS nexusai_generated_apps (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     app_name VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
