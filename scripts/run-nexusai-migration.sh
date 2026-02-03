@@ -29,8 +29,8 @@ if [ "$DB_CHOICE" == "1" ]; then
     # Detect which postgres container is running
     if docker ps | grep -q "vpn-postgres"; then
         POSTGRES_CONTAINER="vpn-postgres"
-        POSTGRES_USER="postgres"
-        POSTGRES_DB="vpn_enterprise"
+        POSTGRES_USER="platform_admin"
+        POSTGRES_DB="platform_db"
         echo -e "${BLUE}Detected production container: $POSTGRES_CONTAINER${NC}"
     elif docker ps | grep -q "dbplatform-postgres-primary"; then
         POSTGRES_CONTAINER="dbplatform-postgres-primary"
