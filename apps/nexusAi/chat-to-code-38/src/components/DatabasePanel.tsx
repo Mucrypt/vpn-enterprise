@@ -311,18 +311,23 @@ export function DatabasePanel({
             )}
 
             <div className='grid grid-cols-2 gap-2'>
-              <Button variant='outline' size='sm' asChild>
-                <a
-                  href={
-                    provisionResult
-                      ? `https://chatbuilds.com/databases/editor?tenantId=${provisionResult.database.tenantId}&database=${provisionResult.database.database}`
-                      : '/dashboard/databases'
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => {
+                  if (provisionResult) {
+                    console.log('[DatabasePanel] Opening editor with:', {
+                      tenantId: provisionResult.database.tenantId,
+                      database: provisionResult.database.database,
+                    })
+                    const url = `https://chatbuilds.com/databases?tenantId=${provisionResult.database.tenantId}&database=${provisionResult.database.database}`
+                    window.open(url, '_blank')
                   }
-                  target='_blank'
-                >
-                  <Database className='w-4 h-4 mr-2' />
-                  Open Editor
-                </a>
+                }}
+                disabled={!provisionResult}
+              >
+                <Database className='w-4 h-4 mr-2' />
+                Open Editor
               </Button>
               <Button variant='outline' size='sm' onClick={checkDatabaseStatus}>
                 View Details

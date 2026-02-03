@@ -343,6 +343,12 @@ SELECT * FROM blog.posts LIMIT 5;
 
   // Sync with initialTenants when they change (after successful API fetch)
   useEffect(() => {
+    console.log('[DatabasePageClient] URL Params Check:', {
+      tenantId: searchParams.get('tenantId'),
+      database: searchParams.get('database'),
+      initialTenantsCount: initialTenants.length
+    })
+
     if (initialTenants.length > 0) {
       setTenants(initialTenants)
 
@@ -351,12 +357,15 @@ SELECT * FROM blog.posts LIMIT 5;
       const urlDatabase = searchParams.get('database')
 
       if (urlTenantId) {
+        console.log('[DatabasePageClient] NexusAI database link detected:', { urlTenantId, urlDatabase })
+        
         // Find the tenant in the list
         let tenant = initialTenants.find(
           (t) => t.tenant_id === urlTenantId || t.id === urlTenantId,
         )
 
         if (tenant) {
+          console.log('[DatabasePageClient] Tenant found in list:', tenant)
           setActiveTenant(urlTenantId)
           console.log(
             '[DatabasePageClient] Loaded NexusAI database:',
@@ -366,27 +375,26 @@ SELECT * FROM blog.posts LIMIT 5;
           // Show notification
           if (typeof window !== 'undefined' && urlDatabase) {
             setTimeout(() => {
-              const event = new CustomEvent('show-toast', {
-                detail: {
-                  title: '✅ Database Connected',
-                  description: `Connected to ${urlDatabase} with auto-generated tables`,
-                  variant: 'success',
-                },
-              })
-              window.dispatchEvent(event)
+              alert(`✅ Connected to ${urlDatabase} with auto-generated tables!`)
             }, 500)
           }
         } else {
           // Tenant not in list, fetch it directly
           console.log(
-            '[DatabasePageClient] Tenant not found, fetching from API:',
+            '[DatabasePageClient] Tenant not found in list, fetching from API:',
             urlTenantId,
           )
+          console.log('[DatabasePageClient] Available tenants:', initialTenants.map(t => ({ id: t.id, tenant_id: t.tenant_id, name: t.name })))
+          
           fetch(`/api/v1/tenants/${urlTenantId}`, {
             credentials: 'include',
           })
-            .then((res) => res.json())
+            .then((res) => {
+              console.log('[DatabasePageClient] Fetch tenant response status:', res.status)
+              return res.json()
+            })
             .then((data) => {
+              console.log('[DatabasePageClient] Fetch tenant response data:', data)
               if (data.tenant) {
                 setTenants((prev) => [...prev, data.tenant])
                 setActiveTenant(urlTenantId)
@@ -394,21 +402,30 @@ SELECT * FROM blog.posts LIMIT 5;
                   '[DatabasePageClient] Added tenant from API:',
                   data.tenant,
                 )
+                alert(`✅ Connected to ${urlDatabase}!`)
+              } else {
+                console.error('[DatabasePageClient] No tenant in response:', data)
+                alert(`❌ Could not load database. Tenant not found: ${urlTenantId}`)
               }
             })
             .catch((err) => {
               console.error('[DatabasePageClient] Failed to fetch tenant:', err)
+              alert(`❌ Error loading database: ${err.message}`)
             })
         }
-      } else if (!activeTenant && initialTenants[0]) {
-        // If we don't have an activeTenant yet, set the first one
-        const firstTenantId =
-          initialTenants[0].tenant_id || initialTenants[0].id
-        setActiveTenant(firstTenantId)
-        console.log(
-          '[DatabasePageClient] Set initial activeTenant:',
-          firstTenantId,
-        )
+      } else {
+        console.log('[DatabasePageClient] No URL params, using default tenant')
+        
+        if (!activeTenant && initialTenants[0]) {
+          // If we don't have an activeTenant yet, set the first one
+          const firstTenantId =
+            initialTenants[0].tenant_id || initialTenants[0].id
+          setActiveTenant(firstTenantId)
+          console.log(
+            '[DatabasePageClient] Set initial activeTenant:',
+            firstTenantId,
+          )
+        }
       }
     }
   }, [initialTenants, searchParams])
