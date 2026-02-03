@@ -1,18 +1,25 @@
 import type { Router } from 'express'
 import type { AuthRequest } from '@vpn-enterprise/auth'
 import { Pool } from 'pg'
+import { resolveSecret } from '../utils/secrets'
 
 // Use platform database pool
 let dbPool: Pool
 
 function getDbPool(): Pool {
   if (!dbPool) {
+    const postgresPassword = resolveSecret({
+      valueEnv: 'POSTGRES_PASSWORD',
+      fileEnv: 'POSTGRES_PASSWORD_FILE',
+      defaultFilePath: '/run/secrets/db_password',
+    })
+
     dbPool = new Pool({
       host: process.env.POSTGRES_HOST || 'localhost',
       port: parseInt(process.env.POSTGRES_PORT || '5432'),
       database: process.env.POSTGRES_DB || 'platform_db',
       user: process.env.POSTGRES_USER || 'platform_admin',
-      password: process.env.POSTGRES_PASSWORD,
+      password: postgresPassword,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
