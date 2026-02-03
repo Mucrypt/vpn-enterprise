@@ -327,11 +327,17 @@ export function registerGeneratedAppsRoutes(router: Router) {
       const appUserId = app.user_id // The actual user ID from ensureUserExists
 
       // Verify the authenticated user owns this app (or find the actual user ID)
-      const actualUserId = await ensureUserExists(pool, userId, req.user?.email || '')
-      
+      const actualUserId = await ensureUserExists(
+        pool,
+        userId,
+        req.user?.email || '',
+      )
+
       // Check if the authenticated user is the app owner (handles Supabase ID vs platform_db ID mismatch)
       if (appUserId !== actualUserId && appUserId !== userId) {
-        return res.status(403).json({ error: 'Forbidden: You do not own this app' })
+        return res
+          .status(403)
+          .json({ error: 'Forbidden: You do not own this app' })
       }
 
       // Get app files for schema extraction

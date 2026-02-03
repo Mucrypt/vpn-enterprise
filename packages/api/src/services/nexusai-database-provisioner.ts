@@ -267,7 +267,9 @@ export class NexusAIDatabaseProvisioner {
   }): Promise<string> {
     const tenantId = randomBytes(16).toString('hex')
 
-    console.log(`[NexusAIProvisioner] Creating tenant ${tenantId} for user ${opts.userId}`)
+    console.log(
+      `[NexusAIProvisioner] Creating tenant ${tenantId} for user ${opts.userId}`,
+    )
 
     await this.db.platformPool.query(
       `INSERT INTO tenants (id, name, connection_info, created_at, updated_at)
@@ -296,9 +298,13 @@ export class NexusAIDatabaseProvisioner {
     )
 
     if (verifyResult.rows.length === 0) {
-      console.error(`[NexusAIProvisioner] WARNING: Failed to verify tenant membership for user ${opts.userId}`)
+      console.error(
+        `[NexusAIProvisioner] WARNING: Failed to verify tenant membership for user ${opts.userId}`,
+      )
     } else {
-      console.log(`[NexusAIProvisioner] Verified: User ${opts.userId} has role '${verifyResult.rows[0].role}' in tenant ${tenantId}`)
+      console.log(
+        `[NexusAIProvisioner] Verified: User ${opts.userId} has role '${verifyResult.rows[0].role}' in tenant ${tenantId}`,
+      )
     }
 
     return tenantId
