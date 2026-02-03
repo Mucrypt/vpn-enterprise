@@ -74,6 +74,18 @@ class GeneratedAppsService {
     return null
   }
 
+  private handleAuthError(response: Response) {
+    if (response.status === 401 || response.status === 403) {
+      // Token expired or invalid - redirect to login
+      console.warn('[GeneratedAppsService] Authentication failed, redirecting to login')
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('authToken')
+      sessionStorage.removeItem('authToken')
+      // Redirect to main app login (web-dashboard)
+      window.location.href = 'https://chatbuilds.com/login?redirect=' + encodeURIComponent(window.location.pathname)
+    }
+  }
+
   // List all user's generated apps
   async listApps(): Promise<SavedApp[]> {
     const response = await fetch(`${API_BASE_URL}/generated-apps`, {
@@ -83,6 +95,7 @@ class GeneratedAppsService {
     })
 
     if (!response.ok) {
+      this.handleAuthError(response)
       const error = await response
         .json()
         .catch(() => ({ error: 'Failed to list apps' }))
@@ -102,6 +115,7 @@ class GeneratedAppsService {
     })
 
     if (!response.ok) {
+      this.handleAuthError(response)
       const error = await response
         .json()
         .catch(() => ({ error: 'Failed to get app' }))
@@ -132,6 +146,7 @@ class GeneratedAppsService {
     })
 
     if (!response.ok) {
+      this.handleAuthError(response)
       const error = await response
         .json()
         .catch(() => ({ error: 'Failed to save app' }))
@@ -160,8 +175,7 @@ class GeneratedAppsService {
       body: JSON.stringify(updates),
     })
 
-    if (!response.ok) {
-      const error = await response
+    if (!response.ok) {      this.handleAuthError(response)      const error = await response
         .json()
         .catch(() => ({ error: 'Failed to update app' }))
       throw new Error(error.error || error.message || 'Failed to update app')
@@ -177,6 +191,7 @@ class GeneratedAppsService {
     })
 
     if (!response.ok) {
+      this.handleAuthError(response)
       const error = await response
         .json()
         .catch(() => ({ error: 'Failed to delete app' }))
@@ -196,6 +211,7 @@ class GeneratedAppsService {
     )
 
     if (!response.ok) {
+      this.handleAuthError(response)
       const error = await response
         .json()
         .catch(() => ({ error: 'Failed to get versions' }))
