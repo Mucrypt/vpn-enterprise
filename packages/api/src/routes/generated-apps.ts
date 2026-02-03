@@ -3,7 +3,10 @@ import type { AuthRequest } from '@vpn-enterprise/auth'
 import { Pool } from 'pg'
 import { resolveSecret } from '../utils/secrets'
 import { nexusAIDatabaseProvisioner } from '../services/nexusai-database-provisioner'
-import { requireCreditsForAI, requireCreditsForDatabase } from '../middleware/billing'
+import {
+  requireCreditsForAI,
+  requireCreditsForDatabase,
+} from '../middleware/billing'
 import { rateLimitPresets } from '../middleware/rate-limit'
 
 // Use platform database pool
@@ -156,80 +159,82 @@ export function registerGeneratedAppsRoutes(router: Router) {
   router.post(
     '/',
     rateLimitPresets.aiGeneration,
-    requireCreditsForAI(),
+    requireCreditsForAI,
     async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user?.id
-      const userEmail = req.user?.email
-      if (!userId || !userEmail) {
-        return res.status(401).json({ error: 'Unauthorized' })
-      }
-
-      const {
-        app_name,
-        description,
-        framework,
-        styling,
-        features = [],
-        dependencies = {},
-        requires_database = false,
-        files = [],
-        tenant_id,
-      } = req.body
-
-      if (!app_name || !description || !framework) {
-        return res.status(400).json({ error: 'Missing required fields' })
-      }
-
-      // Ensure user exists in platform_db and get the actual user ID to use
-      const actualUserId = await ensureUserExists(pool, userId, userEmail)
-      console.log(`[GeneratedApps] Using user ID: ${actualUserId} to save app`)
-
-      const client = await pool.connect()
       try {
-        await client.query('BEGIN')
+        const userId = req.user?.id
+        const userEmail = req.user?.email
+        if (!userId || !userEmail) {
+          return res.status(401).json({ error: 'Unauthorized' })
+        }
 
-        // Insert app with the actual user ID
+        const {
+          app_name,
+          description,
+          framework,
+          styling,
+          features = [],
+          dependencies = {},
+          requires_database = false,
+          files = [],
+          tenant_id,
+        } = req.body
+
+        if (!app_name || !description || !framework) {
+          return res.status(400).json({ error: 'Missing required fields' })
+        }
+
+        // Ensure user exists in platform_db and get the actual user ID to use
+        const actualUserId = await ensureUserExists(pool, userId, userEmail)
         console.log(
-          '[GeneratedApps] Inserting app into nexusai_generated_apps...',
+          `[GeneratedApps] Using user ID: ${actualUserId} to save app`,
         )
-        const appResult = await client.query(
-          `
+
+        const client = await pool.connect()
+        try {
+          await client.query('BEGIN')
+
+          // Insert app with the actual user ID
+          console.log(
+            '[GeneratedApps] Inserting app into nexusai_generated_apps...',
+          )
+          const appResult = await client.query(
+            `
           INSERT INTO nexusai_generated_apps (
             user_id, tenant_id, app_name, description, framework, styling,
             features, dependencies, requires_database, status
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'generated')
           RETURNING *
           `,
-          [
-            actualUserId,
-            tenant_id || null,
-            app_name,
-            description,
-            framework,
-            styling || null,
-            JSON.stringify(features),
-            JSON.stringify(dependencies),
-            requires_database,
-          ],
-        )
+            [
+              actualUserId,
+              tenant_id || null,
+              app_name,
+              description,
+              framework,
+              styling || null,
+              JSON.stringify(features),
+              JSON.stringify(dependencies),
+              requires_database,
+            ],
+          )
 
-        const app = appResult.rows[0]
-        console.log(`[GeneratedApps] App saved with ID: ${app.id}`)
+          const app = appResult.rows[0]
+          console.log(`[GeneratedApps] App saved with ID: ${app.id}`)
 
-        // Insert files
-        if (files.length > 0) {
-          console.log(`[GeneratedApps] Inserting ${files.length} files...`)
-          const fileValues = files.map((file: any) => [
-            app.id,
-            file.file_path || file.path || 'unknown',
-            file.content || '',
-            file.language || 'text',
-            (file.content || '').length,
-            file.is_entry_point || false,
-          ])
+          // Insert files
+          if (files.length > 0) {
+            console.log(`[GeneratedApps] Inserting ${files.length} files...`)
+            const fileValues = files.map((file: any) => [
+              app.id,
+              file.file_path || file.path || 'unknown',
+              file.content || '',
+              file.language || 'text',
+              (file.content || '').length,
+              file.is_entry_point || false,
+            ])
 
-          const fileQuery = `
+            const fileQuery = `
             INSERT INTO nexusai_app_files (
               app_id, file_path, content, language, file_size, is_entry_point
             ) VALUES ${fileValues
@@ -240,29 +245,32 @@ export function registerGeneratedAppsRoutes(router: Router) {
               .join(', ')}
           `
 
-          await client.query(fileQuery, fileValues.flat())
-          console.log(`[GeneratedApps] Files saved successfully`)
+            await client.query(fileQuery, fileValues.flat())
+            console.log(`[GeneratedApps] Files saved successfully`)
+          }
+
+          await client.query('COMMIT')
+          console.log(`[GeneratedApps] Transaction committed successfully`)
+
+          res.json({ app, message: 'App saved successfully' })
+        } catch (e) {
+          await client.query('ROLLBACK')
+          console.error(
+            '[GeneratedApps] Transaction rolled back due to error:',
+            e,
+          )
+          throw e
+        } finally {
+          client.release()
         }
-
-        await client.query('COMMIT')
-        console.log(`[GeneratedApps] Transaction committed successfully`)
-
-        res.json({ app, message: 'App saved successfully' })
-      } catch (e) {
-        await client.query('ROLLBACK')
-        console.error(
-          '[GeneratedApps] Transaction rolled back due to error:',
-          e,
-        )
-        throw e
-      } finally {
-        client.release()
+      } catch (e: any) {
+        console.error('[GeneratedApps] Failed to save app:', e)
+        res
+          .status(500)
+          .json({ error: 'Failed to save app', message: e.message })
       }
-    } catch (e: any) {
-      console.error('[GeneratedApps] Failed to save app:', e)
-      res.status(500).json({ error: 'Failed to save app', message: e.message })
-    }
-  })
+    },
+  )
 
   // Delete a generated app
   router.delete('/:appId', async (req: AuthRequest, res) => {
@@ -311,106 +319,108 @@ export function registerGeneratedAppsRoutes(router: Router) {
   router.post(
     '/:appId/database/provision',
     rateLimitPresets.databaseProvisioning,
-    requireCreditsForDatabase(),
+    requireCreditsForDatabase,
     async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user?.id
-      const userEmail = req.user?.email
-      if (!userId || !userEmail) {
-        return res.status(401).json({ error: 'Unauthorized' })
-      }
+      try {
+        const userId = req.user?.id
+        const userEmail = req.user?.email
+        if (!userId || !userEmail) {
+          return res.status(401).json({ error: 'Unauthorized' })
+        }
 
-      const { appId } = req.params
-      const { initialize_schema = false } = req.body
+        const { appId } = req.params
+        const { initialize_schema = false } = req.body
 
-      // Get app details with files (and the actual user_id stored in the app record)
-      const appResult = await pool.query(
-        'SELECT id, app_name, framework, features, requires_database, user_id FROM nexusai_generated_apps WHERE id = $1',
-        [appId],
-      )
+        // Get app details with files (and the actual user_id stored in the app record)
+        const appResult = await pool.query(
+          'SELECT id, app_name, framework, features, requires_database, user_id FROM nexusai_generated_apps WHERE id = $1',
+          [appId],
+        )
 
-      if (appResult.rows.length === 0) {
-        return res.status(404).json({ error: 'App not found' })
-      }
+        if (appResult.rows.length === 0) {
+          return res.status(404).json({ error: 'App not found' })
+        }
 
-      const app = appResult.rows[0]
-      const appUserId = app.user_id // The actual user ID from ensureUserExists
+        const app = appResult.rows[0]
+        const appUserId = app.user_id // The actual user ID from ensureUserExists
 
-      // Verify the authenticated user owns this app (or find the actual user ID)
-      const actualUserId = await ensureUserExists(
-        pool,
-        userId,
-        req.user?.email || '',
-      )
+        // Verify the authenticated user owns this app (or find the actual user ID)
+        const actualUserId = await ensureUserExists(
+          pool,
+          userId,
+          req.user?.email || '',
+        )
 
-      // Check if the authenticated user is the app owner (handles Supabase ID vs platform_db ID mismatch)
-      if (appUserId !== actualUserId && appUserId !== userId) {
-        return res
-          .status(403)
-          .json({ error: 'Forbidden: You do not own this app' })
-      }
+        // Check if the authenticated user is the app owner (handles Supabase ID vs platform_db ID mismatch)
+        if (appUserId !== actualUserId && appUserId !== userId) {
+          return res
+            .status(403)
+            .json({ error: 'Forbidden: You do not own this app' })
+        }
 
-      // Get app files for schema extraction
-      const filesResult = await pool.query(
-        'SELECT file_path, content, language FROM nexusai_app_files WHERE app_id = $1 ORDER BY file_path',
-        [appId],
-      )
-      const appFiles = filesResult.rows
+        // Get app files for schema extraction
+        const filesResult = await pool.query(
+          'SELECT file_path, content, language FROM nexusai_app_files WHERE app_id = $1 ORDER BY file_path',
+          [appId],
+        )
+        const appFiles = filesResult.rows
 
-      // Check if database already exists
-      const existingDb = await nexusAIDatabaseProvisioner.getDatabaseInfo(appId)
-      if (existingDb) {
-        return res.json({
-          database: existingDb,
-          message: 'Database already exists',
-          already_exists: true,
+        // Check if database already exists
+        const existingDb =
+          await nexusAIDatabaseProvisioner.getDatabaseInfo(appId)
+        if (existingDb) {
+          return res.json({
+            database: existingDb,
+            message: 'Database already exists',
+            already_exists: true,
+          })
+        }
+
+        console.log(
+          `[GeneratedApps] Provisioning database for app: ${app.app_name}`,
+        )
+        console.log(
+          `[GeneratedApps] Analyzing ${appFiles.length} files for schema extraction`,
+        )
+
+        // Provision the database with app files for auto-schema generation
+        // Use the appUserId (from ensureUserExists) for tenant membership
+        const database = await nexusAIDatabaseProvisioner.provisionDatabase({
+          userId: appUserId,
+          appId,
+          appName: app.app_name,
+          framework: app.framework,
+          features: app.features || [],
+          appFiles: appFiles.length > 0 ? appFiles : undefined,
+        })
+
+        // Update app status
+        await pool.query(
+          'UPDATE nexusai_generated_apps SET requires_database = true, updated_at = NOW() WHERE id = $1',
+          [appId],
+        )
+
+        res.json({
+          database: {
+            ...database,
+            password: '***REDACTED***', // Don't send password in response
+          },
+          connection_string: database.connectionString,
+          tables_created: database.tablesCreated || 0,
+          schema_generated: (database.tablesCreated || 0) > 0,
+          message: database.tablesCreated
+            ? `Database provisioned with ${database.tablesCreated} tables created automatically`
+            : 'Database provisioned successfully',
+        })
+      } catch (e: any) {
+        console.error('Failed to provision database:', e)
+        res.status(500).json({
+          error: 'Failed to provision database',
+          message: e.message,
         })
       }
-
-      console.log(
-        `[GeneratedApps] Provisioning database for app: ${app.app_name}`,
-      )
-      console.log(
-        `[GeneratedApps] Analyzing ${appFiles.length} files for schema extraction`,
-      )
-
-      // Provision the database with app files for auto-schema generation
-      // Use the appUserId (from ensureUserExists) for tenant membership
-      const database = await nexusAIDatabaseProvisioner.provisionDatabase({
-        userId: appUserId,
-        appId,
-        appName: app.app_name,
-        framework: app.framework,
-        features: app.features || [],
-        appFiles: appFiles.length > 0 ? appFiles : undefined,
-      })
-
-      // Update app status
-      await pool.query(
-        'UPDATE nexusai_generated_apps SET requires_database = true, updated_at = NOW() WHERE id = $1',
-        [appId],
-      )
-
-      res.json({
-        database: {
-          ...database,
-          password: '***REDACTED***', // Don't send password in response
-        },
-        connection_string: database.connectionString,
-        tables_created: database.tablesCreated || 0,
-        schema_generated: (database.tablesCreated || 0) > 0,
-        message: database.tablesCreated
-          ? `Database provisioned with ${database.tablesCreated} tables created automatically`
-          : 'Database provisioned successfully',
-      })
-    } catch (e: any) {
-      console.error('Failed to provision database:', e)
-      res.status(500).json({
-        error: 'Failed to provision database',
-        message: e.message,
-      })
-    }
-  })
+    },
+  )
 
   // Get database info for an app
   router.get('/:appId/database', async (req: AuthRequest, res) => {

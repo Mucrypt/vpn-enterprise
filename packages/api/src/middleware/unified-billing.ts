@@ -1,0 +1,430 @@
+import type { Response, NextFunction } from 'express'
+import type { AuthRequest } from '@vpn-enterprise/auth'
+import { supabaseAdmin } from '@vpn-enterprise/database'
+
+/**
+ * Unified Billing Service for VPN Enterprise
+ * Handles all billing operations across VPN, Database, NexusAI, and Hosting services
+ */
+
+interface AIModelPricing {
+  model_id: string
+  model_name: string
+  provider: string
+  user_input_cost_per_1m: number
+  user_output_cost_per_1m: number
+  markup_multiplier: number
+  is_available: boolean
+}
+
+interface CreditCalculation {
+  credits_required: number
+  cost_breakdown: {
+    model: string
+    input_tokens: number
+    output_tokens: number
+    input_cost_usd: number
+    output_cost_usd: number
+    total_cost_usd: number
+    markup_multiplier: number
+  }
+}
+
+/**
+ * Get available AI models with pricing
+ */
+export async function getAIModels(): Promise<AIModelPricing[]> {
+  try {
+    const { data, error } = await (supabaseAdmin as any)
+      .from('ai_model_pricing')
+      .select('*')
+      .eq('is_available', true)
+      .order('display_order', { ascending: true })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('[Billing] Error fetching AI models:', error)
+    return []
+  }
+}
+
+/**
+ * Calculate AI generation cost based on model and token usage
+ */
+export async function calculateAICost(
+  modelId: string,
+  inputTokens: number,
+  outputTokens: number,
+): Promise<CreditCalculation | null> {
+  try {
+    const { data, error } = await (supabaseAdmin as any).rpc(
+      'calculate_ai_cost',
+      {
+        p_model_id: modelId,
+        p_input_tokens: inputTokens,
+        p_output_tokens: outputTokens,
+      },
+    )
+
+    if (error) throw error
+    return data?.[0] || null
+  } catch (error) {
+    console.error('[Billing] Error calculating AI cost:', error)
+    return null
+  }
+}
+
+/**
+ * Get user's current subscription with all credits
+ */
+export async function getUserSubscription(userId: string) {
+  try {
+    const { data, error } = await (supabaseAdmin as any)
+      .from('service_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 = not found
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    console.error('[Billing] Error fetching subscription:', error)
+    return null
+  }
+}
+
+/**
+ * Check if user has enough credits (monthly + purchased)
+ * Prioritizes monthly credits first, then purchased credits
+ */
+export async function checkCredits(
+  userId: string,
+  requiredCredits: number,
+): Promise<{
+  hasCredits: boolean
+  totalCredits: number
+  monthlyCredits: number
+  purchasedCredits: number
+}> {
+  try {
+    const subscription = await getUserSubscription(userId)
+
+    if (!subscription) {
+      return {
+        hasCredits: false,
+        totalCredits: 0,
+        monthlyCredits: 0,
+        purchasedCredits: 0,
+      }
+    }
+
+    const monthlyCredits = subscription.credits_remaining || 0
+    const purchasedCredits = subscription.purchased_credits_balance || 0
+    const totalCredits = monthlyCredits + purchasedCredits
+
+    return {
+      hasCredits: totalCredits >= requiredCredits,
+      totalCredits,
+      monthlyCredits,
+      purchasedCredits,
+    }
+  } catch (error) {
+    console.error('[Billing] Error checking credits:', error)
+    return {
+      hasCredits: false,
+      totalCredits: 0,
+      monthlyCredits: 0,
+      purchasedCredits: 0,
+    }
+  }
+}
+
+/**
+ * Deduct credits from user's account
+ * Uses monthly credits first, then purchased credits
+ */
+export async function deductCredits(
+  userId: string,
+  amount: number,
+  operation: string,
+  metadata?: any,
+): Promise<{ success: boolean; newBalance: number; source: string }> {
+  try {
+    const subscription = await getUserSubscription(userId)
+
+    if (!subscription) {
+      throw new Error('No subscription found')
+    }
+
+    let monthlyCredits = subscription.credits_remaining || 0
+    let purchasedCredits = subscription.purchased_credits_balance || 0
+    let amountFromMonthly = 0
+    let amountFromPurchased = 0
+    let balanceSource = 'monthly'
+
+    // Deduct from monthly credits first
+    if (monthlyCredits >= amount) {
+      monthlyCredits -= amount
+      amountFromMonthly = amount
+    } else {
+      // Use all monthly credits, then deduct from purchased
+      amountFromMonthly = monthlyCredits
+      amountFromPurchased = amount - monthlyCredits
+      monthlyCredits = 0
+      purchasedCredits -= amountFromPurchased
+
+      if (purchasedCredits < 0) {
+        return {
+          success: false,
+          newBalance:
+            subscription.credits_remaining +
+            subscription.purchased_credits_balance,
+          source: 'insufficient',
+        }
+      }
+
+      balanceSource = amountFromPurchased > 0 ? 'purchased' : 'monthly'
+    }
+
+    // Update subscription
+    const { error: updateError } = await (supabaseAdmin as any)
+      .from('service_subscriptions')
+      .update({
+        credits_remaining: monthlyCredits,
+        purchased_credits_balance: purchasedCredits,
+        credits_used_this_month:
+          (subscription.credits_used_this_month || 0) + amountFromMonthly,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+
+    if (updateError) throw updateError
+
+    // Log usage
+    await (supabaseAdmin as any).from('service_usage_logs').insert({
+      user_id: userId,
+      service_type: metadata?.service_type || 'nexusai',
+      operation,
+      credits_charged: amount,
+      source_balance: balanceSource,
+      cost_breakdown: metadata?.cost_breakdown,
+      model_used: metadata?.model_used,
+      input_tokens: metadata?.input_tokens,
+      output_tokens: metadata?.output_tokens,
+      total_tokens: metadata?.total_tokens,
+      metadata,
+    })
+
+    console.log(
+      `[Billing] Deducted ${amount} credits from user ${userId} for ${operation}. ` +
+        `Monthly: ${amountFromMonthly}, Purchased: ${amountFromPurchased}. ` +
+        `New balance: ${monthlyCredits + purchasedCredits}`,
+    )
+
+    return {
+      success: true,
+      newBalance: monthlyCredits + purchasedCredits,
+      source: balanceSource,
+    }
+  } catch (error) {
+    console.error('[Billing] Error deducting credits:', error)
+    return { success: false, newBalance: 0, source: 'error' }
+  }
+}
+
+/**
+ * Middleware for AI generation with dynamic model pricing
+ * Usage: router.post('/generate', requireCreditsForAI('gpt-4o', 1000, 3000), handler)
+ */
+export function requireCreditsForAI(
+  modelIdOrExtractor?: string | ((req: AuthRequest) => string),
+  estimatedInputTokens: number = 1000,
+  estimatedOutputTokens: number = 3000,
+) {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?.id
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      // Extract model ID from request or use provided
+      let modelId: string
+      if (typeof modelIdOrExtractor === 'function') {
+        modelId = modelIdOrExtractor(req)
+      } else if (modelIdOrExtractor) {
+        modelId = modelIdOrExtractor
+      } else {
+        modelId = req.body.model || req.query.model || 'gpt-4o-mini' // default
+      }
+
+      // Get actual token counts if provided in request
+      const inputTokens = req.body.estimatedInputTokens || estimatedInputTokens
+      const outputTokens =
+        req.body.estimatedOutputTokens || estimatedOutputTokens
+
+      // Calculate cost
+      const costCalc = await calculateAICost(modelId, inputTokens, outputTokens)
+
+      if (!costCalc) {
+        return res.status(400).json({
+          error: 'invalid_model',
+          message: `Model ${modelId} is not available or pricing not configured`,
+        })
+      }
+
+      const requiredCredits = costCalc.credits_required
+
+      // Check credits
+      const creditCheck = await checkCredits(userId, requiredCredits)
+
+      if (!creditCheck.hasCredits) {
+        return res.status(402).json({
+          error: 'insufficient_credits',
+          message: `You need ${requiredCredits} credits to use ${costCalc.cost_breakdown.model}. You have ${creditCheck.totalCredits} credits.`,
+          required: requiredCredits,
+          available: creditCheck.totalCredits,
+          breakdown: {
+            monthly: creditCheck.monthlyCredits,
+            purchased: creditCheck.purchasedCredits,
+          },
+          upgrade_url: 'https://chatbuilds.com/dashboard/billing',
+          buy_credits_url:
+            'https://chatbuilds.com/dashboard/billing?action=buy-credits',
+        })
+      }
+
+      // Deduct credits
+      const { success, newBalance, source } = await deductCredits(
+        userId,
+        requiredCredits,
+        'ai_generation',
+        {
+          service_type: 'nexusai',
+          model_used: modelId,
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          total_tokens: inputTokens + outputTokens,
+          cost_breakdown: costCalc.cost_breakdown,
+        },
+      )
+
+      if (!success) {
+        return res.status(500).json({
+          error: 'billing_error',
+          message: 'Failed to process payment',
+        })
+      }
+
+      // Attach billing info to request for response
+      ;(req as any).billing = {
+        creditsDeducted: requiredCredits,
+        newBalance,
+        source,
+        model: costCalc.cost_breakdown.model,
+        costBreakdown: costCalc.cost_breakdown,
+      }
+
+      next()
+    } catch (error) {
+      console.error('[Billing] Error in requireCreditsForAI:', error)
+      res.status(500).json({ error: 'Internal billing error' })
+    }
+  }
+}
+
+/**
+ * Middleware for database provisioning
+ */
+export function requireCreditsForDatabase() {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?.id
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      const requiredCredits = 20 // Fixed cost for database provisioning
+
+      const creditCheck = await checkCredits(userId, requiredCredits)
+
+      if (!creditCheck.hasCredits) {
+        return res.status(402).json({
+          error: 'insufficient_credits',
+          message: `You need ${requiredCredits} credits to provision a database. You have ${creditCheck.totalCredits} credits.`,
+          required: requiredCredits,
+          available: creditCheck.totalCredits,
+          breakdown: {
+            monthly: creditCheck.monthlyCredits,
+            purchased: creditCheck.purchasedCredits,
+          },
+          upgrade_url: 'https://chatbuilds.com/dashboard/billing',
+        })
+      }
+
+      const { success, newBalance, source } = await deductCredits(
+        userId,
+        requiredCredits,
+        'database_provision',
+        {
+          service_type: 'database',
+        },
+      )
+
+      if (!success) {
+        return res.status(500).json({
+          error: 'billing_error',
+          message: 'Failed to process payment',
+        })
+      }
+
+      ;(req as any).billing = {
+        creditsDeducted: requiredCredits,
+        newBalance,
+        source,
+      }
+
+      next()
+    } catch (error) {
+      console.error('[Billing] Error in requireCreditsForDatabase:', error)
+      res.status(500).json({ error: 'Internal billing error' })
+    }
+  }
+}
+
+/**
+ * Get service usage for current billing period
+ */
+export async function getServiceUsage(userId: string) {
+  try {
+    const subscription = await getUserSubscription(userId)
+    if (!subscription) return null
+
+    const { data: logs, error } = await (supabaseAdmin as any)
+      .from('service_usage_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('created_at', subscription.current_period_start)
+      .lte('created_at', subscription.current_period_end)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    return {
+      subscription,
+      logs: logs || [],
+      period: {
+        start: subscription.current_period_start,
+        end: subscription.current_period_end,
+      },
+    }
+  } catch (error) {
+    console.error('[Billing] Error fetching service usage:', error)
+    return null
+  }
+}
