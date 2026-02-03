@@ -157,7 +157,7 @@ export function registerGeneratedAppsRoutes(router: Router) {
           const fileQuery = `
             INSERT INTO nexusai_app_files (
               app_id, file_path, content, language, file_size, is_entry_point
-            ) VALUES ${fileValues.map((_, i) => {
+            ) VALUES ${fileValues.map((_: any, i: number) => {
               const base = i * 6
               return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`
             }).join(', ')}
