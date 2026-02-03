@@ -10,7 +10,7 @@ import AppBuilder from './pages/AppBuilder'
 import MyApps from './pages/MyApps'
 import NotFound from './pages/NotFound'
 import Landing from './pages/Landing'
-import ProtectedRoute from './components/ProtectedRoute'
+import { ProtectedRoute } from './components/ProtectedRoute'
 
 const queryClient = new QueryClient()
 
