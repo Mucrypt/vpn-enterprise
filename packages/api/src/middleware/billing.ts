@@ -32,18 +32,37 @@ function getBillingPool(): Pool {
 export type ServiceType = 'nexusai' | 'database' | 'vpn'
 
 // AI Model pricing configuration with markup for profit
-export const AI_MODEL_PRICING: Record<string, { input: number; output: number; credits_per_1k_tokens: number }> = {
+export const AI_MODEL_PRICING: Record<
+  string,
+  { input: number; output: number; credits_per_1k_tokens: number }
+> = {
   // OpenAI Models (cost + 40% markup for profit)
   'gpt-4': { input: 0.042, output: 0.126, credits_per_1k_tokens: 5 }, // $0.03 input + 40% = $0.042
   'gpt-4-turbo': { input: 0.014, output: 0.042, credits_per_1k_tokens: 2 },
   'gpt-4o': { input: 0.007, output: 0.021, credits_per_1k_tokens: 1 },
-  'gpt-3.5-turbo': { input: 0.0007, output: 0.0021, credits_per_1k_tokens: 0.5 },
+  'gpt-3.5-turbo': {
+    input: 0.0007,
+    output: 0.0021,
+    credits_per_1k_tokens: 0.5,
+  },
 
   // Anthropic Models (cost + 40% markup for profit)
   'claude-3-opus': { input: 0.021, output: 0.063, credits_per_1k_tokens: 3 },
-  'claude-3-sonnet': { input: 0.0042, output: 0.021, credits_per_1k_tokens: 1.5 },
-  'claude-3-haiku': { input: 0.00035, output: 0.00175, credits_per_1k_tokens: 0.3 },
-  'claude-3.5-sonnet': { input: 0.0042, output: 0.021, credits_per_1k_tokens: 1.5 },
+  'claude-3-sonnet': {
+    input: 0.0042,
+    output: 0.021,
+    credits_per_1k_tokens: 1.5,
+  },
+  'claude-3-haiku': {
+    input: 0.00035,
+    output: 0.00175,
+    credits_per_1k_tokens: 0.3,
+  },
+  'claude-3.5-sonnet': {
+    input: 0.0042,
+    output: 0.021,
+    credits_per_1k_tokens: 1.5,
+  },
 }
 
 // Service costs in credits
@@ -69,10 +88,9 @@ export const SERVICE_COSTS = {
 export async function isAdminUser(userId: string): Promise<boolean> {
   try {
     const pool = getBillingPool()
-    const result = await pool.query(
-      'SELECT role FROM "user" WHERE id = $1',
-      [userId],
-    )
+    const result = await pool.query('SELECT role FROM "user" WHERE id = $1', [
+      userId,
+    ])
 
     if (result.rows.length === 0) return false
 
@@ -141,7 +159,8 @@ export function calculateAICost(
   inputTokens: number,
   outputTokens: number,
 ): number {
-  const modelPricing = AI_MODEL_PRICING[model] || AI_MODEL_PRICING['gpt-3.5-turbo']
+  const modelPricing =
+    AI_MODEL_PRICING[model] || AI_MODEL_PRICING['gpt-3.5-turbo']
 
   const inputCost = (inputTokens / 1000) * modelPricing.input
   const outputCost = (outputTokens / 1000) * modelPricing.output
@@ -208,12 +227,21 @@ export async function deductCredits(
       `INSERT INTO billing_transactions 
        (user_id, amount, type, service_type, operation, metadata, balance_after)
        VALUES ($1, $2, 'debit', $3, $4, $5, $6)`,
-      [userId, amount, serviceType, operation, JSON.stringify(metadata || {}), newBalance],
+      [
+        userId,
+        amount,
+        serviceType,
+        operation,
+        JSON.stringify(metadata || {}),
+        newBalance,
+      ],
     )
 
     await pool.query('COMMIT')
 
-    console.log(`[Billing] Deducted ${amount} credits from user ${userId} for ${serviceType}:${operation}. Balance: ${currentBalance} → ${newBalance}`)
+    console.log(
+      `[Billing] Deducted ${amount} credits from user ${userId} for ${serviceType}:${operation}. Balance: ${currentBalance} → ${newBalance}`,
+    )
 
     return { success: true, newBalance }
   } catch (error) {
@@ -245,7 +273,9 @@ export async function requireCreditsForAI(
     // Check if admin - bypass billing
     const isAdmin = await isAdminUser(userId)
     if (isAdmin) {
-      console.log(`[Billing] Admin user ${userId} bypassing AI generation billing`)
+      console.log(
+        `[Billing] Admin user ${userId} bypassing AI generation billing`,
+      )
       ;(req as any).billing = {
         creditsDeducted: 0,
         newBalance: -1,
@@ -315,7 +345,9 @@ export async function requireCreditsForDatabase(
     // Check if admin - bypass billing
     const isAdmin = await isAdminUser(userId)
     if (isAdmin) {
-      console.log(`[Billing] Admin user ${userId} bypassing database provisioning billing`)
+      console.log(
+        `[Billing] Admin user ${userId} bypassing database provisioning billing`,
+      )
       ;(req as any).billing = {
         creditsDeducted: 0,
         newBalance: -1,

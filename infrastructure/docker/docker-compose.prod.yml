@@ -34,10 +34,14 @@ services:
       - ./secrets/db_password:/run/secrets/db_password:ro
       - ./secrets/redis_password:/run/secrets/redis_password:ro
       - ./secrets/api_key:/run/secrets/api_key:ro
+      - ./secrets/stripe_secret_key:/run/secrets/stripe_secret_key:ro
+      - ./secrets/stripe_webhook_secret:/run/secrets/stripe_webhook_secret:ro
     secrets:
       - api_key
       - db_password
       - redis_password
+      - stripe_secret_key
+      - stripe_webhook_secret
     networks:
       - vpn-network
     deploy:
@@ -480,3 +484,7 @@ secrets:
     file: ./secrets/n8n_encryption_key
   api_key:
     file: ./secrets/api_key
+  stripe_secret_key:
+    file: ./secrets/stripe_secret_key
+  stripe_webhook_secret:
+    file: ./secrets/stripe_webhook_secret

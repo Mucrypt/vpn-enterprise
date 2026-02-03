@@ -41,3 +41,18 @@ export function getServerLoadBgColor(load: number | undefined | null): string {
   if (l < 70) return 'bg-amber-100';
   return 'bg-red-100';
 }
+
+// Format date to readable string
+export function formatDate(date: string | Date | undefined | null): string {
+  if (!date) return 'N/A';
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(d);
+  } catch {
+    return 'Invalid date';
+  }
+}
