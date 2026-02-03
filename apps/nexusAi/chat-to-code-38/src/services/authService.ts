@@ -142,10 +142,10 @@ class AuthService {
   canProvisionDatabase(): boolean {
     const user = this.getCurrentUser()
     if (!user) return false
-    
+
     // Pro and Enterprise can provision unlimited databases
     if (user.subscription.plan !== 'free') return true
-    
+
     // Free tier: check quota (handled on backend, but give UI hint)
     return true
   }
@@ -159,7 +159,9 @@ class AuthService {
 
     return {
       plan: user.subscription.plan,
-      planName: user.subscription.plan.charAt(0).toUpperCase() + user.subscription.plan.slice(1),
+      planName:
+        user.subscription.plan.charAt(0).toUpperCase() +
+        user.subscription.plan.slice(1),
       credits: user.subscription.credits,
       databaseQuota: user.subscription.database_quota,
       canUpgrade: user.subscription.plan === 'free',

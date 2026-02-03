@@ -21,55 +21,62 @@ User visits NexusAI → Check auth token → If expired/missing → Redirect to 
 ```
 
 **Implementation:**
-- Frontend: [`ProtectedRoute.tsx`](apps/nexusAi/chat-to-code-38/src/components/ProtectedRoute.tsx ) - wraps all protected pages
-- Service: [`authService.ts`](apps/nexusAi/chat-to-code-38/src/services/authService.ts ) - handles auth state, token validation
+
+- Frontend: [`ProtectedRoute.tsx`](apps/nexusAi/chat-to-code-38/src/components/ProtectedRoute.tsx) - wraps all protected pages
+- Service: [`authService.ts`](apps/nexusAi/chat-to-code-38/src/services/authService.ts) - handles auth state, token validation
 - Backend: Uses existing `authMiddleware` from `@vpn-enterprise/auth`
 
 ### 2. Rate Limiting
 
 **Prevents abuse with tiered limits:**
+
 - **AI Generation**: 10/hour (Free), 50/hour (Pro), Unlimited (Enterprise)
 - **Database Provisioning**: 5/day (Free), 50/day (Pro), Unlimited (Enterprise)
 - **API Calls**: 100/minute across all tiers
 
 **Implementation:**
-- [`packages/api/src/middleware/rate-limit.ts`](packages/api/src/middleware/rate-limit.ts )
+
+- [`packages/api/src/middleware/rate-limit.ts`](packages/api/src/middleware/rate-limit.ts)
 - Uses in-memory store (upgrade to Redis for production clusters)
 
 ### 3. Credit System
 
 **Costs:**
+
 - AI Generation: **10 credits** per app
 - Database Provisioning: **20 credits** (one-time)
 - Database Storage: **5 credits/GB/month** (ongoing)
 
 **Implementation:**
-- [`packages/api/src/middleware/billing.ts`](packages/api/src/middleware/billing.ts )
+
+- [`packages/api/src/middleware/billing.ts`](packages/api/src/middleware/billing.ts)
 - Checks credits before operation
 - Deducts on success
 - Logs all transactions
 
 ## 💳 Subscription Tiers
 
-| Feature | Free | Pro ($29/mo) | Enterprise |
-|---------|------|--------------|------------|
-| AI Credits | 100/month | 1,000/month | Unlimited |
-| Databases | 1 (1GB) | Unlimited (10GB each) | Custom |
-| Apps | 3 | Unlimited | Unlimited |
-| Templates | Basic | Premium | Custom |
-| Support | Community | Priority | Dedicated + SLA |
-| Team Collaboration | ❌ | ✅ | ✅ |
-| Custom Domains | ❌ | ✅ | ✅ |
+| Feature            | Free      | Pro ($29/mo)          | Enterprise      |
+| ------------------ | --------- | --------------------- | --------------- |
+| AI Credits         | 100/month | 1,000/month           | Unlimited       |
+| Databases          | 1 (1GB)   | Unlimited (10GB each) | Custom          |
+| Apps               | 3         | Unlimited             | Unlimited       |
+| Templates          | Basic     | Premium               | Custom          |
+| Support            | Community | Priority              | Dedicated + SLA |
+| Team Collaboration | ❌        | ✅                    | ✅              |
+| Custom Domains     | ❌        | ✅                    | ✅              |
 
 ## 📊 Database Schema
 
 **New Tables:**
+
 - `user_subscriptions` - Plan details, credits, quotas
 - `billing_transactions` - Credit usage audit log
 - `database_usage` - Storage and query tracking
 - `nexusai_generation_logs` - AI generation analytics
 
 **Migration:**
+
 ```bash
 psql platform_db < packages/database/migrations/005_nexusai_billing.sql
 ```
@@ -130,7 +137,7 @@ router.post(
   requireCreditsForAI(),
   async (req, res) => {
     // ... save app logic
-  }
+  },
 )
 
 // POST /api/v1/generated-apps/:appId/database - Provision DB (requires 20 credits)
@@ -141,7 +148,7 @@ router.post(
   requireCreditsForDatabase(),
   async (req, res) => {
     // ... provision logic
-  }
+  },
 )
 ```
 
@@ -164,16 +171,19 @@ Response: { apps: 2, databases: 1, storage_gb: 0.5 }
 ## 🎨 Frontend Components
 
 ### Smart Navbar
+
 - Shows user avatar + credits badge when logged in
 - "Upgrade" button for free users
 - Dropdown: Dashboard, Billing, Settings, Logout
 
 ### Protected Pages
+
 - All builder pages wrapped in `<ProtectedRoute>`
 - Auto-redirects to dashboard login with return URL
 - Syncs auth state with dashboard via cookies
 
 ### Landing Page
+
 - Public homepage at `/nexusai`
 - Features, pricing, CTA
 - No auth required
@@ -183,16 +193,18 @@ Response: { apps: 2, databases: 1, storage_gb: 0.5 }
 ### Track These Metrics
 
 1. **User Acquisition**
+
    ```sql
-   SELECT DATE(created_at), COUNT(*) 
-   FROM user_subscriptions 
-   GROUP BY DATE(created_at) 
+   SELECT DATE(created_at), COUNT(*)
+   FROM user_subscriptions
+   GROUP BY DATE(created_at)
    ORDER BY DATE(created_at) DESC;
    ```
 
 2. **Revenue (MRR)**
+
    ```sql
-   SELECT 
+   SELECT
      plan_type,
      COUNT(*) as users,
      CASE plan_type
@@ -206,8 +218,9 @@ Response: { apps: 2, databases: 1, storage_gb: 0.5 }
    ```
 
 3. **Credit Usage**
+
    ```sql
-   SELECT 
+   SELECT
      operation,
      COUNT(*) as count,
      ABS(SUM(amount)) as total_credits
@@ -218,7 +231,7 @@ Response: { apps: 2, databases: 1, storage_gb: 0.5 }
 
 4. **Conversion Funnel**
    ```sql
-   SELECT 
+   SELECT
      COUNT(*) FILTER (WHERE plan_type = 'free') as free_users,
      COUNT(*) FILTER (WHERE plan_type = 'pro') as pro_users,
      ROUND(100.0 * COUNT(*) FILTER (WHERE plan_type = 'pro') / COUNT(*), 2) as conversion_rate
@@ -244,10 +257,12 @@ Response: { apps: 2, databases: 1, storage_gb: 0.5 }
 
 ```typescript
 // In packages/api/src/app.ts
-app.use(cors({
-  origin: ['https://chatbuilds.com', 'https://www.chatbuilds.com'],
-  credentials: true,
-}))
+app.use(
+  cors({
+    origin: ['https://chatbuilds.com', 'https://www.chatbuilds.com'],
+    credentials: true,
+  }),
+)
 ```
 
 ### Issue: Credits not deducting

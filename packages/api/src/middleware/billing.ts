@@ -111,7 +111,11 @@ export async function deductCredits(
 /**
  * Middleware to check and deduct credits for AI generation
  */
-export function requireCreditsForAI(req: AuthRequest, res: Response, next: NextFunction) {
+export function requireCreditsForAI(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const userId = req.user?.id
@@ -166,7 +170,11 @@ export function requireCreditsForAI(req: AuthRequest, res: Response, next: NextF
 /**
  * Middleware to check credits for database provisioning
  */
-export function requireCreditsForDatabase(req: AuthRequest, res: Response, next: NextFunction) {
+export function requireCreditsForDatabase(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const userId = req.user?.id

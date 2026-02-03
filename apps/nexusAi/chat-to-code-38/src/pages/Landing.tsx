@@ -128,8 +128,8 @@ export default function Landing() {
           </h1>
           <p className='text-xl text-muted-foreground mb-8 max-w-2xl mx-auto'>
             Describe your idea in plain English and watch as NexusAI generates a
-            complete, production-ready application with database, authentication,
-            and beautiful UI.
+            complete, production-ready application with database,
+            authentication, and beautiful UI.
           </p>
           <div className='flex items-center justify-center gap-4'>
             <Link to='/describe'>

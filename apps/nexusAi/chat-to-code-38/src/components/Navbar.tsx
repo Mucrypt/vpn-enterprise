@@ -154,10 +154,7 @@ const Navbar = () => {
                       <p className='text-xs leading-none text-muted-foreground'>
                         {user.email}
                       </p>
-                      <Badge
-                        variant='secondary'
-                        className='w-fit mt-1 text-xs'
-                      >
+                      <Badge variant='secondary' className='w-fit mt-1 text-xs'>
                         {subscriptionInfo?.planName || 'Free'} Plan
                       </Badge>
                     </div>
@@ -209,7 +206,10 @@ const Navbar = () => {
                 size='sm'
                 className='text-muted-foreground hover:text-foreground'
                 onClick={() =>
-                  window.open('https://chatbuilds.com/auth/login?redirect=nexusai', '_blank')
+                  window.open(
+                    'https://chatbuilds.com/auth/login?redirect=nexusai',
+                    '_blank',
+                  )
                 }
               >
                 Sign in
@@ -219,7 +219,10 @@ const Navbar = () => {
                 size='sm'
                 className='bg-gradient-to-r from-primary to-purple-600 text-white hover:opacity-90 rounded-lg font-medium shadow-lg'
                 onClick={() =>
-                  window.open('https://chatbuilds.com/auth/signup?redirect=nexusai', '_blank')
+                  window.open(
+                    'https://chatbuilds.com/auth/signup?redirect=nexusai',
+                    '_blank',
+                  )
                 }
               >
                 Get started free

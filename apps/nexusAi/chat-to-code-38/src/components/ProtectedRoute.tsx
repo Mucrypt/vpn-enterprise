@@ -20,7 +20,7 @@ export function ProtectedRoute({
     const checkAuth = async () => {
       // Try to sync auth from dashboard first
       await authService.syncAuthFromDashboard()
-      
+
       const authenticated = authService.isAuthenticated()
       setIsAuthenticated(authenticated)
       setIsChecking(false)
