@@ -43,11 +43,31 @@ export interface AppVersion {
 
 class GeneratedAppsService {
   private getHeaders() {
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
+    // Get token from cookies (set by API after login)
+    const cookieToken = this.getCookie('access_token')
+    // Check localStorage with both possible keys (access_token from web-dashboard, authToken for compatibility)
+    const storageToken = localStorage.getItem('access_token') || 
+                          localStorage.getItem('authToken') || 
+                          sessionStorage.getItem('authToken')
+    const token = cookieToken || storageToken
+    
+    // Debug log in development
+    if (import.meta.env.DEV && !token) {
+      console.warn('[GeneratedAppsService] No auth token found. Cookies:', document.cookie)
+    }
+    
     return {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
     }
+  }
+
+  private getCookie(name: string): string | null {
+    if (typeof document === 'undefined') return null
+    const value = `; ${document.cookie}`
+    const parts = value.split(`; ${name}=`)
+    if (parts.length === 2) return parts.pop()?.split(';').shift() || null
+    return null
   }
 
   // List all user's generated apps
