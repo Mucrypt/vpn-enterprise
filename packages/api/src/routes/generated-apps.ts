@@ -313,10 +313,10 @@ export function registerGeneratedAppsRoutes(router: Router) {
       const { appId } = req.params
       const { initialize_schema = false } = req.body
 
-      // Get app details with files
+      // Get app details with files (and the actual user_id stored in the app record)
       const appResult = await pool.query(
-        'SELECT id, app_name, framework, features, requires_database FROM nexusai_generated_apps WHERE id = $1 AND user_id = $2',
-        [appId, userId],
+        'SELECT id, app_name, framework, features, requires_database, user_id FROM nexusai_generated_apps WHERE id = $1',
+        [appId],
       )
 
       if (appResult.rows.length === 0) {
@@ -324,6 +324,15 @@ export function registerGeneratedAppsRoutes(router: Router) {
       }
 
       const app = appResult.rows[0]
+      const appUserId = app.user_id // The actual user ID from ensureUserExists
+
+      // Verify the authenticated user owns this app (or find the actual user ID)
+      const actualUserId = await ensureUserExists(pool, userId, req.user?.email || '')
+      
+      // Check if the authenticated user is the app owner (handles Supabase ID vs platform_db ID mismatch)
+      if (appUserId !== actualUserId && appUserId !== userId) {
+        return res.status(403).json({ error: 'Forbidden: You do not own this app' })
+      }
 
       // Get app files for schema extraction
       const filesResult = await pool.query(
@@ -350,8 +359,9 @@ export function registerGeneratedAppsRoutes(router: Router) {
       )
 
       // Provision the database with app files for auto-schema generation
+      // Use the appUserId (from ensureUserExists) for tenant membership
       const database = await nexusAIDatabaseProvisioner.provisionDatabase({
-        userId,
+        userId: appUserId,
         appId,
         appName: app.app_name,
         framework: app.framework,

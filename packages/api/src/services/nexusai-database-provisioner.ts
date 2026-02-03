@@ -267,6 +267,8 @@ export class NexusAIDatabaseProvisioner {
   }): Promise<string> {
     const tenantId = randomBytes(16).toString('hex')
 
+    console.log(`[NexusAIProvisioner] Creating tenant ${tenantId} for user ${opts.userId}`)
+
     await this.db.platformPool.query(
       `INSERT INTO tenants (id, name, connection_info, created_at, updated_at)
        VALUES ($1, $2, '{}'::jsonb, NOW(), NOW())`,
@@ -274,6 +276,31 @@ export class NexusAIDatabaseProvisioner {
     )
 
     console.log(`[NexusAIProvisioner] Created tenant record: ${tenantId}`)
+
+    // Add the user as a member of the tenant with admin role
+    await this.db.platformPool.query(
+      `INSERT INTO tenant_members (tenant_id, user_id, role, created_at)
+       VALUES ($1, $2, 'admin', NOW())
+       ON CONFLICT (tenant_id, user_id) DO NOTHING`,
+      [tenantId, opts.userId],
+    )
+
+    console.log(
+      `[NexusAIProvisioner] Added user ${opts.userId} as admin of tenant ${tenantId}`,
+    )
+
+    // Verify membership was created
+    const verifyResult = await this.db.platformPool.query(
+      `SELECT role FROM tenant_members WHERE tenant_id = $1 AND user_id = $2`,
+      [tenantId, opts.userId],
+    )
+
+    if (verifyResult.rows.length === 0) {
+      console.error(`[NexusAIProvisioner] WARNING: Failed to verify tenant membership for user ${opts.userId}`)
+    } else {
+      console.log(`[NexusAIProvisioner] Verified: User ${opts.userId} has role '${verifyResult.rows[0].role}' in tenant ${tenantId}`)
+    }
+
     return tenantId
   }
 
