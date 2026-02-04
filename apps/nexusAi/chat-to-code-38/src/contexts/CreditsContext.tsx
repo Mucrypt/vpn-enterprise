@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react'
 import { authService, type User } from '@/services/authService'
 
 interface CreditsContextType {
@@ -40,14 +46,14 @@ export const CreditsProvider = ({ children }: { children: ReactNode }) => {
         },
       }
       setUser(updatedUser)
-      
+
       // Update localStorage immediately
       const authState = authService.getAuthState()
       authService.setAuthState({
         ...authState,
         user: updatedUser,
       })
-      
+
       // Refresh from server to get accurate count
       setTimeout(() => refreshCredits(), 1000)
     }

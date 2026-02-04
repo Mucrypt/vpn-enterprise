@@ -15,7 +15,13 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { authService } from '@/services/authService'
@@ -72,7 +78,12 @@ const creditPackages: CreditPackage[] = [
 const Credits = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { credits: creditsRemaining, user, refreshCredits, loading: contextLoading } = useCredits()
+  const {
+    credits: creditsRemaining,
+    user,
+    refreshCredits,
+    loading: contextLoading,
+  } = useCredits()
   const [loading, setLoading] = useState(false)
   const subscription = user?.subscription
 
@@ -95,27 +106,30 @@ const Credits = () => {
       })
 
       // Use the same API endpoint as web-dashboard
-      const response = await fetch('https://chatbuilds.com/api/v1/billing/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        'https://chatbuilds.com/api/v1/billing/create-checkout-session',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Include cookies for authentication
+          body: JSON.stringify({
+            priceId: pkg.stripePriceId,
+            planId: pkg.id,
+            mode: 'payment', // One-time payment for credits
+            successUrl: `https://chatbuilds.com/dashboard/billing/success?session_id={CHECKOUT_SESSION_ID}&source=nexusai`,
+            cancelUrl: `https://chatbuilds.com/nexusai/credits`,
+          }),
         },
-        credentials: 'include', // Include cookies for authentication
-        body: JSON.stringify({
-          priceId: pkg.stripePriceId,
-          planId: pkg.id,
-          mode: 'payment', // One-time payment for credits
-          successUrl: `https://chatbuilds.com/dashboard/billing/success?session_id={CHECKOUT_SESSION_ID}&source=nexusai`,
-          cancelUrl: `https://chatbuilds.com/nexusai/credits`,
-        }),
-      })
+      )
 
       if (!response.ok) {
         throw new Error('Failed to create checkout session')
       }
 
       const data = await response.json()
-      
+
       if (!data.url) {
         throw new Error('No checkout URL received')
       }
@@ -276,10 +290,7 @@ const Credits = () => {
                     {creditsRemaining} / {totalCredits} credits
                   </span>
                 </div>
-                <Progress
-                  value={100 - usagePercent}
-                  className='h-2'
-                />
+                <Progress value={100 - usagePercent} className='h-2' />
               </div>
               <div className='grid gap-4 md:grid-cols-2 pt-4'>
                 <div className='flex items-start gap-3 p-4 rounded-lg bg-secondary/50'>
@@ -287,7 +298,8 @@ const Credits = () => {
                   <div>
                     <p className='font-medium text-sm'>AI Generations</p>
                     <p className='text-xs text-muted-foreground mt-1'>
-                      Each app generation costs 10-50 credits depending on complexity
+                      Each app generation costs 10-50 credits depending on
+                      complexity
                     </p>
                   </div>
                 </div>
@@ -296,7 +308,8 @@ const Credits = () => {
                   <div>
                     <p className='font-medium text-sm'>Database Provisioning</p>
                     <p className='text-xs text-muted-foreground mt-1'>
-                      Free with your plan - {subscription?.database_quota || 1}GB included
+                      Free with your plan - {subscription?.database_quota || 1}
+                      GB included
                     </p>
                   </div>
                 </div>
@@ -325,9 +338,7 @@ const Credits = () => {
                 }`}
               >
                 {pkg.popular && (
-                  <Badge
-                    className='absolute -top-3 left-1/2 -translate-x-1/2 bg-primary'
-                  >
+                  <Badge className='absolute -top-3 left-1/2 -translate-x-1/2 bg-primary'>
                     Most Popular
                   </Badge>
                 )}
@@ -350,9 +361,7 @@ const Credits = () => {
                 </CardHeader>
                 <CardContent>
                   <div className='space-y-3'>
-                    <div className='text-2xl font-bold'>
-                      ${pkg.price}
-                    </div>
+                    <div className='text-2xl font-bold'>${pkg.price}</div>
                     {pkg.bonus && (
                       <div className='flex items-center gap-2 text-sm text-primary'>
                         <Check className='w-4 h-4' />
@@ -360,7 +369,8 @@ const Credits = () => {
                       </div>
                     )}
                     <div className='text-xs text-muted-foreground'>
-                      ~{Math.floor((pkg.credits + (pkg.bonus || 0)) / 25)} app generations
+                      ~{Math.floor((pkg.credits + (pkg.bonus || 0)) / 25)} app
+                      generations
                     </div>
                     <Button
                       className='w-full'
@@ -388,12 +398,16 @@ const Credits = () => {
           </CardHeader>
           <CardContent>
             <p className='text-sm text-muted-foreground mb-4'>
-              For teams and enterprises, upgrade to a Pro or Enterprise plan for unlimited credits and additional features.
+              For teams and enterprises, upgrade to a Pro or Enterprise plan for
+              unlimited credits and additional features.
             </p>
             <Button
               variant='outline'
               onClick={() =>
-                window.open('https://chatbuilds.com/dashboard/billing', '_blank')
+                window.open(
+                  'https://chatbuilds.com/dashboard/billing',
+                  '_blank',
+                )
               }
             >
               View All Plans

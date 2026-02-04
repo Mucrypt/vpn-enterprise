@@ -112,9 +112,7 @@ const Navbar = () => {
                   className='hidden md:flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg border border-border/50 hover:bg-secondary hover:border-primary/50 transition-all cursor-pointer'
                 >
                   <Coins className='w-4 h-4 text-primary' />
-                  <span className='text-sm font-medium'>
-                    {credits} credits
-                  </span>
+                  <span className='text-sm font-medium'>{credits} credits</span>
                 </Link>
               )}
 

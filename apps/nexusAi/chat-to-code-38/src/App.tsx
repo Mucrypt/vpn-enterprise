@@ -24,48 +24,48 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter basename='/nexusai'>
-          <Routes>
-            <Route path='/' element={<Landing />} />
-            <Route path='/start' element={<Index />} />
-            <Route
-              path='/describe'
-              element={
-                <ProtectedRoute>
-                  <AppDescription />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path='/build'
-              element={
-                <ProtectedRoute>
-                  <AppBuilder />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path='/my-apps'
-              element={
-                <ProtectedRoute>
-                  <MyApps />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path='/credits'
-              element={
-                <ProtectedRoute>
-                  <Credits />
-                </ProtectedRoute>
-              }
-            />
-            <Route path='*' element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </CreditsProvider>
-  </QueryClientProvider>
-</HelmetProvider>
+            <Routes>
+              <Route path='/' element={<Landing />} />
+              <Route path='/start' element={<Index />} />
+              <Route
+                path='/describe'
+                element={
+                  <ProtectedRoute>
+                    <AppDescription />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path='/build'
+                element={
+                  <ProtectedRoute>
+                    <AppBuilder />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path='/my-apps'
+                element={
+                  <ProtectedRoute>
+                    <MyApps />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path='/credits'
+                element={
+                  <ProtectedRoute>
+                    <Credits />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path='*' element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </CreditsProvider>
+    </QueryClientProvider>
+  </HelmetProvider>
 )
 
 export default App
