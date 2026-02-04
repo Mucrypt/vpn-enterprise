@@ -49,7 +49,7 @@ async function ensureUserExists(
 
   try {
     console.log(`[Billing] Checking if user ${userId} exists in platform_db`)
-    
+
     // Check if user already exists
     const checkResult = await pool.query(
       'SELECT id FROM "user" WHERE id = $1',
@@ -62,7 +62,9 @@ async function ensureUserExists(
     }
 
     // User doesn't exist, create them
-    console.log(`[Billing] Creating user ${userId} in platform_db with email: ${userEmail}`)
+    console.log(
+      `[Billing] Creating user ${userId} in platform_db with email: ${userEmail}`,
+    )
     const insertResult = await pool.query(
       `INSERT INTO "user" (id, email, "roleSlug", disabled, "mfaEnabled", "createdAt", "updatedAt")
        VALUES ($1, $2, 'global:member', false, false, NOW(), NOW())
@@ -74,7 +76,9 @@ async function ensureUserExists(
     if (insertResult.rows.length > 0) {
       console.log(`[Billing] User ${userId} created successfully`)
     } else {
-      console.log(`[Billing] User ${userId} insert conflict - likely already exists`)
+      console.log(
+        `[Billing] User ${userId} insert conflict - likely already exists`,
+      )
     }
   } catch (error: any) {
     console.error('[Billing] Error ensuring user exists:', {
@@ -516,16 +520,16 @@ router.post(
   '/subscription/change',
   authMiddleware,
   async (req: AuthRequest, res) => {
+    const userId = req.user?.id
+    const { plan_id, price_id } = req.body
+
     try {
-      const userId = req.user?.id
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' })
       }
 
       // Ensure user exists in platform_db before creating subscription
       await ensureUserExists(userId, req.user?.email)
-
-      const { plan_id, price_id } = req.body
 
       if (!plan_id) {
         return res.status(400).json({ error: 'plan_id is required' })
@@ -566,12 +570,15 @@ router.post(
       }
 
       const config = tierConfig[tier_name]
+      console.log(`[Billing] Upgrading user ${userId} to ${tier_name}`)
 
       // Get or create subscription
+      console.log(`[Billing] Fetching existing subscription for user ${userId}`)
       let subscription = await getUserSubscription(userId)
       const pool = getBillingPool()
 
       if (!subscription) {
+        console.log(`[Billing] No existing subscription, creating new one`)
         // Create new subscription
         const result = await pool.query(
           `INSERT INTO service_subscriptions 
@@ -587,7 +594,11 @@ router.post(
           ],
         )
         subscription = result.rows[0]
+        console.log(`[Billing] Created new subscription:`, subscription.id)
       } else {
+        console.log(
+          `[Billing] Updating existing subscription ${subscription.id}`,
+        )
         // Update existing subscription
         await pool.query(
           `UPDATE service_subscriptions 
@@ -595,15 +606,22 @@ router.post(
            WHERE user_id = $4`,
           [tier_name, config.price, config.monthly_credits, userId],
         )
+        console.log(`[Billing] Updated subscription successfully`)
       }
 
+      console.log(`[Billing] Sending success response`)
       res.json({
         success: true,
         subscription,
         message: 'Plan changed successfully',
       })
     } catch (error: any) {
-      console.error('[Billing API] Error changing subscription:', error)
+      console.error('[Billing API] Error changing subscription:', {
+        error: error.message,
+        stack: error.stack,
+        userId,
+        plan_id,
+      })
       res.status(500).json({
         error: 'Failed to change subscription',
         message: error.message,
