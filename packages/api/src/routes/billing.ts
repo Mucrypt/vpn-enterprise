@@ -359,6 +359,47 @@ router.post(
       const subscription = await getUserSubscription(userId)
       let customerId = subscription?.stripe_customer_id
 
+      // Detect Stripe mode mismatch (test vs live)
+      const stripeSecretKey = resolveSecret({
+        valueEnv: 'STRIPE_SECRET_KEY',
+        fileEnv: 'STRIPE_SECRET_KEY_FILE',
+        defaultFilePath: '/run/secrets/stripe_secret_key',
+      })
+      const isTestMode = stripeSecretKey?.includes('_test_')
+      const isLiveMode = stripeSecretKey?.includes('_live_')
+
+      // If customer ID exists but belongs to different mode, create a new one
+      if (customerId) {
+        const customerIsTest = customerId.startsWith('cus_') && !customerId.includes('_test')
+        const modeMismatch =
+          (isTestMode && customerId.includes('live')) ||
+          (isLiveMode && customerId.includes('test'))
+
+        if (modeMismatch) {
+          console.log(
+            `[Billing] Customer ID mode mismatch detected for ${userEmail}. Creating new customer for current mode.`,
+          )
+          customerId = null // Force creation of new customer
+        } else {
+          // Verify customer exists in current mode
+          try {
+            await stripe.customers.retrieve(customerId)
+          } catch (error: any) {
+            if (
+              error.code === 'resource_missing' ||
+              error.message?.includes('similar object exists in')
+            ) {
+              console.log(
+                `[Billing] Customer ${customerId} not found in current mode. Creating new customer.`,
+              )
+              customerId = null // Force creation of new customer
+            } else {
+              throw error // Re-throw other errors
+            }
+          }
+        }
+      }
+
       if (!customerId) {
         console.log(`[Billing] Creating new Stripe customer for ${userEmail}`)
         const customer = await stripe.customers.create({
@@ -443,7 +484,9 @@ router.get('/verify-payment', authMiddleware, async (req: AuthRequest, res) => {
 
     // Verify session belongs to this user
     if (session.metadata?.user_id !== userId) {
-      return res.status(403).json({ error: 'Session does not belong to this user' })
+      return res
+        .status(403)
+        .json({ error: 'Session does not belong to this user' })
     }
 
     // Check if payment was successful
@@ -457,7 +500,9 @@ router.get('/verify-payment', authMiddleware, async (req: AuthRequest, res) => {
     const product = price?.product as Stripe.Product
 
     const paymentType = session.metadata?.payment_type || 'subscription'
-    const amount = session.amount_total ? (session.amount_total / 100).toFixed(2) : '0.00'
+    const amount = session.amount_total
+      ? (session.amount_total / 100).toFixed(2)
+      : '0.00'
 
     let response: any = {
       type: paymentType,
