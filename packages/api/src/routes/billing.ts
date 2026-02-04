@@ -41,33 +41,51 @@ function getBillingPool(): Pool {
  * Ensure user exists in platform_db (sync from Supabase auth)
  * This prevents foreign key violations when creating subscriptions
  */
-async function ensureUserExists(userId: string, userEmail?: string): Promise<void> {
+async function ensureUserExists(
+  userId: string,
+  userEmail?: string,
+): Promise<void> {
   const pool = getBillingPool()
-  
+
   try {
+    console.log(`[Billing] Checking if user ${userId} exists in platform_db`)
+    
     // Check if user already exists
     const checkResult = await pool.query(
       'SELECT id FROM "user" WHERE id = $1',
-      [userId]
+      [userId],
     )
-    
+
     if (checkResult.rows.length > 0) {
+      console.log(`[Billing] User ${userId} already exists`)
       return // User already exists
     }
-    
+
     // User doesn't exist, create them
-    console.log(`[Billing] Creating user ${userId} in platform_db`)
-    await pool.query(
+    console.log(`[Billing] Creating user ${userId} in platform_db with email: ${userEmail}`)
+    const insertResult = await pool.query(
       `INSERT INTO "user" (id, email, "roleSlug", disabled, "mfaEnabled", "createdAt", "updatedAt")
        VALUES ($1, $2, 'global:member', false, false, NOW(), NOW())
-       ON CONFLICT (id) DO NOTHING`,
-      [userId, userEmail || `user-${userId}@vpn-enterprise.local`]
+       ON CONFLICT (id) DO NOTHING
+       RETURNING id`,
+      [userId, userEmail || `user-${userId}@vpn-enterprise.local`],
     )
-    
-    console.log(`[Billing] User ${userId} created successfully`)
-  } catch (error) {
-    console.error('[Billing] Error ensuring user exists:', error)
-    // Don't throw - let the trigger create the subscription if possible
+
+    if (insertResult.rows.length > 0) {
+      console.log(`[Billing] User ${userId} created successfully`)
+    } else {
+      console.log(`[Billing] User ${userId} insert conflict - likely already exists`)
+    }
+  } catch (error: any) {
+    console.error('[Billing] Error ensuring user exists:', {
+      userId,
+      userEmail,
+      error: error.message,
+      detail: error.detail,
+      code: error.code,
+    })
+    // Re-throw to prevent subscription creation if user creation fails
+    throw new Error(`Failed to ensure user exists: ${error.message}`)
   }
 }
 
