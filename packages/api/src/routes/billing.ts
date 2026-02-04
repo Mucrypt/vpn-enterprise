@@ -9,8 +9,16 @@ import {
 } from '../middleware/unified-billing'
 import { Pool } from 'pg'
 import { resolveSecret } from '../utils/secrets'
+import Stripe from 'stripe'
 
 const router = Router()
+
+// Initialize Stripe
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2026-01-28.clover',
+    })
+  : null
 
 // Database connection for billing
 let billingPool: Pool
@@ -282,6 +290,203 @@ router.get('/services', async (req, res) => {
 })
 
 /**
+ * POST /api/v1/billing/create-checkout-session
+ * Create a Stripe checkout session for subscription or credit purchase
+ */
+router.post(
+  '/create-checkout-session',
+  authMiddleware,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.id
+      const userEmail = req.user?.email
+
+      if (!userId || !userEmail) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      if (!stripe) {
+        return res.status(503).json({
+          error: 'Payment processing unavailable',
+          message: 'Stripe is not configured',
+        })
+      }
+
+      const { priceId, planId, successUrl, cancelUrl } = req.body
+
+      if (!priceId || !successUrl || !cancelUrl) {
+        return res.status(400).json({
+          error: 'Missing required fields: priceId, successUrl, cancelUrl',
+        })
+      }
+
+      console.log(
+        `[Billing] Creating Stripe checkout for user ${userId}, plan: ${planId}`,
+      )
+
+      // Ensure user exists in platform_db
+      await ensureUserExists(userId, userEmail)
+
+      // Get or create Stripe customer
+      const subscription = await getUserSubscription(userId)
+      let customerId = subscription?.stripe_customer_id
+
+      if (!customerId) {
+        console.log(`[Billing] Creating new Stripe customer for ${userEmail}`)
+        const customer = await stripe.customers.create({
+          email: userEmail,
+          metadata: {
+            user_id: userId,
+            platform: 'vpn-enterprise',
+          },
+        })
+        customerId = customer.id
+
+        // Save customer ID to database
+        const pool = getBillingPool()
+        if (subscription) {
+          await pool.query(
+            'UPDATE service_subscriptions SET stripe_customer_id = $1 WHERE user_id = $2',
+            [customerId, userId],
+          )
+        }
+      }
+
+      // Create checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: {
+          user_id: userId,
+          plan_id: planId || 'unknown',
+        },
+      })
+
+      console.log(`[Billing] Stripe checkout session created: ${session.id}`)
+
+      res.json({
+        sessionId: session.id,
+        url: session.url,
+      })
+    } catch (error: any) {
+      console.error('[Billing API] Error creating checkout session:', error)
+      res.status(500).json({
+        error: 'Failed to create checkout session',
+        message: error.message,
+      })
+    }
+  },
+)
+
+/**
+ * POST /api/v1/billing/stripe/webhook
+ * Handle Stripe webhook events (raw body required)
+ */
+router.post(
+  '/stripe/webhook',
+  async (req, res) => {
+    const sig = req.headers['stripe-signature']
+
+    if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+      return res.status(503).json({ error: 'Webhook not configured' })
+    }
+
+    try {
+      const event = stripe.webhooks.constructEvent(
+        req.body,
+        sig as string,
+        process.env.STRIPE_WEBHOOK_SECRET,
+      )
+
+      console.log(`[Stripe Webhook] Received event: ${event.type}`)
+
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object as Stripe.Checkout.Session
+          const userId = session.metadata?.user_id
+          const planId = session.metadata?.plan_id
+
+          if (userId && planId) {
+            console.log(`[Stripe Webhook] Checkout completed for user ${userId}, plan ${planId}`)
+            
+            const pool = getBillingPool()
+            const planMapping: Record<string, string> = {
+              free: 'free',
+              starter: 'starter',
+              pro: 'professional',
+              professional: 'professional',
+              enterprise: 'enterprise',
+            }
+            
+            const tierConfig: any = {
+              free: { price: 0, monthly_credits: 100 },
+              starter: { price: 29.99, monthly_credits: 1000 },
+              professional: { price: 79.99, monthly_credits: 5000 },
+              enterprise: { price: 299.99, monthly_credits: 25000 },
+            }
+            
+            const tierName = planMapping[planId.toLowerCase()]
+            const config = tierConfig[tierName]
+            
+            if (config) {
+              await pool.query(
+                `UPDATE service_subscriptions 
+                 SET tier_name = $1, tier_price = $2, monthly_credits = $3, 
+                     stripe_subscription_id = $4, status = 'active', updated_at = NOW()
+                 WHERE user_id = $5`,
+                [tierName, config.price, config.monthly_credits, session.subscription, userId]
+              )
+              console.log(`[Stripe Webhook] Updated subscription for user ${userId}`)
+            }
+          }
+          break
+        }
+
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as Stripe.Subscription
+          const customerId = subscription.customer as string
+
+          const pool = getBillingPool()
+          const result = await pool.query(
+            'SELECT user_id FROM service_subscriptions WHERE stripe_customer_id = $1',
+            [customerId]
+          )
+
+          if (result.rows.length > 0) {
+            const userId = result.rows[0].user_id
+            const status = subscription.status === 'active' ? 'active' : 'cancelled'
+            
+            await pool.query(
+              'UPDATE service_subscriptions SET status = $1, updated_at = NOW() WHERE user_id = $2',
+              [status, userId]
+            )
+            console.log(`[Stripe Webhook] Updated subscription status to ${status} for user ${userId}`)
+          }
+          break
+        }
+
+        default:
+          console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`)
+      }
+
+      res.json({ received: true })
+    } catch (error: any) {
+      console.error('[Stripe Webhook] Error:', error)
+      res.status(400).send(`Webhook Error: ${error.message}`)
+    }
+  },
+)
+
+/**
  * GET /api/v1/billing/subscription
  * Get user's current subscription
  */
@@ -544,13 +749,24 @@ router.post(
         enterprise: 'enterprise',
       }
 
-      const tier_name =
-        planMapping[plan_id.toLowerCase()] || plan_id.toLowerCase()
+      const tier_name = planMapping[plan_id.toLowerCase()]
+
+      console.log(
+        `[Billing] Received plan_id: ${plan_id}, mapped to tier: ${tier_name}`,
+      )
 
       if (
+        !tier_name ||
         !['free', 'starter', 'professional', 'enterprise'].includes(tier_name)
       ) {
-        return res.status(400).json({ error: 'Invalid plan' })
+        console.error(
+          `[Billing] Invalid plan received: ${plan_id}, mapped to: ${tier_name}`,
+        )
+        return res.status(400).json({
+          error: 'Invalid plan',
+          message: `Plan "${plan_id}" is not valid. Valid plans: free, starter, pro, professional, enterprise`,
+          received: plan_id,
+        })
       }
 
       // Define tier properties
