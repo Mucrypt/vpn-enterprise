@@ -83,13 +83,17 @@ export default function BillingPage() {
       }
 
       // Detect if this is a credit purchase or subscription based on stripePriceId
-      // Credit packages (one-time payments): price_1SxAjJ..., price_1SxAjW..., price_1SxAjj..., price_1SxAkJ...
-      // Subscriptions (recurring): price_1SxAiL..., price_1SxAie..., price_1SxAiw...
+      // TEST MODE Credit packages (one-time payments):
       const creditPriceIds = [
-        'price_1SxAjJKQ56fnaANWpgwRa47z', // 100 credits
-        'price_1SxAjWKQ56fnaANWgibxI7u5', // 500 credits
-        'price_1SxAjjKQ56fnaANWyjRcDWKl', // 1000 credits
-        'price_1SxAkJKQ56fnaANWAkSH5THH', // 5000 credits
+        'price_1SxB6QKQ56fnaANW8CEtay6X', // 100 credits (test)
+        'price_1SxB6SKQ56fnaANWc74bMAho', // 500 credits (test)
+        'price_1SxB6UKQ56fnaANWSEP2BtYh', // 1000 credits (test)
+        'price_1SxB6WKQ56fnaANW7DD6cDO2', // 5000 credits (test)
+        // LIVE MODE (commented out):
+        // 'price_1SxAjJKQ56fnaANWpgwRa47z', // 100 credits (live)
+        // 'price_1SxAjWKQ56fnaANWgibxI7u5', // 500 credits (live)
+        // 'price_1SxAjjKQ56fnaANWyjRcDWKl', // 1000 credits (live)
+        // 'price_1SxAkJKQ56fnaANWAkSH5THH', // 5000 credits (live)
       ]
       const isCreditPurchase = creditPriceIds.includes(stripePriceId)
 
