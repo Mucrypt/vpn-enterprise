@@ -86,17 +86,28 @@ export async function calculateAICost(
   outputTokens: number,
 ): Promise<CreditCalculation | null> {
   try {
-    const { data, error } = await (supabaseAdmin as any).rpc(
-      'calculate_ai_cost',
-      {
-        p_model_id: modelId,
-        p_input_tokens: inputTokens,
-        p_output_tokens: outputTokens,
-      },
+    const pool = getBillingPool()
+    const result = await pool.query(
+      `SELECT credits_per_1k_input * ($2::numeric / 1000) + credits_per_1k_output * ($3::numeric / 1000) as credits_required
+       FROM ai_model_pricing
+       WHERE model_id = $1 AND is_active = true`,
+      [modelId, inputTokens, outputTokens]
     )
 
-    if (error) throw error
-    return data?.[0] || null
+    if (result.rows.length === 0) return null
+    
+    return {
+      credits_required: Math.ceil(result.rows[0].credits_required),
+      cost_breakdown: {
+        model: modelId,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        input_cost_usd: 0,
+        output_cost_usd: 0,
+        total_cost_usd: 0,
+        markup_multiplier: 3.0,
+      }
+    }
   } catch (error) {
     console.error('[Billing] Error calculating AI cost:', error)
     return null
@@ -219,33 +230,28 @@ export async function deductCredits(
     }
 
     // Update subscription
-    const { error: updateError } = await (supabaseAdmin as any)
-      .from('service_subscriptions')
-      .update({
-        credits_remaining: monthlyCredits,
-        purchased_credits_balance: purchasedCredits,
-        credits_used_this_month:
-          (subscription.credits_used_this_month || 0) + amountFromMonthly,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', userId)
-
-    if (updateError) throw updateError
+    const pool = getBillingPool()
+    await pool.query(
+      `UPDATE service_subscriptions 
+       SET credits_remaining = $1, purchased_credits_balance = $2, 
+           credits_used_this_month = $3, updated_at = NOW()
+       WHERE user_id = $4`,
+      [monthlyCredits, purchasedCredits, (subscription.credits_used_this_month || 0) + amountFromMonthly, userId]
+    )
 
     // Log usage
-    await (supabaseAdmin as any).from('service_usage_logs').insert({
-      user_id: userId,
-      service_type: metadata?.service_type || 'nexusai',
-      operation,
-      credits_charged: amount,
-      source_balance: balanceSource,
-      cost_breakdown: metadata?.cost_breakdown,
-      model_used: metadata?.model_used,
-      input_tokens: metadata?.input_tokens,
-      output_tokens: metadata?.output_tokens,
-      total_tokens: metadata?.total_tokens,
-      metadata,
-    })
+    await pool.query(
+      `INSERT INTO service_usage_logs 
+       (user_id, service_type, operation, credits_charged, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [
+        userId,
+        metadata?.service_type || 'nexusai',
+        operation,
+        amount,
+        JSON.stringify(metadata || {})
+      ]
+    )
 
     console.log(
       `[Billing] Deducted ${amount} credits from user ${userId} for ${operation}. ` +
@@ -432,19 +438,19 @@ export async function getServiceUsage(userId: string) {
     const subscription = await getUserSubscription(userId)
     if (!subscription) return null
 
-    const { data: logs, error } = await (supabaseAdmin as any)
-      .from('service_usage_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('created_at', subscription.current_period_start)
-      .lte('created_at', subscription.current_period_end)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
+    const pool = getBillingPool()
+    const result = await pool.query(
+      `SELECT * FROM service_usage_logs 
+       WHERE user_id = $1 
+         AND created_at >= $2 
+         AND created_at <= $3
+       ORDER BY created_at DESC`,
+      [userId, subscription.current_period_start, subscription.current_period_end]
+    )
 
     return {
       subscription,
-      logs: logs || [],
+      logs: result.rows || [],
       period: {
         start: subscription.current_period_start,
         end: subscription.current_period_end,

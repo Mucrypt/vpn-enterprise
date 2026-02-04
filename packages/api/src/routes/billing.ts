@@ -359,21 +359,16 @@ router.post('/credits/buy', authMiddleware, async (req: AuthRequest, res) => {
 
     // TODO: Create Stripe checkout session
     // For now, just create a pending purchase record
-    const { data: purchase, error } = await (supabaseAdmin as any)
-      .from('credit_purchases')
-      .insert({
-        user_id: userId,
-        package_name,
-        credits_purchased: credits,
-        bonus_credits: Math.floor(credits * 0.1), // 10% bonus for now
-        amount_paid: amount,
-        payment_status: 'pending',
-        purchase_source: 'web',
-      })
-      .select()
-      .single()
+    const pool = getBillingPool()
+    const result = await pool.query(
+      `INSERT INTO credit_purchases 
+       (user_id, credits_amount, bonus_credits, price_paid, payment_status, created_at)
+       VALUES ($1, $2, $3, $4, 'pending', NOW())
+       RETURNING *`,
+      [userId, credits, Math.floor(credits * 0.1), amount]
+    )
 
-    if (error) throw error
+    const purchase = result.rows[0]
 
     res.json({
       purchase,
@@ -428,18 +423,13 @@ router.post(
       const config = tierConfig[tier_name]
 
       // Update subscription
-      const { error } = await (supabaseAdmin as any)
-        .from('service_subscriptions')
-        .update({
-          tier_name,
-          tier_price: config.price,
-          monthly_credits: config.monthly_credits,
-          database_storage_limit_gb: config.storage_limit,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId)
-
-      if (error) throw error
+      const pool = getBillingPool()
+      await pool.query(
+        `UPDATE service_subscriptions 
+         SET tier_name = $1, tier_price = $2, monthly_credits = $3, updated_at = NOW()
+         WHERE user_id = $4`,
+        [tier_name, config.price, config.monthly_credits, userId]
+      )
 
       const updated = await getUserSubscription(userId)
 
@@ -582,20 +572,16 @@ router.get('/transactions', authMiddleware, async (req: AuthRequest, res) => {
     const limit = parseInt(req.query.limit as string) || 50
     const offset = parseInt(req.query.offset as string) || 0
 
-    const { data: transactions, error } = await (supabaseAdmin as any)
-      .from('service_usage_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+    const pool = getBillingPool()
+    const result = await pool.query(
+      `SELECT * FROM service_usage_logs 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC 
+       LIMIT $2 OFFSET $3`,
+      [userId, limit, offset]
+    )
 
-    if (error) {
-      console.error('[Billing API] Error fetching transactions:', error)
-      // Return empty array instead of 500 if table doesn't exist
-      return res.status(200).json({
-        transactions: [],
-      })
-    }
+    const transactions = result.rows
 
     // Transform to match expected format
     const formattedTransactions = (transactions || []).map((tx: any) => ({
