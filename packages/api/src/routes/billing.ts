@@ -87,7 +87,7 @@ async function ensureUserExists(
         'SELECT id FROM "user" WHERE email = $1',
         [userEmail],
       )
-      
+
       if (emailCheck.rows.length > 0) {
         const existingUserId = emailCheck.rows[0].id
         console.log(
@@ -102,7 +102,7 @@ async function ensureUserExists(
     console.log(
       `[Billing] Creating user ${userId} in platform_db with email: ${userEmail}`,
     )
-    
+
     const insertResult = await pool.query(
       `INSERT INTO "user" (id, email, "roleSlug", disabled, "mfaEnabled", "createdAt", "updatedAt")
        VALUES ($1, $2, 'global:member', false, false, NOW(), NOW())
@@ -414,6 +414,76 @@ router.post(
     }
   },
 )
+
+/**
+ * GET /api/v1/billing/verify-payment
+ * Verify payment success and return payment details
+ */
+router.get('/verify-payment', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { session_id } = req.query
+    const userId = req.user?.id
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    if (!session_id || typeof session_id !== 'string') {
+      return res.status(400).json({ error: 'Missing session_id' })
+    }
+
+    if (!stripe) {
+      return res.status(503).json({ error: 'Stripe not configured' })
+    }
+
+    // Retrieve checkout session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(session_id, {
+      expand: ['line_items', 'line_items.data.price.product'],
+    })
+
+    // Verify session belongs to this user
+    if (session.metadata?.user_id !== userId) {
+      return res.status(403).json({ error: 'Session does not belong to this user' })
+    }
+
+    // Check if payment was successful
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment not completed' })
+    }
+
+    // Extract payment details
+    const lineItem = session.line_items?.data[0]
+    const price = lineItem?.price
+    const product = price?.product as Stripe.Product
+
+    const paymentType = session.metadata?.payment_type || 'subscription'
+    const amount = session.amount_total ? (session.amount_total / 100).toFixed(2) : '0.00'
+
+    let response: any = {
+      type: paymentType,
+      amount,
+      currency: session.currency,
+      sessionId: session.id,
+    }
+
+    if (paymentType === 'subscription') {
+      response.planName = product?.name || 'Unknown Plan'
+    } else if (paymentType === 'credits') {
+      // Extract credits from product name or metadata
+      const productName = product?.name || ''
+      const creditsMatch = productName.match(/(\d+)\s*credits/i)
+      response.credits = creditsMatch ? parseInt(creditsMatch[1]) : 0
+    }
+
+    res.json(response)
+  } catch (error: any) {
+    console.error('[Billing API] Error verifying payment:', error)
+    res.status(500).json({
+      error: 'Failed to verify payment',
+      message: error.message,
+    })
+  }
+})
 
 /**
  * POST /api/v1/billing/stripe/webhook

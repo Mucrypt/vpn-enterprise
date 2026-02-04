@@ -24,3 +24,9 @@ alias vpn-logs='ssh root@157.180.123.240 "cd /opt/vpn-enterprise/infrastructure/
 
 # Check container status on server
 alias vpn-ps='ssh root@157.180.123.240 "cd /opt/vpn-enterprise/infrastructure/docker && docker compose -f docker-compose.prod.yml ps"'
+
+# Stripe Mode Toggle Aliases
+alias stripe-mode='./scripts/stripe-mode-toggle.sh'
+alias stripe-test='./scripts/stripe-mode-toggle.sh test'
+alias stripe-live='./scripts/stripe-mode-toggle.sh live'
+alias stripe-status='./scripts/stripe-mode-toggle.sh status'

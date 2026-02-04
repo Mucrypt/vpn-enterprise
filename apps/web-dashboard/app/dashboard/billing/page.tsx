@@ -109,8 +109,8 @@ export default function BillingPage() {
             priceId: stripePriceId,
             planId,
             mode: isCreditPurchase ? 'payment' : 'subscription',
-            successUrl: `${window.location.origin}/dashboard/billing?session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: `${window.location.origin}/dashboard/billing`,
+            successUrl: `${window.location.origin}/dashboard/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `${window.location.origin}/dashboard/billing/cancel`,
           }),
         },
       )
