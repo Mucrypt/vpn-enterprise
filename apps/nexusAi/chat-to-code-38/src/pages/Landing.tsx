@@ -61,52 +61,74 @@ export default function Landing() {
     },
   ]
 
-  const pricingPlans = [
+  const creditPackages = [
     {
-      name: 'Free',
-      price: '$0',
-      description: 'Perfect for trying out NexusAI',
+      name: 'Starter Pack',
+      credits: 100,
+      price: '$10',
+      bonus: 0,
+      description: 'Perfect for small projects',
       features: [
-        '100 AI credits/month',
-        '1 database (1GB storage)',
-        '3 apps',
-        'Basic templates',
-        'Community support',
+        '100 AI credits',
+        'Generate 10-20 apps',
+        'Database included',
+        'Valid for 12 months',
+        'Basic support',
       ],
-      cta: 'Start free',
+      cta: 'Buy credits',
       popular: false,
+      stripePriceId: 'price_1SxB6QKQ56fnaANW8CEtay6X',
     },
     {
-      name: 'Pro',
-      price: '$29',
+      name: 'Popular Pack',
+      credits: 500,
+      price: '$45',
+      bonus: 50,
+      description: 'Best value for regular use',
+      features: [
+        '500 + 50 bonus credits',
+        'Generate 50-100 apps',
+        'Priority generation',
+        'Valid for 12 months',
+        'Priority support',
+      ],
+      cta: 'Buy credits',
+      popular: true,
+      stripePriceId: 'price_1SxB6SKQ56fnaANWc74bMAho',
+    },
+    {
+      name: 'Pro Pack',
+      credits: 1000,
+      price: '$80',
+      bonus: 200,
       description: 'For professional developers',
       features: [
-        '1,000 AI credits/month',
-        'Unlimited databases (10GB each)',
-        'Unlimited apps',
-        'Premium templates',
-        'Priority support',
-        'Custom domains',
-        'Team collaboration',
+        '1,000 + 200 bonus credits',
+        'Generate 100-200 apps',
+        'Priority generation',
+        'Valid for 12 months',
+        'Premium support',
       ],
-      cta: 'Start 14-day trial',
-      popular: true,
+      cta: 'Buy credits',
+      popular: false,
+      stripePriceId: 'price_1SxB6UKQ56fnaANWSEP2BtYh',
     },
     {
-      name: 'Enterprise',
-      price: 'Custom',
-      description: 'For teams and organizations',
+      name: 'Enterprise Pack',
+      credits: 5000,
+      price: '$350',
+      bonus: 1500,
+      description: 'For teams and agencies',
       features: [
-        'Unlimited AI credits',
-        'Unlimited databases (custom storage)',
-        'Unlimited everything',
+        '5,000 + 1,500 bonus credits',
+        'Generate 500+ apps',
+        'Fastest generation',
+        'Valid for 12 months',
         'Dedicated support',
-        'SLA guarantee',
-        'Custom integrations',
-        'On-premise deployment',
       ],
-      cta: 'Contact sales',
+      cta: 'Buy credits',
       popular: false,
+      stripePriceId: 'price_1SxB6WKQ56fnaANW7DD6cDO2',
     },
   ]
 
@@ -176,62 +198,73 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Pricing Section */}
+      {/* Credits Section */}
       <section className='py-20 px-6'>
         <div className='container mx-auto max-w-6xl'>
           <div className='text-center mb-12'>
             <h2 className='text-3xl md:text-5xl font-bold mb-4'>
-              Simple, transparent pricing
+              Simple, pay-as-you-go credits
             </h2>
             <p className='text-lg text-muted-foreground'>
-              Choose the plan that's right for you
+              Buy credits once, use them anytime. No subscriptions, no expiration stress.
             </p>
           </div>
-          <div className='grid grid-cols-1 md:grid-cols-3 gap-8'>
-            {pricingPlans.map((plan, index) => (
+          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+            {creditPackages.map((pkg, index) => (
               <Card
                 key={index}
                 className={
-                  plan.popular
-                    ? 'border-primary shadow-lg scale-105'
-                    : 'border-border'
+                  pkg.popular
+                    ? 'border-primary shadow-lg scale-105 relative'
+                    : 'border-border relative'
                 }
               >
-                {plan.popular && (
-                  <div className='bg-primary text-primary-foreground text-center py-2 text-sm font-semibold'>
+                {pkg.popular && (
+                  <div className='bg-primary text-primary-foreground text-center py-2 text-sm font-semibold rounded-t-lg'>
                     Most Popular
                   </div>
                 )}
                 <CardHeader>
-                  <CardTitle className='text-2xl'>{plan.name}</CardTitle>
+                  <CardTitle className='text-2xl'>{pkg.name}</CardTitle>
                   <div className='text-4xl font-bold mt-2'>
-                    {plan.price}
-                    {plan.price !== 'Custom' && (
-                      <span className='text-lg text-muted-foreground font-normal'>
-                        /month
-                      </span>
-                    )}
+                    {pkg.price}
                   </div>
-                  <CardDescription>{plan.description}</CardDescription>
+                  <CardDescription>{pkg.description}</CardDescription>
+                  <div className='mt-4'>
+                    <Badge variant='secondary' className='text-lg px-3 py-1'>
+                      {pkg.credits}
+                      {pkg.bonus > 0 && (
+                        <span className='text-primary ml-1'>+{pkg.bonus}</span>
+                      )}{' '}
+                      credits
+                    </Badge>
+                  </div>
                 </CardHeader>
                 <CardContent className='space-y-4'>
                   <ul className='space-y-3'>
-                    {plan.features.map((feature, i) => (
+                    {pkg.features.map((feature, i) => (
                       <li key={i} className='flex items-center gap-2'>
-                        <Check className='w-4 h-4 text-primary' />
+                        <Check className='w-4 h-4 text-primary flex-shrink-0' />
                         <span className='text-sm'>{feature}</span>
                       </li>
                     ))}
                   </ul>
-                  <Button
-                    className='w-full'
-                    variant={plan.popular ? 'default' : 'outline'}
-                  >
-                    {plan.cta}
-                  </Button>
+                  <Link to='/credits'>
+                    <Button
+                      className='w-full'
+                      variant={pkg.popular ? 'default' : 'outline'}
+                    >
+                      {pkg.cta}
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             ))}
+          </div>
+          <div className='text-center mt-8'>
+            <p className='text-sm text-muted-foreground'>
+              All packages include database, authentication, and deployment support
+            </p>
           </div>
         </div>
       </section>
