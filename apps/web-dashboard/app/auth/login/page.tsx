@@ -34,6 +34,7 @@ function SessionExpirationNotification() {
 
 function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { setUser, setAccessToken, setAuth } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -83,7 +84,28 @@ function LoginForm() {
         // ignore - we'll still redirect below as a safe fallback
       }
 
-      // navigate after ensuring we attempted to hydrate the profile
+      // Check for redirect parameter (e.g., from nexusAi or other sub-apps)
+      const redirectUrl = searchParams.get('redirect')
+      
+      if (redirectUrl) {
+        // Decode and validate the redirect URL
+        try {
+          const decodedUrl = decodeURIComponent(redirectUrl)
+          // Ensure it's from our domain or a safe subdomain
+          if (
+            decodedUrl.startsWith('https://chatbuilds.com') ||
+            decodedUrl.startsWith('/') ||
+            decodedUrl.includes('nexusai')
+          ) {
+            window.location.href = decodedUrl
+            return
+          }
+        } catch (e) {
+          console.error('Invalid redirect URL:', e)
+        }
+      }
+
+      // Default redirect to dashboard
       try {
         router.push('/dashboard')
       } catch (e) {
