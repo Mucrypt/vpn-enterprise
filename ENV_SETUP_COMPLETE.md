@@ -3,6 +3,7 @@
 ## 🎉 Your Stripe Keys Are Properly Configured
 
 ### Local Development (`.env`)
+
 ```env
 ✅ STRIPE_SECRET_KEY=sk_live_51OmeWZ...
 ✅ STRIPE_PUBLISHABLE_KEY=pk_live_51OmeWZ...
@@ -12,6 +13,7 @@
 ```
 
 ### Production Server (`.env.production`)
+
 ```env
 ✅ NEXT_PUBLIC_API_URL=https://chatbuilds.com
 ✅ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51OmeWZ...
@@ -71,6 +73,7 @@ docker compose -f docker-compose.prod.yml logs -f web
 ## 🧪 Test Everything
 
 ### 1. Check Environment Variables in Container
+
 ```bash
 # On production server
 docker exec vpn-web env | grep STRIPE
@@ -78,12 +81,14 @@ docker exec vpn-web env | grep NEXT_PUBLIC
 ```
 
 **Expected Output:**
+
 ```
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51OmeWZ...
 NEXT_PUBLIC_API_URL=https://chatbuilds.com
 ```
 
 ### 2. Test in Browser
+
 1. Open: https://chatbuilds.com/dashboard/billing
 2. Press F12 → Console tab
 3. Should see NO errors:
@@ -93,6 +98,7 @@ NEXT_PUBLIC_API_URL=https://chatbuilds.com
    - ✅ Pricing plans display correctly
 
 ### 3. Test API Endpoints
+
 ```bash
 # From your production server
 curl -s http://localhost:3000/api/v1/billing/services | jq '.services.nexusai.name'
@@ -107,12 +113,14 @@ curl -s http://localhost:3000/health
 ## ⚡ Quick Commands Reference
 
 ### Check Service Status
+
 ```bash
 cd /opt/vpn-enterprise/infrastructure/docker
 docker compose -f docker-compose.prod.yml ps
 ```
 
 ### View Logs
+
 ```bash
 # Web logs
 docker compose -f docker-compose.prod.yml logs -f web
@@ -122,6 +130,7 @@ docker compose -f docker-compose.prod.yml logs -f api
 ```
 
 ### Restart Services
+
 ```bash
 # Restart just web (if needed)
 docker compose -f docker-compose.prod.yml restart web
@@ -135,11 +144,13 @@ docker compose -f docker-compose.prod.yml restart
 ## 📋 Checklist
 
 Local Development:
+
 - [x] `.env` file updated with Stripe keys
 - [x] `NEXT_PUBLIC_` variables added
 - [x] Changes committed to git
 
 Production Server (Next Steps):
+
 - [ ] Pull latest code on server
 - [ ] Create/update `/opt/vpn-enterprise/.env` file
 - [ ] Rebuild web container
@@ -154,18 +165,21 @@ Production Server (Next Steps):
 After deploying to production:
 
 ✅ **Browser Console:**
+
 - No Stripe initialization errors
 - No 404 errors
 - No 500 errors
 
 ✅ **Billing Page:**
+
 - Pricing plans load correctly
 - Transaction history displays (empty is OK)
 - Stripe checkout can be initiated
 
 ✅ **API Endpoints:**
+
 - `/api/v1/billing/services` returns 200 OK
-- `/api/v1/billing/transactions` returns 200 OK  
+- `/api/v1/billing/transactions` returns 200 OK
 - `/api/v1/billing/invoices` returns 200 OK
 
 ---
@@ -173,18 +187,21 @@ After deploying to production:
 ## 🆘 Troubleshooting
 
 ### Stripe errors still appear?
+
 ```bash
 # Check if env vars are loaded
 docker exec vpn-web env | grep NEXT_PUBLIC_STRIPE
 ```
 
 ### 404 or 500 errors?
+
 ```bash
 # Check API logs
 docker compose -f docker-compose.prod.yml logs api | grep -i error
 ```
 
 ### Need to start fresh?
+
 ```bash
 cd /opt/vpn-enterprise/infrastructure/docker
 docker compose -f docker-compose.prod.yml down
