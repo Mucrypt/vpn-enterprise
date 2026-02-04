@@ -88,9 +88,9 @@ export function SubscriptionOverview({
 
   const planType = subscription.plan_type?.toLowerCase() || 'free'
   const status = subscription.status?.toLowerCase() || 'active'
-  const creditPercentage = Math.round(
-    (subscription.credits_remaining / subscription.credits_limit) * 100,
-  )
+  const creditsRemaining = subscription.credits_remaining || 0
+  const creditsLimit = subscription.credits_limit || 1
+  const creditPercentage = Math.round((creditsRemaining / creditsLimit) * 100)
 
   return (
     <Card className='border-primary/20 bg-card'>
@@ -143,8 +143,8 @@ export function SubscriptionOverview({
           <div className='flex items-center justify-between mb-2'>
             <p className='text-sm font-medium'>Credits Available</p>
             <p className='text-sm text-muted-foreground'>
-              {subscription.credits_remaining.toLocaleString()} /{' '}
-              {subscription.credits_limit.toLocaleString()}
+              {(subscription.credits_remaining || 0).toLocaleString()} /{' '}
+              {(subscription.credits_limit || 0).toLocaleString()}
             </p>
           </div>
           <div className='h-2 bg-gray-200 rounded-full overflow-hidden'>
