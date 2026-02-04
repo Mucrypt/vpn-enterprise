@@ -1,11 +1,38 @@
 import type { Response, NextFunction } from 'express'
 import type { AuthRequest } from '@vpn-enterprise/auth'
-import { supabaseAdmin } from '@vpn-enterprise/database'
+import { Pool } from 'pg'
+import { resolveSecret } from '../utils/secrets'
 
 /**
  * Unified Billing Service for VPN Enterprise
  * Handles all billing operations across VPN, Database, NexusAI, and Hosting services
+ * Uses platform_db PostgreSQL database
  */
+
+// Database connection for unified billing
+let billingPool: Pool
+
+function getBillingPool(): Pool {
+  if (!billingPool) {
+    const postgresPassword = resolveSecret({
+      valueEnv: 'POSTGRES_PASSWORD',
+      fileEnv: 'POSTGRES_PASSWORD_FILE',
+      defaultFilePath: '/run/secrets/db_password',
+    })
+
+    billingPool = new Pool({
+      host: process.env.POSTGRES_HOST || 'vpn-postgres',
+      port: parseInt(process.env.POSTGRES_PORT || '5432'),
+      database: process.env.POSTGRES_DB || 'platform_db',
+      user: process.env.POSTGRES_USER || 'platform_admin',
+      password: postgresPassword,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    })
+  }
+  return billingPool
+}
 
 interface AIModelPricing {
   model_id: string
@@ -35,14 +62,15 @@ interface CreditCalculation {
  */
 export async function getAIModels(): Promise<AIModelPricing[]> {
   try {
-    const { data, error } = await (supabaseAdmin as any)
-      .from('ai_model_pricing')
-      .select('*')
-      .eq('is_available', true)
-      .order('display_order', { ascending: true })
-
-    if (error) throw error
-    return data || []
+    const pool = getBillingPool()
+    const result = await pool.query(
+      `SELECT model_id, model_name, provider, input_cost_per_1m as user_input_cost_per_1m, 
+              output_cost_per_1m as user_output_cost_per_1m, markup_multiplier, is_active as is_available
+       FROM ai_model_pricing 
+       WHERE is_active = true 
+       ORDER BY provider, model_name`
+    )
+    return result.rows || []
   } catch (error) {
     console.error('[Billing] Error fetching AI models:', error)
     return []
@@ -80,18 +108,17 @@ export async function calculateAICost(
  */
 export async function getUserSubscription(userId: string) {
   try {
-    const { data, error } = await (supabaseAdmin as any)
-      .from('service_subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
+    const pool = getBillingPool()
+    const result = await pool.query(
+      'SELECT * FROM service_subscriptions WHERE user_id = $1',
+      [userId]
+    )
 
-    if (error && error.code !== 'PGRST116') {
-      // PGRST116 = not found
-      throw error
+    if (result.rows.length === 0) {
+      return null
     }
 
-    return data
+    return result.rows[0]
   } catch (error) {
     console.error('[Billing] Error fetching subscription:', error)
     return null

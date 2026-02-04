@@ -7,9 +7,35 @@ import {
   checkCredits,
   getServiceUsage,
 } from '../middleware/unified-billing'
-import { supabaseAdmin } from '@vpn-enterprise/database'
+import { Pool } from 'pg'
+import { resolveSecret } from '../utils/secrets'
 
 const router = Router()
+
+// Database connection for billing
+let billingPool: Pool
+
+function getBillingPool(): Pool {
+  if (!billingPool) {
+    const postgresPassword = resolveSecret({
+      valueEnv: 'POSTGRES_PASSWORD',
+      fileEnv: 'POSTGRES_PASSWORD_FILE',
+      defaultFilePath: '/run/secrets/db_password',
+    })
+
+    billingPool = new Pool({
+      host: process.env.POSTGRES_HOST || 'vpn-postgres',
+      port: parseInt(process.env.POSTGRES_PORT || '5432'),
+      database: process.env.POSTGRES_DB || 'platform_db',
+      user: process.env.POSTGRES_USER || 'platform_admin',
+      password: postgresPassword,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    })
+  }
+  return billingPool
+}
 
 /**
  * GET /api/v1/billing/services
@@ -20,12 +46,13 @@ router.get('/services', async (req, res) => {
     // Get AI models
     const aiModels = await getAIModels()
 
-    // Get service pricing from config
-    const { data: pricingConfig, error } = await (supabaseAdmin as any)
-      .from('service_pricing_config')
-      .select('*')
-
-    if (error) {
+    // Get service pricing from config (optional, will use defaults if not found)
+    let pricingConfig = null
+    try {
+      const pool = getBillingPool()
+      const result = await pool.query('SELECT * FROM service_pricing_config')
+      pricingConfig = result.rows
+    } catch (error) {
       console.error('[Billing API] Error fetching pricing config:', error)
       // Continue with default pricing if config is missing
     }
@@ -459,7 +486,8 @@ router.post(
         enterprise: 'enterprise',
       }
 
-      const tier_name = planMapping[plan_id.toLowerCase()] || plan_id.toLowerCase()
+      const tier_name =
+        planMapping[plan_id.toLowerCase()] || plan_id.toLowerCase()
 
       if (
         !['free', 'starter', 'professional', 'enterprise'].includes(tier_name)
@@ -487,41 +515,26 @@ router.post(
 
       // Get or create subscription
       let subscription = await getUserSubscription(userId)
+      const pool = getBillingPool()
       
       if (!subscription) {
         // Create new subscription
-        const { data, error: createError } = await (supabaseAdmin as any)
-          .from('service_subscriptions')
-          .insert({
-            user_id: userId,
-            tier_name,
-            tier_price: config.price,
-            monthly_credits: config.monthly_credits,
-            credits_remaining: config.monthly_credits,
-            database_storage_limit_gb: config.storage_limit,
-            status: 'active',
-          })
-          .select()
-          .single()
-
-        if (createError) throw createError
-        subscription = data
+        const result = await pool.query(
+          `INSERT INTO service_subscriptions 
+           (user_id, tier_name, tier_price, monthly_credits, credits_remaining, status, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, 'active', NOW(), NOW())
+           RETURNING *`,
+          [userId, tier_name, config.price, config.monthly_credits, config.monthly_credits]
+        )
+        subscription = result.rows[0]
       } else {
         // Update existing subscription
-        const { error: updateError } = await (supabaseAdmin as any)
-          .from('service_subscriptions')
-          .update({
-            tier_name,
-            tier_price: config.price,
-            monthly_credits: config.monthly_credits,
-            database_storage_limit_gb: config.storage_limit,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', userId)
-
-        if (updateError) throw updateError
-        
-        subscription = await getUserSubscription(userId)
+        await pool.query(
+          `UPDATE service_subscriptions 
+           SET tier_name = $1, tier_price = $2, monthly_credits = $3, updated_at = NOW()
+           WHERE user_id = $4`,
+          [tier_name, config.price, config.monthly_credits, userId]
+        )
       }
 
       res.json({
