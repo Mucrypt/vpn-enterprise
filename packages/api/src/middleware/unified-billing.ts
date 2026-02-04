@@ -65,10 +65,10 @@ export async function getAIModels(): Promise<AIModelPricing[]> {
     const pool = getBillingPool()
     const result = await pool.query(
       `SELECT model_id, model_name, provider, input_cost_per_1m as user_input_cost_per_1m, 
-              output_cost_per_1m as user_output_cost_per_1m, markup_multiplier, is_active as is_available
+              output_cost_per_1m as user_output_cost_per_1m, markup_multiplier, is_available
        FROM ai_model_pricing 
-       WHERE is_active = true 
-       ORDER BY provider, model_name`
+       WHERE is_available = true 
+       ORDER BY provider, model_name`,
     )
     return result.rows || []
   } catch (error) {
@@ -90,12 +90,12 @@ export async function calculateAICost(
     const result = await pool.query(
       `SELECT credits_per_1k_input * ($2::numeric / 1000) + credits_per_1k_output * ($3::numeric / 1000) as credits_required
        FROM ai_model_pricing
-       WHERE model_id = $1 AND is_active = true`,
-      [modelId, inputTokens, outputTokens]
+       WHERE model_id = $1 AND is_available = true`,
+      [modelId, inputTokens, outputTokens],
     )
 
     if (result.rows.length === 0) return null
-    
+
     return {
       credits_required: Math.ceil(result.rows[0].credits_required),
       cost_breakdown: {
@@ -106,7 +106,7 @@ export async function calculateAICost(
         output_cost_usd: 0,
         total_cost_usd: 0,
         markup_multiplier: 3.0,
-      }
+      },
     }
   } catch (error) {
     console.error('[Billing] Error calculating AI cost:', error)
@@ -122,7 +122,7 @@ export async function getUserSubscription(userId: string) {
     const pool = getBillingPool()
     const result = await pool.query(
       'SELECT * FROM service_subscriptions WHERE user_id = $1',
-      [userId]
+      [userId],
     )
 
     if (result.rows.length === 0) {
@@ -236,7 +236,12 @@ export async function deductCredits(
        SET credits_remaining = $1, purchased_credits_balance = $2, 
            credits_used_this_month = $3, updated_at = NOW()
        WHERE user_id = $4`,
-      [monthlyCredits, purchasedCredits, (subscription.credits_used_this_month || 0) + amountFromMonthly, userId]
+      [
+        monthlyCredits,
+        purchasedCredits,
+        (subscription.credits_used_this_month || 0) + amountFromMonthly,
+        userId,
+      ],
     )
 
     // Log usage
@@ -249,8 +254,8 @@ export async function deductCredits(
         metadata?.service_type || 'nexusai',
         operation,
         amount,
-        JSON.stringify(metadata || {})
-      ]
+        JSON.stringify(metadata || {}),
+      ],
     )
 
     console.log(
@@ -445,7 +450,11 @@ export async function getServiceUsage(userId: string) {
          AND created_at >= $2 
          AND created_at <= $3
        ORDER BY created_at DESC`,
-      [userId, subscription.current_period_start, subscription.current_period_end]
+      [
+        userId,
+        subscription.current_period_start,
+        subscription.current_period_end,
+      ],
     )
 
     return {
