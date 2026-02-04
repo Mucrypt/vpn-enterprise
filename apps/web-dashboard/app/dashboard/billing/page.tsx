@@ -69,7 +69,7 @@ export default function BillingPage() {
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ planId }),
+            body: JSON.stringify({ plan_id: planId }),
           },
         )
 
