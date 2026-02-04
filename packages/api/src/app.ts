@@ -31,6 +31,7 @@ import { DatabasePlatformClient } from './database-platform-client'
 import { hostingRouter } from './routes/hosting'
 import { tenantsRouter } from './routes/tenants'
 import { registerGeneratedAppsRoutes } from './routes/generated-apps'
+import { registerBillingRoutes } from './routes/billing'
 import adminUsersRouter from './routes/admin/users'
 import adminTenantsRouter from './routes/admin/tenants'
 import { ApolloServer, gql } from 'apollo-server-express'
@@ -270,6 +271,8 @@ app.get('/api/v1/debug/connections', async (req, res) => {
 app.use('/api/v1/hosting', hostingRouter)
 // Tenants routes (scaffold)
 app.use('/api/v1/tenants', tenantsRouter)
+// Billing routes - protected by auth
+registerBillingRoutes(app)
 // Generated Apps routes (NexusAI integration) - protected by auth
 const generatedAppsRouter = express.Router()
 registerGeneratedAppsRoutes(generatedAppsRouter)
