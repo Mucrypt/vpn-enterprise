@@ -41,8 +41,8 @@ interface BillingHistoryProps {
 }
 
 export function BillingHistory({
-  transactions,
-  invoices,
+  transactions = [],
+  invoices = [],
   loading,
 }: BillingHistoryProps) {
   const downloadInvoice = async (invoiceUrl: string) => {

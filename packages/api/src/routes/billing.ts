@@ -25,7 +25,10 @@ router.get('/services', async (req, res) => {
       .from('service_pricing_config')
       .select('*')
 
-    if (error) throw error
+    if (error) {
+      console.error('[Billing API] Error fetching pricing config:', error)
+      // Continue with default pricing if config is missing
+    }
 
     res.json({
       services: {
@@ -419,12 +422,10 @@ router.post(
       })
     } catch (error: any) {
       console.error('[Billing API] Error updating subscription:', error)
-      res
-        .status(500)
-        .json({
-          error: 'Failed to update subscription',
-          message: error.message,
-        })
+      res.status(500).json({
+        error: 'Failed to update subscription',
+        message: error.message,
+      })
     }
   },
 )
@@ -442,6 +443,89 @@ router.get('/models', async (req, res) => {
     res
       .status(500)
       .json({ error: 'Failed to fetch models', message: error.message })
+  }
+})
+
+/**
+ * GET /api/v1/billing/transactions
+ * Get user's transaction history
+ */
+router.get('/transactions', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    const limit = parseInt(req.query.limit as string) || 50
+    const offset = parseInt(req.query.offset as string) || 0
+
+    const { data: transactions, error } = await (supabaseAdmin as any)
+      .from('service_usage_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (error) {
+      console.error('[Billing API] Error fetching transactions:', error)
+      return res.status(500).json({
+        error: 'Failed to fetch transactions',
+        transactions: [],
+      })
+    }
+
+    // Transform to match expected format
+    const formattedTransactions = (transactions || []).map((tx: any) => ({
+      id: tx.id,
+      amount: tx.credits_charged || 0,
+      type: 'debit', // All usage logs are debits
+      service_type: tx.service_type,
+      operation: tx.operation,
+      status: 'completed',
+      created_at: tx.created_at,
+      metadata: tx.metadata,
+    }))
+
+    res.json({ transactions: formattedTransactions })
+  } catch (error: any) {
+    console.error('[Billing API] Error fetching transactions:', error)
+    res.status(500).json({
+      error: 'Failed to fetch transactions',
+      message: error.message,
+      transactions: [],
+    })
+  }
+})
+
+/**
+ * GET /api/v1/billing/invoices
+ * Get user's invoices (Stripe invoices)
+ */
+router.get('/invoices', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    // Get user's Stripe customer ID
+    const subscription = await getUserSubscription(userId)
+
+    if (!subscription?.stripe_customer_id) {
+      return res.json({ invoices: [] })
+    }
+
+    // TODO: Integrate with Stripe to fetch actual invoices
+    // For now, return empty array
+    res.json({ invoices: [] })
+  } catch (error: any) {
+    console.error('[Billing API] Error fetching invoices:', error)
+    res.status(500).json({
+      error: 'Failed to fetch invoices',
+      message: error.message,
+      invoices: [],
+    })
   }
 })
 

@@ -14,10 +14,10 @@ import { Check, Sparkles, Zap, Crown } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import toast from 'react-hot-toast'
 
-// Initialize Stripe
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '',
-)
+// Initialize Stripe - only if key is available
+const STRIPE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+const stripePromise =
+  STRIPE_KEY && STRIPE_KEY.startsWith('pk_') ? loadStripe(STRIPE_KEY) : null
 
 interface Plan {
   id: string
