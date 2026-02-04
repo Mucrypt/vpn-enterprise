@@ -70,7 +70,7 @@ async function ensureUserExists(
   try {
     console.log(`[Billing] Checking if user ${userId} exists in platform_db`)
 
-    // Check if user already exists
+    // Check if user already exists by ID
     const checkResult = await pool.query(
       'SELECT id FROM "user" WHERE id = $1',
       [userId],
@@ -81,24 +81,37 @@ async function ensureUserExists(
       return // User already exists
     }
 
+    // Check if email is already taken by another user
+    if (userEmail) {
+      const emailCheck = await pool.query(
+        'SELECT id FROM "user" WHERE email = $1',
+        [userEmail],
+      )
+      
+      if (emailCheck.rows.length > 0) {
+        const existingUserId = emailCheck.rows[0].id
+        console.log(
+          `[Billing] Email ${userEmail} already exists with user ID ${existingUserId}, using email ${userId}@platform.local instead`,
+        )
+        // Use a unique email based on user ID to avoid conflict
+        userEmail = `${userId}@platform.local`
+      }
+    }
+
     // User doesn't exist, create them
     console.log(
       `[Billing] Creating user ${userId} in platform_db with email: ${userEmail}`,
     )
+    
     const insertResult = await pool.query(
       `INSERT INTO "user" (id, email, "roleSlug", disabled, "mfaEnabled", "createdAt", "updatedAt")
        VALUES ($1, $2, 'global:member', false, false, NOW(), NOW())
-       ON CONFLICT (id) DO NOTHING
        RETURNING id`,
-      [userId, userEmail || `user-${userId}@vpn-enterprise.local`],
+      [userId, userEmail || `${userId}@platform.local`],
     )
 
     if (insertResult.rows.length > 0) {
       console.log(`[Billing] User ${userId} created successfully`)
-    } else {
-      console.log(
-        `[Billing] User ${userId} insert conflict - likely already exists`,
-      )
     }
   } catch (error: any) {
     console.error('[Billing] Error ensuring user exists:', {
