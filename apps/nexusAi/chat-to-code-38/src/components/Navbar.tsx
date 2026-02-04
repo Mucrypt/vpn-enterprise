@@ -118,20 +118,16 @@ const Navbar = () => {
 
               {/* Upgrade Button (for free tier) */}
               {subscriptionInfo?.canUpgrade && (
-                <Button
-                  variant='outline'
-                  size='sm'
-                  className='hidden md:flex border-primary text-primary hover:bg-primary hover:text-primary-foreground'
-                  onClick={() =>
-                    window.open(
-                      'https://chatbuilds.com/dashboard/billing',
-                      '_blank',
-                    )
-                  }
-                >
-                  <Flame className='w-4 h-4 mr-2' />
-                  Upgrade
-                </Button>
+                <Link to='/credits'>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='hidden md:flex border-primary text-primary hover:bg-primary hover:text-primary-foreground'
+                  >
+                    <Flame className='w-4 h-4 mr-2' />
+                    Upgrade
+                  </Button>
+                </Link>
               )}
 
               {/* User Dropdown */}
