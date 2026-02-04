@@ -86,7 +86,7 @@ function LoginForm() {
 
       // Check for redirect parameter (e.g., from nexusAi or other sub-apps)
       const redirectUrl = searchParams.get('redirect')
-      
+
       if (redirectUrl) {
         // Decode and validate the redirect URL
         try {
@@ -257,7 +257,9 @@ export default function LoginPage() {
       <Suspense fallback={<div />}>
         <SessionExpirationNotification />
       </Suspense>
-      <LoginForm />
+      <Suspense fallback={<div className='min-h-screen flex items-center justify-center'>Loading...</div>}>
+        <LoginForm />
+      </Suspense>
     </>
   )
 }
