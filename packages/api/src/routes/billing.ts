@@ -38,6 +38,40 @@ function getBillingPool(): Pool {
 }
 
 /**
+ * Ensure user exists in platform_db (sync from Supabase auth)
+ * This prevents foreign key violations when creating subscriptions
+ */
+async function ensureUserExists(userId: string, userEmail?: string): Promise<void> {
+  const pool = getBillingPool()
+  
+  try {
+    // Check if user already exists
+    const checkResult = await pool.query(
+      'SELECT id FROM "user" WHERE id = $1',
+      [userId]
+    )
+    
+    if (checkResult.rows.length > 0) {
+      return // User already exists
+    }
+    
+    // User doesn't exist, create them
+    console.log(`[Billing] Creating user ${userId} in platform_db`)
+    await pool.query(
+      `INSERT INTO "user" (id, email, "roleSlug", disabled, "mfaEnabled", "createdAt", "updatedAt")
+       VALUES ($1, $2, 'global:member', false, false, NOW(), NOW())
+       ON CONFLICT (id) DO NOTHING`,
+      [userId, userEmail || `user-${userId}@vpn-enterprise.local`]
+    )
+    
+    console.log(`[Billing] User ${userId} created successfully`)
+  } catch (error) {
+    console.error('[Billing] Error ensuring user exists:', error)
+    // Don't throw - let the trigger create the subscription if possible
+  }
+}
+
+/**
  * GET /api/v1/billing/services
  * Get all available services with pricing
  */
@@ -236,6 +270,9 @@ router.get('/subscription', authMiddleware, async (req: AuthRequest, res) => {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
+    // Ensure user exists in platform_db
+    await ensureUserExists(userId, req.user?.email)
+
     const subscription = await getUserSubscription(userId)
 
     if (!subscription) {
@@ -351,6 +388,9 @@ router.post('/credits/buy', authMiddleware, async (req: AuthRequest, res) => {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
+    // Ensure user exists in platform_db
+    await ensureUserExists(userId, userEmail)
+
     const { package_name, credits, amount } = req.body
 
     if (!package_name || !credits || !amount) {
@@ -365,7 +405,7 @@ router.post('/credits/buy', authMiddleware, async (req: AuthRequest, res) => {
        (user_id, credits_amount, bonus_credits, price_paid, payment_status, created_at)
        VALUES ($1, $2, $3, $4, 'pending', NOW())
        RETURNING *`,
-      [userId, credits, Math.floor(credits * 0.1), amount]
+      [userId, credits, Math.floor(credits * 0.1), amount],
     )
 
     const purchase = result.rows[0]
@@ -395,6 +435,9 @@ router.post(
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' })
       }
+
+      // Ensure user exists in platform_db
+      await ensureUserExists(userId, req.user?.email)
 
       const { tier_name } = req.body
 
@@ -428,7 +471,7 @@ router.post(
         `UPDATE service_subscriptions 
          SET tier_name = $1, tier_price = $2, monthly_credits = $3, updated_at = NOW()
          WHERE user_id = $4`,
-        [tier_name, config.price, config.monthly_credits, userId]
+        [tier_name, config.price, config.monthly_credits, userId],
       )
 
       const updated = await getUserSubscription(userId)
@@ -460,6 +503,9 @@ router.post(
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' })
       }
+
+      // Ensure user exists in platform_db before creating subscription
+      await ensureUserExists(userId, req.user?.email)
 
       const { plan_id, price_id } = req.body
 
@@ -506,7 +552,7 @@ router.post(
       // Get or create subscription
       let subscription = await getUserSubscription(userId)
       const pool = getBillingPool()
-      
+
       if (!subscription) {
         // Create new subscription
         const result = await pool.query(
@@ -514,7 +560,13 @@ router.post(
            (user_id, tier_name, tier_price, monthly_credits, credits_remaining, status, created_at, updated_at)
            VALUES ($1, $2, $3, $4, $5, 'active', NOW(), NOW())
            RETURNING *`,
-          [userId, tier_name, config.price, config.monthly_credits, config.monthly_credits]
+          [
+            userId,
+            tier_name,
+            config.price,
+            config.monthly_credits,
+            config.monthly_credits,
+          ],
         )
         subscription = result.rows[0]
       } else {
@@ -523,7 +575,7 @@ router.post(
           `UPDATE service_subscriptions 
            SET tier_name = $1, tier_price = $2, monthly_credits = $3, updated_at = NOW()
            WHERE user_id = $4`,
-          [tier_name, config.price, config.monthly_credits, userId]
+          [tier_name, config.price, config.monthly_credits, userId],
         )
       }
 
@@ -578,7 +630,7 @@ router.get('/transactions', authMiddleware, async (req: AuthRequest, res) => {
        WHERE user_id = $1 
        ORDER BY created_at DESC 
        LIMIT $2 OFFSET $3`,
-      [userId, limit, offset]
+      [userId, limit, offset],
     )
 
     const transactions = result.rows
