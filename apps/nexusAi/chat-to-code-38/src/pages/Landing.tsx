@@ -206,7 +206,8 @@ export default function Landing() {
               Simple, pay-as-you-go credits
             </h2>
             <p className='text-lg text-muted-foreground'>
-              Buy credits once, use them anytime. No subscriptions, no expiration stress.
+              Buy credits once, use them anytime. No subscriptions, no
+              expiration stress.
             </p>
           </div>
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
@@ -226,9 +227,7 @@ export default function Landing() {
                 )}
                 <CardHeader>
                   <CardTitle className='text-2xl'>{pkg.name}</CardTitle>
-                  <div className='text-4xl font-bold mt-2'>
-                    {pkg.price}
-                  </div>
+                  <div className='text-4xl font-bold mt-2'>{pkg.price}</div>
                   <CardDescription>{pkg.description}</CardDescription>
                   <div className='mt-4'>
                     <Badge variant='secondary' className='text-lg px-3 py-1'>
@@ -263,7 +262,8 @@ export default function Landing() {
           </div>
           <div className='text-center mt-8'>
             <p className='text-sm text-muted-foreground'>
-              All packages include database, authentication, and deployment support
+              All packages include database, authentication, and deployment
+              support
             </p>
           </div>
         </div>

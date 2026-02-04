@@ -78,19 +78,19 @@ class AuthService {
   logout(): void {
     // Clear nexusAi auth
     localStorage.removeItem(this.STORAGE_KEY)
-    
+
     // Clear dashboard auth storage to trigger logout there too
     try {
       localStorage.removeItem('vpn-enterprise-auth-storage')
       localStorage.removeItem('access_token')
-      
+
       // Broadcast logout event to dashboard
       localStorage.setItem('nexusai_logout_event', Date.now().toString())
       localStorage.removeItem('nexusai_logout_event')
     } catch (error) {
       console.warn('Failed to clear dashboard auth:', error)
     }
-    
+
     // Redirect to dashboard login
     window.location.href = 'https://chatbuilds.com/auth/login?redirect=nexusai'
   }
@@ -173,7 +173,7 @@ class AuthService {
       const response = await fetch('https://chatbuilds.com/api/v1/auth/me', {
         credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${auth.token}`,
+          Authorization: `Bearer ${auth.token}`,
         },
       })
 

@@ -62,7 +62,7 @@ export const CreditsProvider = ({ children }: { children: ReactNode }) => {
   // Start auth sync and automatic logout detection on mount
   useEffect(() => {
     authService.startAuthSync()
-    
+
     // Initial refresh
     refreshCredits()
 
