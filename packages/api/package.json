@@ -29,7 +29,8 @@
     "ioredis": "^5.4.1",
     "apollo-server-express": "^3.13.0",
     "graphql": "^16.9.0",
-    "prom-client": "^15.1.0"
+    "prom-client": "^15.1.0",
+    "stripe": "^17.5.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
