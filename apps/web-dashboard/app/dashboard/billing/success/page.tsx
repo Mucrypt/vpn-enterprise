@@ -128,7 +128,7 @@ export default function PaymentSuccessPage() {
                 <CardTitle className='text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent'>
                   Payment Successful! 🎉
                 </CardTitle>
-                <p className='text-xl text-muted-foreground mt-2'>
+                <p className='text-xl text-gray-600 dark:text-gray-300 mt-2'>
                   Thank you for your purchase
                 </p>
               </motion.div>
@@ -144,20 +144,20 @@ export default function PaymentSuccessPage() {
                   className='bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-6 space-y-4'
                 >
                   <div className='flex items-center justify-between'>
-                    <span className='text-sm font-medium text-muted-foreground'>
+                    <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>
                       Transaction Type
                     </span>
-                    <span className='text-sm font-bold capitalize'>
+                    <span className='text-sm font-bold capitalize text-gray-900 dark:text-gray-100'>
                       {paymentDetails.type}
                     </span>
                   </div>
 
                   {paymentDetails.planName && (
                     <div className='flex items-center justify-between'>
-                      <span className='text-sm font-medium text-muted-foreground'>
+                      <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>
                         Plan
                       </span>
-                      <span className='text-sm font-bold flex items-center gap-2'>
+                      <span className='text-sm font-bold flex items-center gap-2 text-gray-900 dark:text-gray-100'>
                         <Sparkles className='w-4 h-4 text-yellow-500' />
                         {paymentDetails.planName}
                       </span>
@@ -166,18 +166,18 @@ export default function PaymentSuccessPage() {
 
                   {paymentDetails.credits && (
                     <div className='flex items-center justify-between'>
-                      <span className='text-sm font-medium text-muted-foreground'>
+                      <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>
                         Credits Added
                       </span>
-                      <span className='text-sm font-bold text-green-600'>
+                      <span className='text-sm font-bold text-green-600 dark:text-green-400'>
                         +{paymentDetails.credits.toLocaleString()} credits
                       </span>
                     </div>
                   )}
 
-                  <div className='flex items-center justify-between pt-4 border-t'>
-                    <span className='text-base font-medium'>Amount Paid</span>
-                    <span className='text-2xl font-bold text-green-600'>
+                  <div className='flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700'>
+                    <span className='text-base font-medium text-gray-900 dark:text-gray-100'>Amount Paid</span>
+                    <span className='text-2xl font-bold text-green-600 dark:text-green-400'>
                       ${paymentDetails.amount}
                     </span>
                   </div>
@@ -191,8 +191,8 @@ export default function PaymentSuccessPage() {
                 transition={{ delay: 0.5 }}
                 className='space-y-3'
               >
-                <h3 className='font-semibold text-lg'>What&apos;s Next?</h3>
-                <ul className='space-y-2 text-sm text-muted-foreground'>
+                <h3 className='font-semibold text-lg text-gray-900 dark:text-gray-100'>What&apos;s Next?</h3>
+                <ul className='space-y-2 text-sm text-gray-600 dark:text-gray-300'>
                   <li className='flex items-start gap-2'>
                     <CheckCircle className='w-4 h-4 text-green-500 mt-0.5 flex-shrink-0' />
                     <span>Your payment has been processed successfully</span>
