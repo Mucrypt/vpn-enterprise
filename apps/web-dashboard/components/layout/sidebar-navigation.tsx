@@ -188,7 +188,7 @@ export function SidebarNavigation() {
                   'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 touch-manipulation',
                   isActive
                     ? 'bg-emerald-100 text-emerald-900 border-l-4 border-emerald-700 shadow-md font-semibold'
-                    : 'text-foreground hover:bg-muted hover:text-primary border-l-4 border-transparent active:bg-muted/80',
+                    : 'text-slate-300 hover:bg-slate-800/50 hover:text-white border-l-4 border-transparent active:bg-slate-800/60',
                   !sidebarOpen && 'justify-center md:px-3',
                 )}
               >
@@ -206,9 +206,9 @@ export function SidebarNavigation() {
           aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {sidebarOpen ? (
-            <ChevronLeft className='h-5 w-5 text-gray-700' />
+            <ChevronLeft className='h-5 w-5 text-slate-400 hover:text-white transition-colors' />
           ) : (
-            <ChevronRight className='h-5 w-5 text-gray-700' />
+            <ChevronRight className='h-5 w-5 text-slate-400 hover:text-white transition-colors' />
           )}
         </button>
       </div>
