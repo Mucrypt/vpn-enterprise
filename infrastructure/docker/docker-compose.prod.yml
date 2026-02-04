@@ -166,8 +166,8 @@ services:
     container_name: vpn-pgadmin
     restart: always
     environment:
-      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@vpnenterprise.com}
-      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-vpnadmin@vpnenterprise.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-VpnAdmin3813@@}
       - PGADMIN_CONFIG_SERVER_MODE=True
       - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
       - PGADMIN_LISTEN_PORT=80
