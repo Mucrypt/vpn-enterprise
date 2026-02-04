@@ -135,15 +135,15 @@ export function TopBar() {
   const { toggleSidebar } = useDashboardStore()
 
   return (
-    <div className='flex h-14 md:h-16 items-center justify-between border-b border-slate-800/50 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-900/95 backdrop-blur-xl px-3 sm:px-4 md:px-6 shadow-lg'>
+    <div className='flex h-14 md:h-16 items-center justify-between border-b border-gray-200 bg-white backdrop-blur-xl px-3 sm:px-4 md:px-6 shadow-sm'>
       {/* Mobile Menu Button */}
       <button
         onClick={toggleSidebar}
-        className='md:hidden p-2 hover:bg-slate-800/60 rounded-xl transition-all duration-200 touch-manipulation hover:scale-105 active:scale-95 hover:shadow-lg'
+        className='md:hidden p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 touch-manipulation hover:scale-105 active:scale-95'
         aria-label='Open menu'
       >
         <svg
-          className='h-6 w-6 text-slate-400 hover:text-white transition-colors'
+          className='h-6 w-6 text-gray-600 hover:text-gray-900 transition-colors'
           fill='none'
           viewBox='0 0 24 24'
           stroke='currentColor'
@@ -160,13 +160,13 @@ export function TopBar() {
       {/* Search */}
       <div className='flex flex-1 items-center gap-2 md:gap-4'>
         <div className='relative w-full max-w-md group'>
-          <Search className='absolute left-2 md:left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-400 transition-colors duration-200 z-10' />
+          <Search className='absolute left-2 md:left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-500 transition-colors duration-200 z-10' />
           <input
             type='text'
             placeholder='Search...'
-            className='w-full rounded-xl border border-slate-700/50 bg-slate-800/40 backdrop-blur-sm pl-8 md:pl-10 pr-3 py-2 md:py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-slate-800/60 transition-all duration-200 hover:bg-slate-800/50 shadow-inner hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+            className='w-full rounded-xl border border-gray-300 bg-white pl-8 md:pl-10 pr-3 py-2 md:py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 hover:border-gray-400'
           />
-          <div className='absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-500/0 via-emerald-500/0 to-emerald-500/0 opacity-0 group-focus-within:opacity-100 group-focus-within:from-emerald-500/5 group-focus-within:via-cyan-500/5 group-focus-within:to-emerald-500/5 transition-opacity duration-300 pointer-events-none' />
+          <div className='absolute inset-0 rounded-xl bg-linear-to-r from-emerald-500/0 via-emerald-500/0 to-emerald-500/0 opacity-0 group-focus-within:opacity-100 group-focus-within:from-emerald-500/5 group-focus-within:via-green-500/5 group-focus-within:to-emerald-500/5 transition-opacity duration-300 pointer-events-none' />
         </div>
       </div>
 
@@ -189,9 +189,9 @@ export function TopBar() {
           </Button>
 
           {showNotifications && (
-            <div className='absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-800/50 z-50 max-h-[70vh] sm:max-h-[600px] overflow-hidden flex flex-col animate-in slide-in-from-top-5 duration-200'>
-              <div className='px-3 sm:px-4 py-4 border-b border-slate-800/50 flex items-center justify-between bg-gradient-to-r from-slate-800/50 to-slate-800/30 backdrop-blur-sm'>
-                <h3 className='text-sm font-bold text-white tracking-wide'>
+            <div className='absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-white backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200 z-50 max-h-[70vh] sm:max-h-[600px] overflow-hidden flex flex-col animate-in slide-in-from-top-5 duration-200'>
+              <div className='px-3 sm:px-4 py-4 border-b border-gray-200 flex items-center justify-between bg-linear-to-r from-gray-50 to-white backdrop-blur-sm'>
+                <h3 className='text-sm font-bold text-gray-900 tracking-wide'>
                   Notifications
                 </h3>
                 <div className='flex items-center gap-2'>
@@ -222,13 +222,13 @@ export function TopBar() {
                     </p>
                   </div>
                 ) : (
-                  <div className='divide-y'>
+                  <div className='divide-y divide-gray-200'>
                     {notifications.map((notif) => (
                       <div
                         key={notif.id}
-                        className={`px-4 py-3 hover:bg-slate-800/60 transition-all duration-200 cursor-pointer border-l-2 hover:border-l-emerald-500/50 hover:scale-[1.01] ${
+                        className={`px-4 py-3 hover:bg-gray-50 transition-all duration-200 cursor-pointer border-l-2 hover:border-l-emerald-500 hover:scale-[1.01] ${
                           !notif.read
-                            ? 'bg-gradient-to-r from-emerald-500/15 to-transparent border-l-emerald-500'
+                            ? 'bg-emerald-50 border-l-emerald-500'
                             : 'border-l-transparent'
                         }`}
                         onClick={() => {
@@ -246,7 +246,7 @@ export function TopBar() {
                           <div className='flex-1 min-w-0'>
                             <div className='flex items-start justify-between gap-2'>
                               <p
-                                className={`text-sm font-medium text-white ${!notif.read ? 'font-semibold' : ''}`}
+                                className={`text-sm font-medium text-gray-900 ${!notif.read ? 'font-semibold' : ''}`}
                               >
                                 {notif.title}
                               </p>
@@ -254,10 +254,10 @@ export function TopBar() {
                                 <span className='shrink-0 h-2 w-2 rounded-full bg-emerald-500'></span>
                               )}
                             </div>
-                            <p className='text-xs text-slate-400 mt-1 line-clamp-2'>
+                            <p className='text-xs text-gray-600 mt-1 line-clamp-2'>
                               {notif.message}
                             </p>
-                            <p className='text-xs text-slate-500 mt-1'>
+                            <p className='text-xs text-gray-400 mt-1'>
                               {formatTime(notif.timestamp)}
                             </p>
                           </div>
@@ -274,9 +274,9 @@ export function TopBar() {
         <div className='relative' ref={menuRef}>
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className='flex items-center gap-2 md:gap-3 hover:bg-slate-800/60 rounded-xl px-2 md:px-3 py-1.5 md:py-2 transition-all duration-200 touch-manipulation hover:scale-105 active:scale-95 hover:shadow-lg shadow-emerald-500/10 border border-transparent hover:border-slate-700/50'
+            className='flex items-center gap-2 md:gap-3 hover:bg-gray-100 rounded-xl px-2 md:px-3 py-1.5 md:py-2 transition-all duration-200 touch-manipulation hover:scale-105 active:scale-95 border border-transparent hover:border-gray-200'
           >
-            <div className='h-8 w-8 md:h-9 md:w-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold text-sm'>
+            <div className='h-8 w-8 md:h-9 md:w-9 rounded-full bg-linear-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold text-sm'>
               {user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
             <div className='hidden sm:flex flex-col items-start'>
@@ -298,10 +298,12 @@ export function TopBar() {
           </button>
 
           {showUserMenu && (
-            <div className='absolute right-0 mt-2 w-56 sm:w-64 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-800/50 py-2 z-50 animate-in slide-in-from-top-5 duration-200'>
-              <div className='px-4 py-3 border-b border-slate-800/50 bg-gradient-to-r from-slate-800/30 to-transparent'>
-                <p className='text-sm font-medium text-white'>{user?.email}</p>
-                <p className='text-xs text-slate-400 mt-1'>
+            <div className='absolute right-0 mt-2 w-56 sm:w-64 bg-white backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200 py-2 z-50 animate-in slide-in-from-top-5 duration-200'>
+              <div className='px-4 py-3 border-b border-gray-200 bg-linear-to-r from-gray-50 to-white'>
+                <p className='text-sm font-medium text-gray-900'>
+                  {user?.email}
+                </p>
+                <p className='text-xs text-gray-500 mt-1'>
                   {user?.role?.replace('_', ' ').toUpperCase()} Account
                 </p>
               </div>
@@ -310,7 +312,7 @@ export function TopBar() {
                 <Link
                   href='/dashboard/profile'
                   onClick={() => setShowUserMenu(false)}
-                  className='flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all duration-200 rounded-lg mx-2 hover:scale-[1.02] group'
+                  className='flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 rounded-lg mx-2 hover:scale-[1.02] group'
                 >
                   <User className='h-4 w-4' />
                   My Profile
@@ -320,7 +322,7 @@ export function TopBar() {
                   <Link
                     href='/dashboard/profile/admin'
                     onClick={() => setShowUserMenu(false)}
-                    className='flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all duration-200 rounded-lg mx-2 hover:scale-[1.02] group'
+                    className='flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 rounded-lg mx-2 hover:scale-[1.02] group'
                   >
                     <Shield className='h-4 w-4' />
                     Admin Profile
@@ -330,20 +332,20 @@ export function TopBar() {
                 <Link
                   href='/dashboard/security'
                   onClick={() => setShowUserMenu(false)}
-                  className='flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all duration-200 rounded-lg mx-2 hover:scale-[1.02] group'
+                  className='flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 rounded-lg mx-2 hover:scale-[1.02] group'
                 >
                   <Settings className='h-4 w-4' />
                   Settings
                 </Link>
               </div>
 
-              <div className='border-t border-slate-800/50 py-2 bg-gradient-to-b from-transparent to-slate-900/50'>
+              <div className='border-t border-gray-200 py-2 bg-linear-to-b from-white to-gray-50'>
                 <button
                   onClick={() => {
                     setShowUserMenu(false)
                     logout()
                   }}
-                  className='flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 w-full rounded-lg mx-2 hover:scale-[1.02] hover:shadow-[0_0_15px_rgba(239,68,68,0.2)] group'
+                  className='flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200 w-full rounded-lg mx-2 hover:scale-[1.02] group'
                 >
                   <LogOut className='h-4 w-4' />
                   Logout
