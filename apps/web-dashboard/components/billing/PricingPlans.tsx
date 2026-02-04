@@ -60,7 +60,7 @@ const PLANS: Plan[] = [
     description: 'Great for small projects',
     price: 29.99,
     credits: 1000,
-    stripePriceId: 'price_starter_monthly', // Replace with your Stripe Price ID
+    stripePriceId: 'price_1Sx9yiKQ56fnaANWBzqrQE49',
     features: [
       '1,000 credits/month',
       '10 GB database storage',
@@ -76,7 +76,7 @@ const PLANS: Plan[] = [
     price: 79.99,
     credits: 5000,
     popular: true,
-    stripePriceId: 'price_professional_monthly', // Replace with your Stripe Price ID
+    stripePriceId: 'price_1Sx9zAKQ56fnaANW54Rt4j1R',
     features: [
       '5,000 credits/month + 20% bonus',
       '50 GB database storage',
@@ -93,7 +93,7 @@ const PLANS: Plan[] = [
     description: 'For large teams and organizations',
     price: 299.99,
     credits: 25000,
-    stripePriceId: 'price_enterprise_monthly', // Replace with your Stripe Price ID
+    stripePriceId: 'price_1Sx9zcKQ56fnaANWH1vMY4Fy',
     features: [
       '25,000 credits/month + 40% bonus',
       '500 GB database storage',
@@ -120,7 +120,7 @@ const CREDIT_PACKAGES: CreditPackage[] = [
     name: 'Starter Pack',
     credits: 100,
     price: 10,
-    stripePriceId: process.env.NEXT_PUBLIC_STRIPE_CREDITS_100_PRICE_ID,
+    stripePriceId: 'price_1SxA0MKQ56fnaANWqVGE9hL2',
   },
   {
     id: 'popular',
@@ -128,7 +128,7 @@ const CREDIT_PACKAGES: CreditPackage[] = [
     credits: 500,
     price: 45,
     bonus: 50,
-    stripePriceId: process.env.NEXT_PUBLIC_STRIPE_CREDITS_500_PRICE_ID,
+    stripePriceId: 'price_1SxA0gKQ56fnaANWxML0n5Uw',
   },
   {
     id: 'pro',
@@ -136,7 +136,7 @@ const CREDIT_PACKAGES: CreditPackage[] = [
     credits: 1000,
     price: 80,
     bonus: 200,
-    stripePriceId: process.env.NEXT_PUBLIC_STRIPE_CREDITS_1000_PRICE_ID,
+    stripePriceId: 'price_1SxA17KQ56fnaANW9CaejiXT',
   },
   {
     id: 'enterprise',
@@ -144,7 +144,7 @@ const CREDIT_PACKAGES: CreditPackage[] = [
     credits: 5000,
     price: 350,
     bonus: 1500,
-    stripePriceId: process.env.NEXT_PUBLIC_STRIPE_CREDITS_5000_PRICE_ID,
+    stripePriceId: 'price_1SxA1WKQ56fnaANWSKT9QOzO',
   },
 ]
 
@@ -167,7 +167,16 @@ export function PricingPlans({
   const handleSelectPlan = async (planId: string, stripePriceId?: string) => {
     setProcessingPlan(planId)
     try {
+      // Check if this is a credit package without Stripe setup
+      const isCreditPackage = selectedTab === 'credits'
+      if (isCreditPackage && !stripePriceId) {
+        toast.error('Credit purchases require Stripe configuration. Please contact support.')
+        return
+      }
+      
       await onSelectPlan(planId, stripePriceId)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to process request')
     } finally {
       setProcessingPlan(null)
     }

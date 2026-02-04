@@ -312,7 +312,7 @@ router.post(
         })
       }
 
-      const { priceId, planId, successUrl, cancelUrl } = req.body
+      const { priceId, planId, successUrl, cancelUrl, mode } = req.body
 
       if (!priceId || !successUrl || !cancelUrl) {
         return res.status(400).json({
@@ -320,8 +320,11 @@ router.post(
         })
       }
 
+      // Detect if this is a subscription or one-time payment
+      const paymentMode = mode || 'subscription' // 'subscription' or 'payment'
+
       console.log(
-        `[Billing] Creating Stripe checkout for user ${userId}, plan: ${planId}`,
+        `[Billing] Creating Stripe checkout for user ${userId}, plan: ${planId}, mode: ${paymentMode}`,
       )
 
       // Ensure user exists in platform_db
@@ -361,12 +364,13 @@ router.post(
             quantity: 1,
           },
         ],
-        mode: 'subscription',
+        mode: paymentMode as 'subscription' | 'payment',
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: {
           user_id: userId,
           plan_id: planId || 'unknown',
+          payment_type: paymentMode === 'payment' ? 'credits' : 'subscription',
         },
       })
 
@@ -390,101 +394,171 @@ router.post(
  * POST /api/v1/billing/stripe/webhook
  * Handle Stripe webhook events (raw body required)
  */
-router.post(
-  '/stripe/webhook',
-  async (req, res) => {
-    const sig = req.headers['stripe-signature']
+router.post('/stripe/webhook', async (req, res) => {
+  const sig = req.headers['stripe-signature']
 
-    if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
-      return res.status(503).json({ error: 'Webhook not configured' })
-    }
+  if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).json({ error: 'Webhook not configured' })
+  }
 
-    try {
-      const event = stripe.webhooks.constructEvent(
-        req.body,
-        sig as string,
-        process.env.STRIPE_WEBHOOK_SECRET,
-      )
+  try {
+    const event = stripe.webhooks.constructEvent(
+      req.body,
+      sig as string,
+      process.env.STRIPE_WEBHOOK_SECRET,
+    )
 
-      console.log(`[Stripe Webhook] Received event: ${event.type}`)
+    console.log(`[Stripe Webhook] Received event: ${event.type}`)
 
-      switch (event.type) {
-        case 'checkout.session.completed': {
-          const session = event.data.object as Stripe.Checkout.Session
-          const userId = session.metadata?.user_id
-          const planId = session.metadata?.plan_id
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session
+        const userId = session.metadata?.user_id
+        const planId = session.metadata?.plan_id
+        const paymentType = session.metadata?.payment_type
 
-          if (userId && planId) {
-            console.log(`[Stripe Webhook] Checkout completed for user ${userId}, plan ${planId}`)
-            
-            const pool = getBillingPool()
-            const planMapping: Record<string, string> = {
-              free: 'free',
-              starter: 'starter',
-              pro: 'professional',
-              professional: 'professional',
-              enterprise: 'enterprise',
-            }
-            
-            const tierConfig: any = {
-              free: { price: 0, monthly_credits: 100 },
-              starter: { price: 29.99, monthly_credits: 1000 },
-              professional: { price: 79.99, monthly_credits: 5000 },
-              enterprise: { price: 299.99, monthly_credits: 25000 },
-            }
-            
-            const tierName = planMapping[planId.toLowerCase()]
-            const config = tierConfig[tierName]
-            
-            if (config) {
-              await pool.query(
-                `UPDATE service_subscriptions 
+        if (!userId) {
+          console.warn('[Stripe Webhook] No user_id in session metadata')
+          break
+        }
+
+        const pool = getBillingPool()
+
+        // Handle credit purchases (one-time payments)
+        if (paymentType === 'credits') {
+          console.log(
+            `[Stripe Webhook] Processing credit purchase for user ${userId}, plan ${planId}`,
+          )
+
+          // Map credit package IDs to credit amounts
+          const creditPackages: Record<
+            string,
+            { credits: number; bonus: number }
+          > = {
+            starter: { credits: 100, bonus: 0 },
+            popular: { credits: 500, bonus: 50 },
+            pro: { credits: 1000, bonus: 200 },
+            enterprise: { credits: 5000, bonus: 1500 },
+          }
+
+          const packageConfig = creditPackages[planId?.toLowerCase() || '']
+
+          if (packageConfig) {
+            const totalCredits = packageConfig.credits + packageConfig.bonus
+            const amountPaid = session.amount_total
+              ? session.amount_total / 100
+              : 0
+
+            // Add credits to user's account
+            await pool.query(
+              `UPDATE service_subscriptions 
+               SET credits_remaining = credits_remaining + $1,
+                   updated_at = NOW()
+               WHERE user_id = $2`,
+              [totalCredits, userId],
+            )
+
+            // Record the purchase transaction
+            await pool.query(
+              `INSERT INTO credit_purchases (user_id, package_name, credits_purchased, bonus_credits, amount_paid, stripe_payment_id)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                userId,
+                planId,
+                packageConfig.credits,
+                packageConfig.bonus,
+                amountPaid,
+                session.payment_intent,
+              ],
+            )
+
+            console.log(
+              `[Stripe Webhook] Added ${totalCredits} credits to user ${userId}`,
+            )
+          }
+        } else if (planId) {
+          // Handle subscription upgrades
+          console.log(
+            `[Stripe Webhook] Checkout completed for user ${userId}, plan ${planId}`,
+          )
+
+          const planMapping: Record<string, string> = {
+            free: 'free',
+            starter: 'starter',
+            pro: 'professional',
+            professional: 'professional',
+            enterprise: 'enterprise',
+          }
+
+          const tierConfig: any = {
+            free: { price: 0, monthly_credits: 100 },
+            starter: { price: 29.99, monthly_credits: 1000 },
+            professional: { price: 79.99, monthly_credits: 5000 },
+            enterprise: { price: 299.99, monthly_credits: 25000 },
+          }
+
+          const tierName = planMapping[planId.toLowerCase()]
+          const config = tierConfig[tierName]
+
+          if (config) {
+            await pool.query(
+              `UPDATE service_subscriptions 
                  SET tier_name = $1, tier_price = $2, monthly_credits = $3, 
                      stripe_subscription_id = $4, status = 'active', updated_at = NOW()
                  WHERE user_id = $5`,
-                [tierName, config.price, config.monthly_credits, session.subscription, userId]
-              )
-              console.log(`[Stripe Webhook] Updated subscription for user ${userId}`)
-            }
-          }
-          break
-        }
-
-        case 'customer.subscription.updated':
-        case 'customer.subscription.deleted': {
-          const subscription = event.data.object as Stripe.Subscription
-          const customerId = subscription.customer as string
-
-          const pool = getBillingPool()
-          const result = await pool.query(
-            'SELECT user_id FROM service_subscriptions WHERE stripe_customer_id = $1',
-            [customerId]
-          )
-
-          if (result.rows.length > 0) {
-            const userId = result.rows[0].user_id
-            const status = subscription.status === 'active' ? 'active' : 'cancelled'
-            
-            await pool.query(
-              'UPDATE service_subscriptions SET status = $1, updated_at = NOW() WHERE user_id = $2',
-              [status, userId]
+              [
+                tierName,
+                config.price,
+                config.monthly_credits,
+                session.subscription,
+                userId,
+              ],
             )
-            console.log(`[Stripe Webhook] Updated subscription status to ${status} for user ${userId}`)
+            console.log(
+              `[Stripe Webhook] Updated subscription for user ${userId}`,
+            )
           }
-          break
         }
-
-        default:
-          console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`)
+        break
       }
 
-      res.json({ received: true })
-    } catch (error: any) {
-      console.error('[Stripe Webhook] Error:', error)
-      res.status(400).send(`Webhook Error: ${error.message}`)
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription
+        const customerId = subscription.customer as string
+
+        const pool = getBillingPool()
+        const result = await pool.query(
+          'SELECT user_id FROM service_subscriptions WHERE stripe_customer_id = $1',
+          [customerId],
+        )
+
+        if (result.rows.length > 0) {
+          const userId = result.rows[0].user_id
+          const status =
+            subscription.status === 'active' ? 'active' : 'cancelled'
+
+          await pool.query(
+            'UPDATE service_subscriptions SET status = $1, updated_at = NOW() WHERE user_id = $2',
+            [status, userId],
+          )
+          console.log(
+            `[Stripe Webhook] Updated subscription status to ${status} for user ${userId}`,
+          )
+        }
+        break
+      }
+
+      default:
+        console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`)
     }
-  },
-)
+
+    res.json({ received: true })
+  } catch (error: any) {
+    console.error('[Stripe Webhook] Error:', error)
+    res.status(400).send(`Webhook Error: ${error.message}`)
+  }
+})
 
 /**
  * GET /api/v1/billing/subscription

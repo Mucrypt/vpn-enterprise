@@ -64,6 +64,8 @@ export default function BillingPage() {
     try {
       if (!stripePriceId) {
         // Handle free plan or plans without Stripe
+        toast.loading('Processing subscription change...', { id: 'plan-change' })
+        
         const response = await api.fetchAPI(
           '/api/v1/billing/subscription/change',
           {
@@ -73,12 +75,21 @@ export default function BillingPage() {
           },
         )
 
-        toast.success('Plan updated successfully')
+        toast.success('Plan updated successfully!', { id: 'plan-change' })
         await loadBillingData()
         return
       }
 
+      // Detect if this is a credit purchase or subscription
+      const isCreditPurchase =
+        planId === 'starter' ||
+        planId === 'popular' ||
+        (planId === 'pro' && stripePriceId.includes('A17KQ')) ||
+        (planId === 'enterprise' && stripePriceId.includes('A1WKQ'))
+
       // Create Stripe checkout session and redirect
+      toast.loading('Redirecting to payment...', { id: 'plan-change' })
+      
       const response = await api.fetchAPI(
         '/api/v1/billing/create-checkout-session',
         {
@@ -87,6 +98,7 @@ export default function BillingPage() {
           body: JSON.stringify({
             priceId: stripePriceId,
             planId,
+            mode: isCreditPurchase ? 'payment' : 'subscription',
             successUrl: `${window.location.origin}/dashboard/billing?session_id={CHECKOUT_SESSION_ID}`,
             cancelUrl: `${window.location.origin}/dashboard/billing`,
           }),
@@ -101,7 +113,7 @@ export default function BillingPage() {
       window.location.href = response.url
     } catch (error: any) {
       console.error('Failed to select plan:', error)
-      toast.error(error.message || 'Failed to process payment')
+      toast.error(error.message || 'Failed to process payment', { id: 'plan-change' })
       throw error
     }
   }
