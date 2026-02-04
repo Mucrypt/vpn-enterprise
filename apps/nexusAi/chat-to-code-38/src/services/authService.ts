@@ -24,6 +24,8 @@ export interface AuthState {
 class AuthService {
   private readonly STORAGE_KEY = 'nexusai_auth'
   private readonly API_BASE = '/api/v1'
+  private syncInterval: NodeJS.Timeout | null = null
+  private authCheckInterval: NodeJS.Timeout | null = null
 
   /**
    * Check if user is authenticated
@@ -74,7 +76,22 @@ class AuthService {
    * Clear auth state (logout)
    */
   logout(): void {
+    // Clear nexusAi auth
     localStorage.removeItem(this.STORAGE_KEY)
+    
+    // Clear dashboard auth storage to trigger logout there too
+    try {
+      localStorage.removeItem('vpn-enterprise-auth-storage')
+      localStorage.removeItem('access_token')
+      
+      // Broadcast logout event to dashboard
+      localStorage.setItem('nexusai_logout_event', Date.now().toString())
+      localStorage.removeItem('nexusai_logout_event')
+    } catch (error) {
+      console.warn('Failed to clear dashboard auth:', error)
+    }
+    
+    // Redirect to dashboard login
     window.location.href = 'https://chatbuilds.com/auth/login?redirect=nexusai'
   }
 
@@ -84,6 +101,89 @@ class AuthService {
   redirectToLogin(): void {
     const currentUrl = encodeURIComponent(window.location.href)
     window.location.href = `https://chatbuilds.com/auth/login?redirect=${currentUrl}`
+  }
+
+  /**
+   * Start automatic auth sync and logout detection
+   */
+  startAuthSync(): void {
+    // Initial sync
+    this.syncAuthFromDashboard()
+
+    // Sync every 10 seconds for fast updates
+    this.syncInterval = setInterval(() => {
+      this.syncAuthFromDashboard()
+    }, 10000)
+
+    // Listen for logout events from dashboard
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', this.handleStorageChange)
+    }
+
+    // Check auth validity every 5 seconds
+    this.authCheckInterval = setInterval(() => {
+      this.checkAuthValidity()
+    }, 5000)
+  }
+
+  /**
+   * Stop automatic auth sync
+   */
+  stopAuthSync(): void {
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval)
+      this.syncInterval = null
+    }
+    if (this.authCheckInterval) {
+      clearInterval(this.authCheckInterval)
+      this.authCheckInterval = null
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('storage', this.handleStorageChange)
+    }
+  }
+
+  /**
+   * Handle storage changes (detect logout from dashboard)
+   */
+  private handleStorageChange = (e: StorageEvent) => {
+    // Detect if main dashboard cleared auth
+    if (e.key === 'vpn-enterprise-auth-storage' && !e.newValue) {
+      console.log('[NexusAI Auth] Logout detected from dashboard')
+      this.logout()
+    }
+    // Detect explicit logout event
+    if (e.key === 'logout_event') {
+      console.log('[NexusAI Auth] Logout event detected from dashboard')
+      this.logout()
+    }
+  }
+
+  /**
+   * Check if current auth is still valid
+   */
+  private async checkAuthValidity(): Promise<void> {
+    const auth = this.getAuthState()
+    if (!auth.isAuthenticated || !auth.token) {
+      return
+    }
+
+    try {
+      // Quick validation check
+      const response = await fetch('https://chatbuilds.com/api/v1/auth/me', {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${auth.token}`,
+        },
+      })
+
+      if (!response.ok) {
+        console.log('[NexusAI Auth] Auth no longer valid, logging out')
+        this.logout()
+      }
+    } catch (error) {
+      // Network errors are ok, only logout on explicit 401/403
+    }
   }
 
   /**
@@ -113,6 +213,15 @@ class AuthService {
           },
           token: data.token,
         })
+      } else if (response.status === 401 || response.status === 403) {
+        // User is logged out from dashboard, clear local auth
+        console.log('[NexusAI Auth] User logged out from dashboard')
+        localStorage.removeItem(this.STORAGE_KEY)
+        const currentAuth = this.getAuthState()
+        if (currentAuth.isAuthenticated) {
+          // Only redirect if we were previously authenticated
+          this.redirectToLogin()
+        }
       }
     } catch (error) {
       console.error('Failed to sync auth from dashboard:', error)

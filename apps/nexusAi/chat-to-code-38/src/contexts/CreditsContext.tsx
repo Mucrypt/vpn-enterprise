@@ -59,6 +59,18 @@ export const CreditsProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
+  // Start auth sync and automatic logout detection on mount
+  useEffect(() => {
+    authService.startAuthSync()
+    
+    // Initial refresh
+    refreshCredits()
+
+    return () => {
+      authService.stopAuthSync()
+    }
+  }, [])
+
   // Auto-refresh credits every 30 seconds if authenticated
   useEffect(() => {
     if (!authService.isAuthenticated()) return

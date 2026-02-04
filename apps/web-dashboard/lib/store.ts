@@ -128,12 +128,19 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           try {
             localStorage.removeItem('access_token')
+            // Also clear nexusAi auth storage for automatic logout sync
+            localStorage.removeItem('nexusai_auth')
           } catch {}
           ;['access_token', 'user_role', 'refresh_token'].forEach((name) => {
             try {
               document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`
             } catch {}
           })
+          // Broadcast logout event to nexusAi (if open in another tab/iframe)
+          try {
+            localStorage.setItem('logout_event', Date.now().toString())
+            localStorage.removeItem('logout_event')
+          } catch {}
         }
         set({
           user: null,
@@ -174,6 +181,17 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 )
+
+// Listen for logout events from nexusAi
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    // Detect nexusAi logout event
+    if (e.key === 'nexusai_logout_event') {
+      console.log('[Dashboard Auth] Logout detected from NexusAI')
+      useAuthStore.getState().logout()
+    }
+  })
+}
 
 // Convenience helpers
 export const authHelpers = {
