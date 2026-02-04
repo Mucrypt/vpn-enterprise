@@ -747,6 +747,9 @@ router.post(
         pro: 'professional',
         professional: 'professional',
         enterprise: 'enterprise',
+        // Handle edge cases
+        popular: 'professional', // "popular" badge sometimes gets sent as plan ID
+        basic: 'starter',
       }
 
       const tier_name = planMapping[plan_id.toLowerCase()]
