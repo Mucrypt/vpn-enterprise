@@ -431,6 +431,115 @@ router.post(
 )
 
 /**
+ * POST /api/v1/billing/subscription/change
+ * Change subscription plan (alias for update)
+ */
+router.post(
+  '/subscription/change',
+  authMiddleware,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.id
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      const { plan_id, price_id } = req.body
+
+      if (!plan_id) {
+        return res.status(400).json({ error: 'plan_id is required' })
+      }
+
+      // Map plan_id to tier_name
+      const planMapping: Record<string, string> = {
+        free: 'free',
+        starter: 'starter',
+        pro: 'professional',
+        professional: 'professional',
+        enterprise: 'enterprise',
+      }
+
+      const tier_name = planMapping[plan_id.toLowerCase()] || plan_id.toLowerCase()
+
+      if (
+        !['free', 'starter', 'professional', 'enterprise'].includes(tier_name)
+      ) {
+        return res.status(400).json({ error: 'Invalid plan' })
+      }
+
+      // Define tier properties
+      const tierConfig: any = {
+        free: { price: 0, monthly_credits: 100, storage_limit: 1 },
+        starter: { price: 29.99, monthly_credits: 1000, storage_limit: 10 },
+        professional: {
+          price: 79.99,
+          monthly_credits: 5000,
+          storage_limit: 50,
+        },
+        enterprise: {
+          price: 299.99,
+          monthly_credits: 25000,
+          storage_limit: 500,
+        },
+      }
+
+      const config = tierConfig[tier_name]
+
+      // Get or create subscription
+      let subscription = await getUserSubscription(userId)
+      
+      if (!subscription) {
+        // Create new subscription
+        const { data, error: createError } = await (supabaseAdmin as any)
+          .from('service_subscriptions')
+          .insert({
+            user_id: userId,
+            tier_name,
+            tier_price: config.price,
+            monthly_credits: config.monthly_credits,
+            credits_remaining: config.monthly_credits,
+            database_storage_limit_gb: config.storage_limit,
+            status: 'active',
+          })
+          .select()
+          .single()
+
+        if (createError) throw createError
+        subscription = data
+      } else {
+        // Update existing subscription
+        const { error: updateError } = await (supabaseAdmin as any)
+          .from('service_subscriptions')
+          .update({
+            tier_name,
+            tier_price: config.price,
+            monthly_credits: config.monthly_credits,
+            database_storage_limit_gb: config.storage_limit,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId)
+
+        if (updateError) throw updateError
+        
+        subscription = await getUserSubscription(userId)
+      }
+
+      res.json({
+        success: true,
+        subscription,
+        message: 'Plan changed successfully',
+      })
+    } catch (error: any) {
+      console.error('[Billing API] Error changing subscription:', error)
+      res.status(500).json({
+        error: 'Failed to change subscription',
+        message: error.message,
+      })
+    }
+  },
+)
+
+/**
  * GET /api/v1/billing/models
  * Get available AI models with pricing
  */
