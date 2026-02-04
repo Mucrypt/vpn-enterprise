@@ -60,7 +60,7 @@ const PLANS: Plan[] = [
     description: 'Great for small projects',
     price: 29.99,
     credits: 1000,
-    stripePriceId: 'price_1Sx9yiKQ56fnaANWBzqrQE49',
+    stripePriceId: 'price_1SxAiLKQ56fnaANWRxxTCUPq',
     features: [
       '1,000 credits/month',
       '10 GB database storage',
@@ -76,7 +76,7 @@ const PLANS: Plan[] = [
     price: 79.99,
     credits: 5000,
     popular: true,
-    stripePriceId: 'price_1Sx9zAKQ56fnaANW54Rt4j1R',
+    stripePriceId: 'price_1SxAieKQ56fnaANWxTUGziiH',
     features: [
       '5,000 credits/month + 20% bonus',
       '50 GB database storage',
@@ -93,7 +93,7 @@ const PLANS: Plan[] = [
     description: 'For large teams and organizations',
     price: 299.99,
     credits: 25000,
-    stripePriceId: 'price_1Sx9zcKQ56fnaANWH1vMY4Fy',
+    stripePriceId: 'price_1SxAiwKQ56fnaANWHLVIl8bU',
     features: [
       '25,000 credits/month + 40% bonus',
       '500 GB database storage',
@@ -120,7 +120,7 @@ const CREDIT_PACKAGES: CreditPackage[] = [
     name: 'Starter Pack',
     credits: 100,
     price: 10,
-    stripePriceId: 'price_1SxA0MKQ56fnaANWqVGE9hL2',
+    stripePriceId: 'price_1SxAjJKQ56fnaANWpgwRa47z',
   },
   {
     id: 'popular',
@@ -128,7 +128,7 @@ const CREDIT_PACKAGES: CreditPackage[] = [
     credits: 500,
     price: 45,
     bonus: 50,
-    stripePriceId: 'price_1SxA0gKQ56fnaANWxML0n5Uw',
+    stripePriceId: 'price_1SxAjWKQ56fnaANWgibxI7u5',
   },
   {
     id: 'pro',
@@ -136,7 +136,7 @@ const CREDIT_PACKAGES: CreditPackage[] = [
     credits: 1000,
     price: 80,
     bonus: 200,
-    stripePriceId: 'price_1SxA17KQ56fnaANW9CaejiXT',
+    stripePriceId: 'price_1SxAjjKQ56fnaANWyjRcDWKl',
   },
   {
     id: 'enterprise',
@@ -144,7 +144,7 @@ const CREDIT_PACKAGES: CreditPackage[] = [
     credits: 5000,
     price: 350,
     bonus: 1500,
-    stripePriceId: 'price_1SxA1WKQ56fnaANWSKT9QOzO',
+    stripePriceId: 'price_1SxAkJKQ56fnaANWAkSH5THH',
   },
 ]
 
