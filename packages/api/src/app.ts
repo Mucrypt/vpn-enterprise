@@ -1096,8 +1096,8 @@ app.get('/api/v1/auth/me', authMiddleware, async (req: AuthRequest, res) => {
       return res.status(401).json({ error: 'Not authenticated' })
     }
 
-    // Get subscription info from billing
-    const { getUserSubscription } = await import('./routes/billing')
+    // Get subscription info from unified billing
+    const { getUserSubscription } = await import('./middleware/unified-billing')
     const subscription = await getUserSubscription(user.id)
 
     // Return user with subscription and token info
@@ -1105,7 +1105,6 @@ app.get('/api/v1/auth/me', authMiddleware, async (req: AuthRequest, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name || user.email?.split('@')[0],
         role: user.role || 'user',
         subscription: {
           plan: subscription?.plan_id || 'free',
