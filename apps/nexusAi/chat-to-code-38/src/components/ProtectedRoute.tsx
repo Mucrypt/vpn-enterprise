@@ -41,11 +41,18 @@ export function ProtectedRoute({
   }
 
   if (requireAuth && !isAuthenticated) {
-    // Save the attempted URL to redirect back after login
-    const returnUrl = encodeURIComponent(window.location.href)
+    // Save the attempted URL in sessionStorage for return after login
+    const currentPath = `${window.location.pathname}${window.location.search}`
+    sessionStorage.setItem('nexusai_return_path', currentPath)
+    
+    // Build the full return URL for the main dashboard
+    const returnUrl = encodeURIComponent(`${window.location.origin}${currentPath}`)
+    
+    // Redirect to main dashboard login with return URL
     window.location.href = `https://chatbuilds.com/auth/login?redirect=${returnUrl}`
     return null
   }
 
   return <>{children}</>
 }
+

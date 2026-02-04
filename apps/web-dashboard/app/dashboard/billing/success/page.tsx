@@ -71,7 +71,7 @@ export default function PaymentSuccessPage() {
 
   if (verifying) {
     return (
-      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900'>
+      <div className='min-h-screen flex items-center justify-center bg-linear-to-br from-green-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900'>
         <Card className='w-full max-w-md mx-4'>
           <CardContent className='pt-6 text-center'>
             <Loader2 className='w-16 h-16 mx-auto mb-4 animate-spin text-primary' />
@@ -86,7 +86,7 @@ export default function PaymentSuccessPage() {
   }
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900'>
+    <div className='min-h-screen bg-linear-to-br from-green-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900'>
       {showConfetti && (
         <Confetti
           width={windowSize.width}
@@ -125,7 +125,7 @@ export default function PaymentSuccessPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <CardTitle className='text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent'>
+                <CardTitle className='text-4xl font-bold bg-linear-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent'>
                   Payment Successful! 🎉
                 </CardTitle>
                 <p className='text-xl text-gray-600 dark:text-gray-300 mt-2'>
@@ -141,7 +141,7 @@ export default function PaymentSuccessPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
-                  className='bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-6 space-y-4'
+                  className='bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-6 space-y-4'
                 >
                   <div className='flex items-center justify-between'>
                     <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>
@@ -176,7 +176,9 @@ export default function PaymentSuccessPage() {
                   )}
 
                   <div className='flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700'>
-                    <span className='text-base font-medium text-gray-900 dark:text-gray-100'>Amount Paid</span>
+                    <span className='text-base font-medium text-gray-900 dark:text-gray-100'>
+                      Amount Paid
+                    </span>
                     <span className='text-2xl font-bold text-green-600 dark:text-green-400'>
                       ${paymentDetails.amount}
                     </span>
@@ -191,14 +193,16 @@ export default function PaymentSuccessPage() {
                 transition={{ delay: 0.5 }}
                 className='space-y-3'
               >
-                <h3 className='font-semibold text-lg text-gray-900 dark:text-gray-100'>What&apos;s Next?</h3>
+                <h3 className='font-semibold text-lg text-gray-900 dark:text-gray-100'>
+                  What&apos;s Next?
+                </h3>
                 <ul className='space-y-2 text-sm text-gray-600 dark:text-gray-300'>
                   <li className='flex items-start gap-2'>
-                    <CheckCircle className='w-4 h-4 text-green-500 mt-0.5 flex-shrink-0' />
+                    <CheckCircle className='w-4 h-4 text-green-500 mt-0.5 shrink-0' />
                     <span>Your payment has been processed successfully</span>
                   </li>
                   <li className='flex items-start gap-2'>
-                    <CheckCircle className='w-4 h-4 text-green-500 mt-0.5 flex-shrink-0' />
+                    <CheckCircle className='w-4 h-4 text-green-500 mt-0.5 shrink-0' />
                     <span>
                       {paymentDetails?.type === 'subscription'
                         ? 'Your subscription is now active and renews automatically'
@@ -206,13 +210,13 @@ export default function PaymentSuccessPage() {
                     </span>
                   </li>
                   <li className='flex items-start gap-2'>
-                    <CheckCircle className='w-4 h-4 text-green-500 mt-0.5 flex-shrink-0' />
+                    <CheckCircle className='w-4 h-4 text-green-500 mt-0.5 shrink-0' />
                     <span>
                       A confirmation email has been sent to your inbox
                     </span>
                   </li>
                   <li className='flex items-start gap-2'>
-                    <CheckCircle className='w-4 h-4 text-green-500 mt-0.5 flex-shrink-0' />
+                    <CheckCircle className='w-4 h-4 text-green-500 mt-0.5 shrink-0' />
                     <span>You can view your receipt and invoices below</span>
                   </li>
                 </ul>
@@ -227,7 +231,7 @@ export default function PaymentSuccessPage() {
               >
                 <Button
                   onClick={() => router.push('/dashboard/billing')}
-                  className='flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                  className='flex-1 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
                 >
                   View Billing Dashboard
                   <ArrowRight className='w-4 h-4 ml-2' />

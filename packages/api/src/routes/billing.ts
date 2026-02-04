@@ -370,7 +370,8 @@ router.post(
 
       // If customer ID exists but belongs to different mode, create a new one
       if (customerId) {
-        const customerIsTest = customerId.startsWith('cus_') && !customerId.includes('_test')
+        const customerIsTest =
+          customerId.startsWith('cus_') && !customerId.includes('_test')
         const modeMismatch =
           (isTestMode && customerId.includes('live')) ||
           (isLiveMode && customerId.includes('test'))

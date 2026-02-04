@@ -43,7 +43,7 @@ export default function PaymentCancelPage() {
   ]
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900'>
+    <div className='min-h-screen bg-linear-to-br from-orange-50 via-white to-red-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900'>
       <div className='container mx-auto px-4 py-16'>
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -72,7 +72,7 @@ export default function PaymentCancelPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <CardTitle className='text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent'>
+                <CardTitle className='text-4xl font-bold bg-linear-to-r from-orange-600 to-red-600 bg-clip-text text-transparent'>
                   Payment Cancelled
                 </CardTitle>
                 <p className='text-xl text-muted-foreground mt-2'>
@@ -87,10 +87,10 @@ export default function PaymentCancelPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className='bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 rounded-lg p-6 border border-orange-200 dark:border-orange-900'
+                className='bg-linear-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 rounded-lg p-6 border border-orange-200 dark:border-orange-900'
               >
                 <div className='flex items-start gap-3'>
-                  <HelpCircle className='w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0' />
+                  <HelpCircle className='w-5 h-5 text-orange-600 mt-0.5 shrink-0' />
                   <div className='space-y-1'>
                     <p className='font-medium text-sm'>No charges were made</p>
                     <p className='text-sm text-muted-foreground'>
@@ -141,7 +141,7 @@ export default function PaymentCancelPage() {
               >
                 <Button
                   onClick={() => router.push('/dashboard/billing')}
-                  className='flex-1 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700'
+                  className='flex-1 bg-linear-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700'
                 >
                   <RefreshCw className='w-4 h-4 mr-2' />
                   Try Again

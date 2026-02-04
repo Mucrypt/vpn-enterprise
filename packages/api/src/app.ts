@@ -1088,6 +1088,42 @@ app.get('/api/v1/user/stats', authMiddleware, async (req: AuthRequest, res) => {
   }
 })
 
+// Auth me endpoint for NexusAI and other sub-apps
+app.get('/api/v1/auth/me', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const user = req.user
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' })
+    }
+
+    // Get subscription info from billing
+    const { getUserSubscription } = await import('./routes/billing')
+    const subscription = await getUserSubscription(user.id)
+
+    // Return user with subscription and token info
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name || user.email?.split('@')[0],
+        role: user.role || 'user',
+        subscription: {
+          plan: subscription?.plan_id || 'free',
+          credits: subscription?.credits_remaining || 100,
+          database_quota: subscription?.database_quota_gb || 1,
+        },
+      },
+      token: req.headers.authorization?.replace('Bearer ', ''),
+    })
+  } catch (error: any) {
+    console.error('[API] /api/v1/auth/me error:', error)
+    res.status(500).json({
+      error: 'Failed to fetch user info',
+      message: error.message,
+    })
+  }
+})
+
 app.get(
   '/api/v1/user/profile',
   authMiddleware,
