@@ -1100,6 +1100,12 @@ app.get('/api/v1/auth/me', authMiddleware, async (req: AuthRequest, res) => {
     const { getUserSubscription } = await import('./middleware/unified-billing')
     const subscription = await getUserSubscription(user.id)
 
+    // Extract token from Authorization header or cookie (same as authMiddleware)
+    let token = req.headers.authorization?.replace('Bearer ', '')
+    if (!token && req.cookies?.access_token) {
+      token = req.cookies.access_token
+    }
+
     // Return user with subscription and token info
     res.json({
       user: {
@@ -1112,7 +1118,7 @@ app.get('/api/v1/auth/me', authMiddleware, async (req: AuthRequest, res) => {
           database_quota: subscription?.database_quota_gb || 1,
         },
       },
-      token: req.headers.authorization?.replace('Bearer ', ''),
+      token: token || null,
     })
   } catch (error: any) {
     console.error('[API] /api/v1/auth/me error:', error)

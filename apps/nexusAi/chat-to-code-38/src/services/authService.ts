@@ -30,16 +30,8 @@ class AuthService {
    */
   isAuthenticated(): boolean {
     const auth = this.getAuthState()
-    if (!auth.token) return false
-
-    // Check if token is expired (1 hour TTL)
-    try {
-      const payload = JSON.parse(atob(auth.token.split('.')[1]))
-      const exp = payload.exp * 1000
-      return Date.now() < exp
-    } catch {
-      return false
-    }
+    // Check if we have a user and token (Supabase handles expiry via cookies)
+    return auth.isAuthenticated && !!auth.user && !!auth.token
   }
 
   /**
