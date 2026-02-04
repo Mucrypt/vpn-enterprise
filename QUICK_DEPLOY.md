@@ -7,6 +7,7 @@ cd /home/mukulah/vpn-enterprise && ./deploy-billing-fix.sh
 ```
 
 This script will:
+
 1. ✅ Check environment variables
 2. ✅ Build the API
 3. ✅ Rebuild Docker containers
