@@ -13,12 +13,24 @@ import Stripe from 'stripe'
 
 const router = Router()
 
-// Initialize Stripe
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+// Initialize Stripe - resolve from env or Docker secret file
+const stripeSecretKey = resolveSecret({
+  valueEnv: 'STRIPE_SECRET_KEY',
+  fileEnv: 'STRIPE_SECRET_KEY_FILE',
+  defaultFilePath: '/run/secrets/stripe_secret_key',
+})
+
+const stripe = stripeSecretKey
+  ? new Stripe(stripeSecretKey, {
       apiVersion: '2025-02-24.acacia',
     })
   : null
+
+if (!stripe) {
+  console.warn('[Billing] Stripe not configured - payment features disabled')
+} else {
+  console.log('[Billing] Stripe initialized successfully')
+}
 
 // Database connection for billing
 let billingPool: Pool
@@ -397,7 +409,13 @@ router.post(
 router.post('/stripe/webhook', async (req, res) => {
   const sig = req.headers['stripe-signature']
 
-  if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+  const webhookSecret = resolveSecret({
+    valueEnv: 'STRIPE_WEBHOOK_SECRET',
+    fileEnv: 'STRIPE_WEBHOOK_SECRET_FILE',
+    defaultFilePath: '/run/secrets/stripe_webhook_secret',
+  })
+
+  if (!stripe || !webhookSecret) {
     return res.status(503).json({ error: 'Webhook not configured' })
   }
 
@@ -405,7 +423,7 @@ router.post('/stripe/webhook', async (req, res) => {
     const event = stripe.webhooks.constructEvent(
       req.body,
       sig as string,
-      process.env.STRIPE_WEBHOOK_SECRET,
+      webhookSecret,
     )
 
     console.log(`[Stripe Webhook] Received event: ${event.type}`)
