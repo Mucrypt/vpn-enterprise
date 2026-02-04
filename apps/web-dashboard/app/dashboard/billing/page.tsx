@@ -64,8 +64,10 @@ export default function BillingPage() {
     try {
       if (!stripePriceId) {
         // Handle free plan or plans without Stripe
-        toast.loading('Processing subscription change...', { id: 'plan-change' })
-        
+        toast.loading('Processing subscription change...', {
+          id: 'plan-change',
+        })
+
         const response = await api.fetchAPI(
           '/api/v1/billing/subscription/change',
           {
@@ -89,7 +91,7 @@ export default function BillingPage() {
 
       // Create Stripe checkout session and redirect
       toast.loading('Redirecting to payment...', { id: 'plan-change' })
-      
+
       const response = await api.fetchAPI(
         '/api/v1/billing/create-checkout-session',
         {
@@ -113,7 +115,9 @@ export default function BillingPage() {
       window.location.href = response.url
     } catch (error: any) {
       console.error('Failed to select plan:', error)
-      toast.error(error.message || 'Failed to process payment', { id: 'plan-change' })
+      toast.error(error.message || 'Failed to process payment', {
+        id: 'plan-change',
+      })
       throw error
     }
   }

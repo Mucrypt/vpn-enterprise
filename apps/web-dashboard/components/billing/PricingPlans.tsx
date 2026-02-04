@@ -170,10 +170,12 @@ export function PricingPlans({
       // Check if this is a credit package without Stripe setup
       const isCreditPackage = selectedTab === 'credits'
       if (isCreditPackage && !stripePriceId) {
-        toast.error('Credit purchases require Stripe configuration. Please contact support.')
+        toast.error(
+          'Credit purchases require Stripe configuration. Please contact support.',
+        )
         return
       }
-      
+
       await onSelectPlan(planId, stripePriceId)
     } catch (error: any) {
       toast.error(error.message || 'Failed to process request')
