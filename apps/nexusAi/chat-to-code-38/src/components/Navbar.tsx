@@ -13,6 +13,7 @@ import {
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { authService, type User as AuthUser } from '@/services/authService'
+import { useCredits } from '@/contexts/CreditsContext'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +27,7 @@ import { Badge } from '@/components/ui/badge'
 const Navbar = () => {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const { credits, refreshCredits } = useCredits()
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -34,6 +36,7 @@ const Navbar = () => {
       setIsAuthenticated(authenticated)
       if (authenticated) {
         setUser(authService.getCurrentUser())
+        refreshCredits()
       }
     }
     checkAuth()
@@ -102,14 +105,17 @@ const Navbar = () => {
         <div className='flex items-center gap-3'>
           {isAuthenticated && user ? (
             <>
-              {/* Credits Badge */}
+              {/* Credits Badge - Clickable */}
               {subscriptionInfo && (
-                <div className='hidden md:flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg border border-border/50'>
+                <Link
+                  to='/credits'
+                  className='hidden md:flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg border border-border/50 hover:bg-secondary hover:border-primary/50 transition-all cursor-pointer'
+                >
                   <Coins className='w-4 h-4 text-primary' />
                   <span className='text-sm font-medium'>
-                    {subscriptionInfo.credits} credits
+                    {credits} credits
                   </span>
-                </div>
+                </Link>
               )}
 
               {/* Upgrade Button (for free tier) */}
@@ -168,16 +174,11 @@ const Navbar = () => {
                     <LayoutDashboard className='mr-2 h-4 w-4' />
                     <span>My Dashboard</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      window.open(
-                        'https://chatbuilds.com/dashboard/billing',
-                        '_blank',
-                      )
-                    }
-                  >
-                    <CreditCard className='mr-2 h-4 w-4' />
-                    <span>Billing & Usage</span>
+                  <DropdownMenuItem asChild>
+                    <Link to='/credits' className='flex items-center'>
+                      <CreditCard className='mr-2 h-4 w-4' />
+                      <span>Credits & Usage</span>
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() =>

@@ -8,19 +8,22 @@ import Index from './pages/Index'
 import AppDescription from './pages/AppDescription'
 import AppBuilder from './pages/AppBuilder'
 import MyApps from './pages/MyApps'
+import Credits from './pages/Credits'
 import NotFound from './pages/NotFound'
 import Landing from './pages/Landing'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { CreditsProvider } from './contexts/CreditsContext'
 
 const queryClient = new QueryClient()
 
 const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter basename='/nexusai'>
+      <CreditsProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter basename='/nexusai'>
           <Routes>
             <Route path='/' element={<Landing />} />
             <Route path='/start' element={<Index />} />
@@ -48,12 +51,21 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path='/credits'
+              element={
+                <ProtectedRoute>
+                  <Credits />
+                </ProtectedRoute>
+              }
+            />
             <Route path='*' element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
-    </QueryClientProvider>
-  </HelmetProvider>
+    </CreditsProvider>
+  </QueryClientProvider>
+</HelmetProvider>
 )
 
 export default App
