@@ -71,13 +71,13 @@ export const CreditsProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [])
 
-  // Auto-refresh credits every 30 seconds if authenticated
+  // Auto-refresh credits every 60 seconds (reduced from 30) if authenticated
   useEffect(() => {
     if (!authService.isAuthenticated()) return
 
     const interval = setInterval(() => {
       refreshCredits()
-    }, 30000) // 30 seconds
+    }, 60000) // 60 seconds instead of 30
 
     return () => clearInterval(interval)
   }, [])

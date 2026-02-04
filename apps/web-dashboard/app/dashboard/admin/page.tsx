@@ -276,6 +276,14 @@ export default function AdminPage() {
               <Button
                 className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
                 variant='outline'
+                onClick={() => window.open('/pgadmin', '_blank')}
+              >
+                <Database className='h-6 w-6 sm:h-8 sm:w-8 text-cyan-500' />
+                <span className='text-xs sm:text-sm text-center'>pgAdmin</span>
+              </Button>
+              <Button
+                className='h-20 sm:h-24 flex-col gap-1 sm:gap-2 bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-emerald-600 active:bg-gray-700'
+                variant='outline'
                 onClick={async () => {
                   try {
                     toast.loading('Creating test client...')

@@ -107,37 +107,19 @@ class AuthService {
    * Start automatic auth sync and logout detection
    */
   startAuthSync(): void {
-    // Initial sync
+    // Initial sync only - no intervals to avoid redirect loops
     this.syncAuthFromDashboard()
 
-    // Sync every 10 seconds for fast updates
-    this.syncInterval = setInterval(() => {
-      this.syncAuthFromDashboard()
-    }, 10000)
-
-    // Listen for logout events from dashboard
+    // Only listen for logout events from dashboard (no polling)
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', this.handleStorageChange)
     }
-
-    // Check auth validity every 5 seconds
-    this.authCheckInterval = setInterval(() => {
-      this.checkAuthValidity()
-    }, 5000)
   }
 
   /**
    * Stop automatic auth sync
    */
   stopAuthSync(): void {
-    if (this.syncInterval) {
-      clearInterval(this.syncInterval)
-      this.syncInterval = null
-    }
-    if (this.authCheckInterval) {
-      clearInterval(this.authCheckInterval)
-      this.authCheckInterval = null
-    }
     if (typeof window !== 'undefined') {
       window.removeEventListener('storage', this.handleStorageChange)
     }
@@ -156,33 +138,6 @@ class AuthService {
     if (e.key === 'logout_event') {
       console.log('[NexusAI Auth] Logout event detected from dashboard')
       this.logout()
-    }
-  }
-
-  /**
-   * Check if current auth is still valid
-   */
-  private async checkAuthValidity(): Promise<void> {
-    const auth = this.getAuthState()
-    if (!auth.isAuthenticated || !auth.token) {
-      return
-    }
-
-    try {
-      // Quick validation check
-      const response = await fetch('https://chatbuilds.com/api/v1/auth/me', {
-        credentials: 'include',
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-        },
-      })
-
-      if (!response.ok) {
-        console.log('[NexusAI Auth] Auth no longer valid, logging out')
-        this.logout()
-      }
-    } catch (error) {
-      // Network errors are ok, only logout on explicit 401/403
     }
   }
 
@@ -214,17 +169,14 @@ class AuthService {
           token: data.token,
         })
       } else if (response.status === 401 || response.status === 403) {
-        // User is logged out from dashboard, clear local auth
+        // User is logged out from dashboard, clear local auth only
         console.log('[NexusAI Auth] User logged out from dashboard')
         localStorage.removeItem(this.STORAGE_KEY)
-        const currentAuth = this.getAuthState()
-        if (currentAuth.isAuthenticated) {
-          // Only redirect if we were previously authenticated
-          this.redirectToLogin()
-        }
+        // Don't auto-redirect, let ProtectedRoute handle it
       }
     } catch (error) {
-      console.error('Failed to sync auth from dashboard:', error)
+      // Network errors are ok, don't clear auth
+      console.warn('Failed to sync auth from dashboard:', error)
     }
   }
 
