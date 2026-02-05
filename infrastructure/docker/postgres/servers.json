@@ -1,24 +1,14 @@
 {
   "Servers": {
     "1": {
-      "Name": "VPN Enterprise - Platform Database",
+      "Name": "VPN Enterprise - Platform Database (Superuser)",
       "Group": "Production",
       "Host": "vpn-postgres",
       "Port": 5432,
       "MaintenanceDB": "platform_db",
       "Username": "platform_admin",
       "SSLMode": "prefer",
-      "Comment": "Primary PostgreSQL database for VPN Enterprise Platform (platform_db)"
-    },
-    "2": {
-      "Name": "VPN Enterprise - postgres (superuser)",
-      "Group": "Production",
-      "Host": "vpn-postgres",
-      "Port": 5432,
-      "MaintenanceDB": "postgres",
-      "Username": "postgres",
-      "SSLMode": "prefer",
-      "Comment": "Superuser connection for database administration"
+      "Comment": "Superuser connection - platform_admin has full superuser privileges"
     }
   }
 }

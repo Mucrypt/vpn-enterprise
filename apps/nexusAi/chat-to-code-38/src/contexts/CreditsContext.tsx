@@ -66,8 +66,22 @@ export const CreditsProvider = ({ children }: { children: ReactNode }) => {
     // Initial refresh
     refreshCredits()
 
+    // Listen for auth changes from dashboard
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'vpn-enterprise-auth-storage' || e.key === 'nexusai_auth') {
+        console.log('[CreditsContext] Auth state changed, refreshing user...')
+        // Update user state immediately
+        setUser(authService.getCurrentUser())
+        // Then refresh from server
+        refreshCredits()
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+
     return () => {
       authService.stopAuthSync()
+      window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
 

@@ -107,13 +107,23 @@ class AuthService {
    * Start automatic auth sync and logout detection
    */
   startAuthSync(): void {
-    // Initial sync only - no intervals to avoid redirect loops
+    // Initial sync
     this.syncAuthFromDashboard()
 
-    // Only listen for logout events from dashboard (no polling)
+    // Listen for storage changes (login/logout events)
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', this.handleStorageChange)
     }
+
+    // Periodic auth check every 30 seconds (gentle polling)
+    // This ensures nexusAI detects when user logs in from dashboard
+    this.authCheckInterval = setInterval(() => {
+      const currentAuth = this.getAuthState()
+      // Only sync if not already authenticated to avoid unnecessary API calls
+      if (!currentAuth.isAuthenticated || !currentAuth.user) {
+        this.syncAuthFromDashboard()
+      }
+    }, 30000) // 30 seconds
   }
 
   /**
@@ -123,17 +133,30 @@ class AuthService {
     if (typeof window !== 'undefined') {
       window.removeEventListener('storage', this.handleStorageChange)
     }
+
+    // Clear auth check interval
+    if (this.authCheckInterval) {
+      clearInterval(this.authCheckInterval)
+      this.authCheckInterval = null
+    }
   }
 
   /**
-   * Handle storage changes (detect logout from dashboard)
+   * Handle storage changes (detect login/logout from dashboard)
    */
   private handleStorageChange = (e: StorageEvent) => {
-    // Detect if main dashboard cleared auth
+    // Detect if main dashboard cleared auth (logout)
     if (e.key === 'vpn-enterprise-auth-storage' && !e.newValue) {
       console.log('[NexusAI Auth] Logout detected from dashboard')
       this.logout()
     }
+
+    // Detect if main dashboard added auth (login)
+    if (e.key === 'vpn-enterprise-auth-storage' && e.newValue) {
+      console.log('[NexusAI Auth] Login detected from dashboard')
+      this.syncAuthFromDashboard()
+    }
+
     // Detect explicit logout event
     if (e.key === 'logout_event') {
       console.log('[NexusAI Auth] Logout event detected from dashboard')

@@ -27,7 +27,28 @@ export function ProtectedRoute({
     }
 
     checkAuth()
-  }, [])
+
+    // Listen for auth changes from dashboard
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'vpn-enterprise-auth-storage' || e.key === 'nexusai_auth') {
+        console.log('[ProtectedRoute] Auth state changed, rechecking...')
+        checkAuth()
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+
+    // Also periodically recheck auth state
+    const interval = setInterval(() => {
+      const authenticated = authService.isAuthenticated()
+      setIsAuthenticated(authenticated)
+    }, 5000) // Check every 5 seconds
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [location.pathname])
 
   if (isChecking) {
     return (
