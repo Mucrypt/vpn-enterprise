@@ -102,14 +102,16 @@ export class ContainerManager {
 
       // Write app files if provided
       if (config.files && config.files.length > 0) {
-        console.log(`[ContainerManager] Writing ${config.files.length} files to workspace...`)
+        console.log(
+          `[ContainerManager] Writing ${config.files.length} files to workspace...`,
+        )
         for (const file of config.files) {
           const filePath = path.join(workspacePath, file.file_path)
           const fileDir = path.dirname(filePath)
-          
+
           // Create directory structure
           await fs.mkdir(fileDir, { recursive: true })
-          
+
           // Write file content
           await fs.writeFile(filePath, file.content, 'utf-8')
         }
@@ -144,7 +146,7 @@ export class ContainerManager {
         `-e WORKSPACE_ID=${config.workspaceId}`,
         `-e USER_ID=${config.userId}`,
       ]
-      
+
       // Add custom environment variables (e.g., database credentials)
       if (config.env) {
         for (const [key, value] of Object.entries(config.env)) {
@@ -290,11 +292,12 @@ export class ContainerManager {
       }
     }
 
-    // Whitelist allowed commands
+    // Whitelist allowed commands - comprehensive list for development
     const allowedCommands = [
       'npm',
       'yarn',
       'pnpm',
+      'bun',
       'node',
       'npx',
       'ls',
@@ -308,15 +311,47 @@ export class ContainerManager {
       'code',
       'vite',
       'next',
+      'react',
+      'vue',
+      'python',
+      'python3',
+      'pip',
+      'pip3',
+      'composer',
+      'php',
+      'ruby',
+      'bundle',
+      'go',
+      'cargo',
+      'rustc',
+      'clear',
+      'help',
+      'exit',
+      'mv',
+      'cp',
+      'rm',
+      'grep',
+      'find',
+      'head',
+      'tail',
+      'wc',
+      'sort',
+      'uniq',
+      'diff',
+      'tree',
+      'which',
+      'whereis',
+      'man',
+      'env',
+      'export',
+      'source',
     ]
 
     const firstWord = command.trim().split(/\s+/)[0]
-    const isAllowed = allowedCommands.some(
-      (cmd) => firstWord === cmd || firstWord.startsWith(`${cmd} `),
-    )
+    const isAllowed = allowedCommands.includes(firstWord)
 
     if (!isAllowed) {
-      console.warn(`[ContainerManager] Command not in whitelist: ${command}`)
+      console.warn(`[ContainerManager] Command not in whitelist: ${firstWord}`)
       return null
     }
 
