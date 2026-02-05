@@ -91,8 +91,8 @@ class AuthService {
       console.warn('Failed to clear dashboard auth:', error)
     }
 
-    // Redirect to dashboard login
-    window.location.href = 'https://chatbuilds.com/auth/login?redirect=nexusai'
+    // Redirect to VPN Enterprise home page
+    window.location.href = 'https://chatbuilds.com/'
   }
 
   /**

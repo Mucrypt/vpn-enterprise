@@ -154,12 +154,9 @@ export const useAuthStore = create<AuthState>()(
       setHydrated: (hydrated) => set({ hasHydrated: hydrated }),
       logout: () => {
         get().clearAuth()
-        // Redirect to login page after logout
-        if (
-          typeof window !== 'undefined' &&
-          !window.location.pathname.startsWith('/auth/login')
-        ) {
-          window.location.href = '/auth/login'
+        // Redirect to VPN Enterprise home page after logout
+        if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+          window.location.href = '/'
         }
       },
     }),

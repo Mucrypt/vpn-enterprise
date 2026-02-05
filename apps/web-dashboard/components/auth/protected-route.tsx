@@ -91,13 +91,11 @@ export default function ProtectedRoute({
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <div className='text-center'>
-          <p className='text-gray-600'>Redirecting to login...</p>
-        </div>
-      </div>
-    )
+    // Redirect to home page immediately instead of showing loading message
+    if (typeof window !== 'undefined') {
+      window.location.href = '/'
+    }
+    return null
   }
 
   if (requiredRole && user) {

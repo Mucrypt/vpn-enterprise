@@ -52,7 +52,7 @@ export default function DashboardPage() {
 
         {/* Quick Actions for Users */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <Card className="bg-linear-to-br from-green-50 to-green-100 border-green-200">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-green-800 flex items-center gap-2">
                 <Shield className="h-4 w-4" />
