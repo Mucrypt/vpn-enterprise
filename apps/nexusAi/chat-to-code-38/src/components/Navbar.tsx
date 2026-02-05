@@ -186,7 +186,7 @@ const Navbar = () => {
                     <span>Settings</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => authService.logout()}>
+                  <DropdownMenuItem onClick={async () => await authService.logout()}>
                     <LogOut className='mr-2 h-4 w-4' />
                     <span>Log out</span>
                   </DropdownMenuItem>

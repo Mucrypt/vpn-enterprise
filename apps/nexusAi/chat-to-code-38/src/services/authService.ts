@@ -75,7 +75,20 @@ class AuthService {
   /**
    * Clear auth state (logout)
    */
-  logout(): void {
+  async logout(): Promise<void> {
+    // Call backend logout endpoint to clear server-side session
+    try {
+      await fetch('https://chatbuilds.com/api/v1/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    } catch (error) {
+      console.warn('[NexusAI Auth] Backend logout failed:', error)
+    }
+
     // Clear nexusAi auth
     localStorage.removeItem(this.STORAGE_KEY)
 
@@ -83,6 +96,28 @@ class AuthService {
     try {
       localStorage.removeItem('vpn-enterprise-auth-storage')
       localStorage.removeItem('access_token')
+
+      // Clear cookies with multiple attribute combinations
+      const cookieNames = ['access_token', 'user_role', 'refresh_token']
+      const isHttps = window.location.protocol === 'https:'
+      const domain = window.location.hostname
+
+      cookieNames.forEach((name) => {
+        const clearOptions = [
+          `${name}=; path=/; max-age=0`,
+          `${name}=; path=/; max-age=0; domain=${domain}`,
+          `${name}=; path=/; max-age=0; domain=.${domain}`,
+          `${name}=; path=/; max-age=0; SameSite=Lax`,
+          `${name}=; path=/; max-age=0; SameSite=None${isHttps ? '; Secure' : ''}`,
+          `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`,
+        ]
+
+        clearOptions.forEach((option) => {
+          try {
+            document.cookie = option
+          } catch {}
+        })
+      })
 
       // Broadcast logout event to dashboard
       localStorage.setItem('nexusai_logout_event', Date.now().toString())

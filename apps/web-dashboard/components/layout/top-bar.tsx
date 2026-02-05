@@ -341,9 +341,9 @@ export function TopBar() {
 
               <div className='border-t border-gray-200 py-2 bg-linear-to-b from-white to-gray-50'>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setShowUserMenu(false)
-                    logout()
+                    await logout()
                   }}
                   className='flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200 w-full rounded-lg mx-2 hover:scale-[1.02] group'
                 >

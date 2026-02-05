@@ -124,18 +124,54 @@ export const useAuthStore = create<AuthState>()(
         })
       },
 
-      clearAuth: () => {
+      clearAuth: async () => {
+        // Call backend logout endpoint to clear server-side session
         if (typeof window !== 'undefined') {
+          try {
+            await fetch('/api/v1/auth/logout', {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            })
+          } catch (error) {
+            console.warn('[AuthStore] Backend logout failed:', error)
+          }
+          
           try {
             localStorage.removeItem('access_token')
             // Also clear nexusAi auth storage for automatic logout sync
             localStorage.removeItem('nexusai_auth')
+            // Clear the persisted store key
+            localStorage.removeItem('vpn-enterprise-auth-storage')
           } catch {}
-          ;['access_token', 'user_role', 'refresh_token'].forEach((name) => {
+          
+          // Clear cookies with multiple attribute combinations to ensure deletion
+          const cookieNames = ['access_token', 'user_role', 'refresh_token']
+          const isHttps = window.location.protocol === 'https:'
+          const domain = window.location.hostname
+          
+          cookieNames.forEach((name) => {
             try {
-              document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`
+              // Try clearing with various attribute combinations
+              const clearOptions = [
+                `${name}=; path=/; max-age=0`,
+                `${name}=; path=/; max-age=0; domain=${domain}`,
+                `${name}=; path=/; max-age=0; domain=.${domain}`,
+                `${name}=; path=/; max-age=0; SameSite=Lax`,
+                `${name}=; path=/; max-age=0; SameSite=None${isHttps ? '; Secure' : ''}`,
+                `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`,
+              ]
+              
+              clearOptions.forEach(option => {
+                try {
+                  document.cookie = option
+                } catch {}
+              })
             } catch {}
           })
+          
           // Broadcast logout event to nexusAi (if open in another tab/iframe)
           try {
             localStorage.setItem('logout_event', Date.now().toString())
@@ -152,8 +188,8 @@ export const useAuthStore = create<AuthState>()(
 
       setLoading: (loading) => set({ isLoading: loading }),
       setHydrated: (hydrated) => set({ hasHydrated: hydrated }),
-      logout: () => {
-        get().clearAuth()
+      logout: async () => {
+        await get().clearAuth()
         // Redirect to VPN Enterprise home page after logout
         if (typeof window !== 'undefined' && window.location.pathname !== '/') {
           window.location.href = '/'
