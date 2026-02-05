@@ -35,6 +35,8 @@ import { registerBillingRoutes } from './routes/billing'
 import adminUsersRouter from './routes/admin/users'
 import adminTenantsRouter from './routes/admin/tenants'
 import terminalRouter from './routes/terminal'
+import { TerminalWebSocketHandler } from './services/TerminalWebSocketHandler'
+import { previewProxyService } from './services/PreviewProxyService'
 import { ApolloServer, gql } from 'apollo-server-express'
 import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
@@ -323,6 +325,22 @@ initGraphQL().catch(err => console.warn('[INIT] GraphQL failed:', err));
 
 // WebSocket + Redis + logical replication scaffold
 const httpServer = createServer(app)
+
+// Initialize Terminal WebSocket Handler for NexusAI terminal sessions
+const terminalWSHandler = new TerminalWebSocketHandler(httpServer)
+console.log('[INIT] Terminal WebSocket Handler initialized')
+
+// Handle WebSocket upgrades for preview proxy (HMR support)
+httpServer.on('upgrade', (req, socket, head) => {
+  const pathname = req.url?.split('?')[0]
+  
+  // Route to appropriate WebSocket handler
+  if (pathname?.startsWith('/api/v1/terminal/preview/')) {
+    previewProxyService.handleUpgrade(req, socket, head)
+  }
+  // Other WebSocket paths handled by their respective handlers
+})
+
 const wss = new WebSocketServer({
   server: httpServer,
   path: '/api/v1/realtime',
