@@ -418,9 +418,10 @@ router.post(
 /**
  * Preview proxy - handles requests to running dev servers
  * ALL /api/v1/terminal/preview/:workspaceId/*
+ * Using router.use() to handle all sub-paths naturally
  */
-router.all(
-  '/preview/:workspaceId/*',
+router.use(
+  '/preview/:workspaceId',
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     await previewProxyService.handleRequest(req, res, next)
   },
