@@ -1,17 +1,21 @@
-// Terminal Component
-import { useEffect, useRef } from 'react'
+// Terminal Component with Real Command Execution
+import { useEffect, useRef, useState } from 'react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 
 interface TerminalProps {
   onCommand?: (command: string) => void
+  workspaceId?: string
+  projectPath?: string
 }
 
-export function Terminal({ onCommand }: TerminalProps) {
+export function Terminal({ onCommand, workspaceId, projectPath }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<XTerm | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
+  const [wsConnection, setWsConnection] = useState<WebSocket | null>(null)
+  const [isExecuting, setIsExecuting] = useState(false)
 
   useEffect(() => {
     if (!terminalRef.current) return
@@ -20,7 +24,7 @@ export function Terminal({ onCommand }: TerminalProps) {
     const term = new XTerm({
       cursorBlink: true,
       fontSize: 14,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+      fontFamily: 'Menlo, Moscow, "Courier New", monospace',
       theme: {
         background: '#1e1e1e',
         foreground: '#d4d4d4',
@@ -55,7 +59,8 @@ export function Terminal({ onCommand }: TerminalProps) {
 
     // Welcome message
     term.writeln('🚀 NexusAI Terminal - Ready')
-    term.writeln('Type commands to install dependencies, run builds, etc.')
+    term.writeln('Type commands to install dependencies, run builds, preview apps, etc.')
+    term.writeln('💡 Tip: Use "npm install" to install dependencies, "npm run dev" to start preview')
     term.writeln('')
     term.write('$ ')
 
@@ -65,6 +70,11 @@ export function Terminal({ onCommand }: TerminalProps) {
     term.onData((data) => {
       const char = data
 
+      if (isExecuting) {
+        // Don't accept input while command is executing
+        return
+      }
+
       if (char === '\r') {
         // Enter key
         term.write('\r\n')
@@ -72,12 +82,22 @@ export function Terminal({ onCommand }: TerminalProps) {
           handleCommand(currentLine.trim())
         }
         currentLine = ''
-        term.write('$ ')
+        if (!isExecuting) {
+          term.write('$ ')
+        }
       } else if (char === '\u007F') {
         // Backspace
         if (currentLine.length > 0) {
           currentLine = currentLine.slice(0, -1)
           term.write('\b \b')
+        }
+      } else if (char === '\u0003') {
+        // Ctrl+C
+        if (isExecuting && wsConnection) {
+          term.writeln('^C')
+          wsConnection.send(JSON.stringify({ action: 'cancel' }))
+          setIsExecuting(false)
+          term.write('$ ')
         }
       } else {
         // Regular character
@@ -86,27 +106,82 @@ export function Terminal({ onCommand }: TerminalProps) {
       }
     })
 
-    function handleCommand(cmd: string) {
+    async function handleCommand(cmd: string) {
       if (cmd === 'clear') {
         term.clear()
-      } else if (cmd === 'help') {
+        term.write('$ ')
+        return
+      }
+      
+      if (cmd === 'help') {
         term.writeln('Available commands:')
-        term.writeln('  npm install - Install dependencies')
-        term.writeln('  npm run dev - Start development server')
-        term.writeln('  npm run build - Build for production')
-        term.writeln('  clear - Clear terminal')
-        term.writeln('  help - Show this help')
-      } else if (cmd.startsWith('npm')) {
-        term.writeln(`Executing: ${cmd}`)
-        term.writeln('⏳ Running...')
-        // Simulate command execution
-        setTimeout(() => {
-          term.writeln('✅ Command completed')
-          if (onCommand) onCommand(cmd)
-        }, 1000)
-      } else {
-        term.writeln(`Command not found: ${cmd}`)
-        term.writeln('Type "help" for available commands')
+        term.writeln('  npm install          - Install dependencies')
+        term.writeln('  npm run dev          - Start development server for preview')
+        term.writeln('  npm run build        - Build for production')
+        term.writeln('  npm create vite@latest - Create new Vite project')
+        term.writeln('  ls                   - List files')
+        term.writeln('  pwd                  - Print working directory')
+        term.writeln('  clear                - Clear terminal')
+        term.writeln('  help                 - Show this help')
+        term.write('$ ')
+        return
+      }
+
+      // Execute command via HTTP/WebSocket
+      await executeCommand(cmd, term)
+    }
+
+    async function executeCommand(cmd: string, term: XTerm) {
+      setIsExecuting(true)
+      
+      try {
+        // For now, execute via HTTP API
+        // TODO: Switch to WebSocket for streaming output
+        const response = await fetch('https://chatbuilds.com/api/terminal/execute', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            command: cmd,
+            workspaceId: workspaceId || 'default',
+            projectPath: projectPath || '/tmp/nexusai-workspace',
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+
+        if (data.output) {
+          // Write output line by line
+          const lines = data.output.split('\n')
+          lines.forEach((line: string) => {
+            term.writeln(line)
+          })
+        }
+
+        if (data.error) {
+          term.writeln(`\r\n❌ Error: ${data.error}`)
+        }
+
+        if (data.exitCode !== undefined && data.exitCode !== 0) {
+          term.writeln(`\r\n⚠️  Command exited with code ${data.exitCode}`)
+        } else if (data.success) {
+          term.writeln(`\r\n✅ Command completed successfully`)
+        }
+
+        if (onCommand) onCommand(cmd)
+      } catch (error) {
+        term.writeln(`\r\n❌ Failed to execute command: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        term.writeln('🔧 Terminal is running in simulation mode.')
+        term.writeln('   Real execution coming soon!')
+      } finally {
+        setIsExecuting(false)
+        term.write('\r\n$ ')
       }
     }
 
@@ -118,9 +193,12 @@ export function Terminal({ onCommand }: TerminalProps) {
 
     return () => {
       window.removeEventListener('resize', handleResize)
+      if (wsConnection) {
+        wsConnection.close()
+      }
       term.dispose()
     }
-  }, [onCommand])
+  }, [onCommand, workspaceId, projectPath, wsConnection, isExecuting])
 
   return (
     <div

@@ -34,6 +34,7 @@ import { registerGeneratedAppsRoutes } from './routes/generated-apps'
 import { registerBillingRoutes } from './routes/billing'
 import adminUsersRouter from './routes/admin/users'
 import adminTenantsRouter from './routes/admin/tenants'
+import terminalRouter from './routes/terminal'
 import { ApolloServer, gql } from 'apollo-server-express'
 import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
@@ -280,6 +281,8 @@ app.use('/api/v1/generated-apps', authMiddleware, generatedAppsRouter)
 // Admin routes
 app.use('/api/v1/admin', adminUsersRouter)
 app.use('/api/v1/admin/tenants', adminTenantsRouter)
+// Terminal routes (NexusAI integration) - protected by auth
+app.use('/api/terminal', terminalRouter)
 
 // NOTE: UnifiedDataAPI routes are intentionally not mounted here.
 // The production tenant API surface is consolidated under `routes/tenants.ts`
