@@ -171,6 +171,9 @@ router.post('/workspaces', async (req: AuthRequest, res: Response) => {
       file_count: appFiles.length,
       preview_url: `/api/v1/terminal/preview/${workspaceId}/`,
       websocket_url: `/terminal/ws/${workspaceId}`,
+      instructions: hasApp
+        ? `🎉 Workspace created! Dependencies are installing automatically. Commands you can run:\n\n▶️  npm run dev     - Start development server\n📦 npm install     - Reinstall dependencies\n🔍 ls -la          - List files\n📖 cat package.json - View project config${hasDatabase ? `\n\n🗄️  Database connected! Use $DATABASE_URL to access it.` : ''}`
+        : '💡 Workspace ready! You can create files and install packages.',
       container,
     })
   } catch (error: any) {

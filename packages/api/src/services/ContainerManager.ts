@@ -31,6 +31,8 @@ interface ContainerInfo {
   ports: { internal: number; external: number }[]
   memoryUsage?: number
   cpuUsage?: number
+  framework?: string
+  devServerRunning?: boolean
 }
 
 export class ContainerManager {
@@ -101,6 +103,9 @@ export class ContainerManager {
       await fs.mkdir(workspacePath, { recursive: true })
 
       // Write app files if provided
+      let hasPackageJson = false
+      let framework = 'unknown'
+
       if (config.files && config.files.length > 0) {
         console.log(
           `[ContainerManager] Writing ${config.files.length} files to workspace...`,
@@ -114,6 +119,20 @@ export class ContainerManager {
 
           // Write file content
           await fs.writeFile(filePath, file.content, 'utf-8')
+
+          // Detect package.json and framework
+          if (file.file_path === 'package.json') {
+            hasPackageJson = true
+            try {
+              const pkg = JSON.parse(file.content)
+              // Detect framework from dependencies
+              if (pkg.dependencies?.next || pkg.devDependencies?.next)
+                framework = 'nextjs'
+              else if (pkg.dependencies?.react) framework = 'react'
+              else if (pkg.dependencies?.vue) framework = 'vue'
+              else if (pkg.dependencies?.express) framework = 'express'
+            } catch {}
+          }
         }
         console.log(`[ContainerManager] Files written successfully`)
       } else {
