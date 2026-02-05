@@ -1,330 +1,411 @@
-"use client";
+'use client'
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { TextPlugin } from 'gsap/TextPlugin';
-import { SplitText } from 'gsap/SplitText';
-import { 
-  Shield, Lock, Zap, Globe, Users, BarChart, Loader2, Database, 
-  Cloud, Server, Webhook, Code, CreditCard, Building, 
-  MonitorSpeaker, Activity, Layers, Network, Wifi, 
-  HardDrive, Gauge, TrendingUp, Star, ArrowRight, 
-  CheckCircle, Sparkles, Rocket, Eye, Cpu, Terminal,
-  Layers3, GitBranch, Boxes, Fingerprint, Key, Settings,
-  ShieldCheck, EyeOff, LockKeyhole, DatabaseZap, ServerCog,
-  GlobeLock, UsersRound, Building2, Cctv, Satellite, 
-  ArrowUpRight, Download, Upload, WifiOff
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useAuthStore } from '@/lib/store';
-import HydrationStatus from '@/components/debug/hydration-status';
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { gsap } from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { TextPlugin } from 'gsap/TextPlugin'
+import { SplitText } from 'gsap/SplitText'
+import {
+  Shield,
+  Lock,
+  Zap,
+  Globe,
+  Users,
+  BarChart,
+  Loader2,
+  Database,
+  Cloud,
+  Server,
+  Webhook,
+  Code,
+  CreditCard,
+  Building,
+  MonitorSpeaker,
+  Activity,
+  Layers,
+  Network,
+  Wifi,
+  HardDrive,
+  Gauge,
+  TrendingUp,
+  Star,
+  ArrowRight,
+  CheckCircle,
+  Sparkles,
+  Rocket,
+  Eye,
+  Cpu,
+  Terminal,
+  Layers3,
+  GitBranch,
+  Boxes,
+  Fingerprint,
+  Key,
+  Settings,
+  ShieldCheck,
+  EyeOff,
+  LockKeyhole,
+  DatabaseZap,
+  ServerCog,
+  GlobeLock,
+  UsersRound,
+  Building2,
+  Cctv,
+  Satellite,
+  ArrowUpRight,
+  Download,
+  Upload,
+  WifiOff,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { useAuthStore } from '@/lib/store'
+import HydrationStatus from '@/components/debug/hydration-status'
 
 // Premium components
-import LiveMetrics from '@/components/premium/LiveMetrics';
-import InteractiveNetworkMap from '@/components/premium/InteractiveNetworkMap';
-import CustomerTestimonials from '@/components/premium/CustomerTestimonials';
-import VPNConnectionSimulator from '@/components/premium/VPNConnectionSimulator';
-import SpeedTestWidget from '@/components/premium/SpeedTestWidget';
-import SecurityScanner from '@/components/premium/SecurityScanner';
+import LiveMetrics from '@/components/premium/LiveMetrics'
+import InteractiveNetworkMap from '@/components/premium/InteractiveNetworkMap'
+import CustomerTestimonials from '@/components/premium/CustomerTestimonials'
+import VPNConnectionSimulator from '@/components/premium/VPNConnectionSimulator'
+import SpeedTestWidget from '@/components/premium/SpeedTestWidget'
+import SecurityScanner from '@/components/premium/SecurityScanner'
 
 // Register GSAP plugins
 if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger, TextPlugin, SplitText);
+  gsap.registerPlugin(ScrollTrigger, TextPlugin, SplitText)
 }
 
 export default function Home() {
-  const { isAuthenticated, hasHydrated, isLoading } = useAuthStore();
-  const router = useRouter();
-  const [isLoaded, setIsLoaded] = useState(false);
-  
+  const { isAuthenticated, hasHydrated, isLoading } = useAuthStore()
+  const router = useRouter()
+  const [isLoaded, setIsLoaded] = useState(false)
+
   // Refs for animations
-  const heroRef = useRef<HTMLDivElement>(null);
-  const logoRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLDivElement>(null);
-  const subtitleRef = useRef<HTMLParagraphElement>(null);
-  const ctaRef = useRef<HTMLDivElement>(null);
-  const servicesRef = useRef<HTMLDivElement>(null);
-  const particlesRef = useRef<HTMLDivElement>(null);
-  const backgroundGridRef = useRef<HTMLDivElement>(null);
-  const floatingIconsRef = useRef<HTMLDivElement>(null);
-  const vpnVisualizationRef = useRef<HTMLDivElement>(null);
-  const timelineContainerRef = useRef<HTMLDivElement>(null);
-  const brandsRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null)
+  const logoRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLDivElement>(null)
+  const subtitleRef = useRef<HTMLParagraphElement>(null)
+  const ctaRef = useRef<HTMLDivElement>(null)
+  const servicesRef = useRef<HTMLDivElement>(null)
+  const particlesRef = useRef<HTMLDivElement>(null)
+  const backgroundGridRef = useRef<HTMLDivElement>(null)
+  const floatingIconsRef = useRef<HTMLDivElement>(null)
+  const vpnVisualizationRef = useRef<HTMLDivElement>(null)
+  const timelineContainerRef = useRef<HTMLDivElement>(null)
+  const brandsRef = useRef<HTMLDivElement>(null)
 
   const handleDashboardClick = useCallback(() => {
-    if (!hasHydrated) return;
+    if (!hasHydrated) return
     if (isAuthenticated) {
-      router.push('/dashboard');
+      router.push('/dashboard')
     } else {
-      router.push('/auth/login');
+      router.push('/auth/login')
     }
-  }, [hasHydrated, isAuthenticated, router]);
+  }, [hasHydrated, isAuthenticated, router])
 
-  const dashboardButtonDisabled = !hasHydrated || isLoading;
+  const dashboardButtonDisabled = !hasHydrated || isLoading
 
   useEffect(() => {
-    const state = useAuthStore.getState();
+    const state = useAuthStore.getState()
     if (!state.hasHydrated) {
-      state.setHydrated(true);
-      state.setLoading(false);
-      console.debug('[Home] Immediate mount hydration applied');
+      state.setHydrated(true)
+      state.setLoading(false)
+      console.debug('[Home] Immediate mount hydration applied')
     } else if (state.isLoading) {
-      state.setLoading(false);
+      state.setLoading(false)
     }
-  }, []);
+  }, [])
 
   // 🚀 ENTERPRISE-GRADE GSAP ANIMATIONS
   useEffect(() => {
-    if (!isLoaded || typeof window === 'undefined') return;
+    if (!isLoaded || typeof window === 'undefined') return
 
     // Create master timeline
-    const masterTL = gsap.timeline();
+    const masterTL = gsap.timeline()
 
     // 1. SECURITY GRID BACKGROUND
-    const gridCells = backgroundGridRef.current?.children;
+    const gridCells = backgroundGridRef.current?.children
     if (gridCells) {
       gsap.set(gridCells, {
         opacity: 0.05,
-        scale: 0.8
-      });
+        scale: 0.8,
+      })
 
       // Staggered pulse effect for security grid
       gsap.to(gridCells, {
         duration: 3,
-        opacity: "random(0.1, 0.3)",
-        scale: "random(0.9, 1.1)",
-        ease: "sine.inOut",
+        opacity: 'random(0.1, 0.3)',
+        scale: 'random(0.9, 1.1)',
+        ease: 'sine.inOut',
         stagger: {
           amount: 3,
           grid: [10, 10],
-          from: "random"
+          from: 'random',
         },
         repeat: -1,
-        yoyo: true
-      });
+        yoyo: true,
+      })
     }
 
     // 2. FLOATING SECURITY ICONS
-    const icons = floatingIconsRef.current?.children;
+    const icons = floatingIconsRef.current?.children
     if (icons) {
       Array.from(icons).forEach((icon, i) => {
-        const duration = 10 + i * 0.5;
+        const duration = 10 + i * 0.5
         gsap.to(icon, {
           duration: duration,
           x: `random(-150, 150)`,
           y: `random(-100, 100)`,
-          rotation: "random(-45, 45)",
-          ease: "sine.inOut",
+          rotation: 'random(-45, 45)',
+          ease: 'sine.inOut',
           repeat: -1,
           yoyo: true,
-          delay: i * 0.3
-        });
+          delay: i * 0.3,
+        })
 
         // Security glow pulse
         gsap.to(icon, {
           duration: 2,
           scale: 1.2,
           opacity: 0.8,
-          ease: "sine.inOut",
+          ease: 'sine.inOut',
           repeat: -1,
           yoyo: true,
-          delay: i * 0.7
-        });
-      });
+          delay: i * 0.7,
+        })
+      })
     }
 
     // 3. VPN VISUALIZATION ANIMATION
-    const vpnNodes = vpnVisualizationRef.current?.querySelectorAll('.vpn-node');
-    const vpnConnections = vpnVisualizationRef.current?.querySelectorAll('.vpn-connection');
-    
+    const vpnNodes = vpnVisualizationRef.current?.querySelectorAll('.vpn-node')
+    const vpnConnections =
+      vpnVisualizationRef.current?.querySelectorAll('.vpn-connection')
+
     if (vpnNodes && vpnConnections) {
       // Animate VPN nodes
       gsap.set(vpnNodes, {
         scale: 0,
-        opacity: 0
-      });
+        opacity: 0,
+      })
 
       gsap.to(vpnNodes, {
         duration: 1.5,
         scale: 1,
         opacity: 1,
         stagger: 0.3,
-        ease: "elastic.out(1, 0.5)",
+        ease: 'elastic.out(1, 0.5)',
         repeat: -1,
         yoyo: true,
-        repeatDelay: 2
-      });
+        repeatDelay: 2,
+      })
 
       // Animate VPN connections (data flow)
       gsap.set(vpnConnections, {
-        strokeDasharray: "1000",
-        strokeDashoffset: "1000"
-      });
+        strokeDasharray: '1000',
+        strokeDashoffset: '1000',
+      })
 
       gsap.to(vpnConnections, {
         duration: 4,
-        strokeDashoffset: "0",
-        ease: "power2.inOut",
+        strokeDashoffset: '0',
+        ease: 'power2.inOut',
         stagger: 0.5,
         repeat: -1,
-        repeatDelay: 1
-      });
+        repeatDelay: 1,
+      })
     }
 
     // 4. HERO ENTRANCE - ENTERPRISE SEQUENCE
-    const heroTL = gsap.timeline();
-    
+    const heroTL = gsap.timeline()
+
     // Logo security seal animation
-    heroTL.fromTo(logoRef.current, 
+    heroTL.fromTo(
+      logoRef.current,
       {
         scale: 0,
         rotation: 180,
         opacity: 0,
-        filter: "blur(10px)"
+        filter: 'blur(10px)',
       },
       {
         duration: 1.5,
         scale: 1,
         rotation: 0,
         opacity: 1,
-        filter: "blur(0px)",
-        ease: "back.out(1.7)"
-      }
-    );
+        filter: 'blur(0px)',
+        ease: 'back.out(1.7)',
+      },
+    )
 
     // 🏆 WORLD-CLASS TITLE MASTERPIECE ANIMATION
     if (titleRef.current) {
       // 1. PREMIUM BACKGROUND ORBS
-      const bgOrbs = titleRef.current.querySelectorAll('.title-bg-orb');
-      gsap.set(bgOrbs, { scale: 0, opacity: 0 });
-      
-      heroTL.to(bgOrbs, {
-        scale: 1,
-        opacity: 1,
-        duration: 2,
-        stagger: 0.3,
-        ease: "elastic.out(1, 0.5)"
-      }, "titleStart");
+      const bgOrbs = titleRef.current.querySelectorAll('.title-bg-orb')
+      gsap.set(bgOrbs, { scale: 0, opacity: 0 })
+
+      heroTL.to(
+        bgOrbs,
+        {
+          scale: 1,
+          opacity: 1,
+          duration: 2,
+          stagger: 0.3,
+          ease: 'elastic.out(1, 0.5)',
+        },
+        'titleStart',
+      )
 
       // 2. LETTER-BY-LETTER SPECTACULAR ENTRANCE
-      const letters = titleRef.current.querySelectorAll('.title-letter');
+      const letters = titleRef.current.querySelectorAll('.title-letter')
       gsap.set(letters, {
         opacity: 0,
         y: 100,
         rotationX: -90,
         scale: 0.3,
-        filter: "blur(10px)"
-      });
+        filter: 'blur(10px)',
+      })
 
-      heroTL.to(letters, {
-        opacity: 1,
-        y: 0,
-        rotationX: 0,
-        scale: 1,
-        filter: "blur(0px)",
-        duration: 1.5,
-        stagger: {
-          amount: 1.2,
-          from: "start",
-          ease: "power2.out"
+      heroTL.to(
+        letters,
+        {
+          opacity: 1,
+          y: 0,
+          rotationX: 0,
+          scale: 1,
+          filter: 'blur(0px)',
+          duration: 1.5,
+          stagger: {
+            amount: 1.2,
+            from: 'start',
+            ease: 'power2.out',
+          },
+          ease: 'back.out(2)',
         },
-        ease: "back.out(2)"
-      }, "titleStart+=0.5");
+        'titleStart+=0.5',
+      )
 
       // 3. SECOND LINE MORPHING ENTRANCE
-      const titleLine2 = titleRef.current.querySelector('.title-line-2');
-      const titleWords = titleRef.current.querySelectorAll('.title-word');
-      const titleSeparator = titleRef.current.querySelector('.title-separator');
-      
+      const titleLine2 = titleRef.current.querySelector('.title-line-2')
+      const titleWords = titleRef.current.querySelectorAll('.title-word')
+      const titleSeparator = titleRef.current.querySelector('.title-separator')
+
       gsap.set([titleWords, titleSeparator], {
         opacity: 0,
         y: 80,
         scale: 0.8,
-        rotationY: 45
-      });
+        rotationY: 45,
+      })
 
-      heroTL.to(titleWords, {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        rotationY: 0,
-        duration: 1.2,
-        stagger: 0.2,
-        ease: "power3.out"
-      }, "titleStart+=1.8");
+      heroTL.to(
+        titleWords,
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          rotationY: 0,
+          duration: 1.2,
+          stagger: 0.2,
+          ease: 'power3.out',
+        },
+        'titleStart+=1.8',
+      )
 
-      heroTL.to(titleSeparator, {
-        opacity: 1,
-        y: 0,
-        scale: 1.5,
-        rotationY: 0,
-        duration: 0.8,
-        ease: "elastic.out(1, 0.8)"
-      }, "titleStart+=2.0");
+      heroTL.to(
+        titleSeparator,
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1.5,
+          rotationY: 0,
+          duration: 0.8,
+          ease: 'elastic.out(1, 0.8)',
+        },
+        'titleStart+=2.0',
+      )
 
       // 4. ANIMATED UNDERLINE DRAW
-      const underline = titleRef.current.querySelector('.title-underline');
-      gsap.set(underline, { scaleX: 0 });
-      
-      heroTL.to(underline, {
-        scaleX: 1,
-        duration: 1.5,
-        ease: "power2.inOut"
-      }, "titleStart+=2.5");
+      const underline = titleRef.current.querySelector('.title-underline')
+      gsap.set(underline, { scaleX: 0 })
+
+      heroTL.to(
+        underline,
+        {
+          scaleX: 1,
+          duration: 1.5,
+          ease: 'power2.inOut',
+        },
+        'titleStart+=2.5',
+      )
 
       // 5. FLOATING PARTICLES MAGIC
-      const particles = titleRef.current.querySelectorAll('.title-particle');
-      gsap.set(particles, { opacity: 0, scale: 0 });
-      
-      heroTL.to(particles, {
-        opacity: 0.8,
-        scale: 1,
-        duration: 0.8,
-        stagger: 0.1,
-        ease: "back.out(3)"
-      }, "titleStart+=3");
+      const particles = titleRef.current.querySelectorAll('.title-particle')
+      gsap.set(particles, { opacity: 0, scale: 0 })
+
+      heroTL.to(
+        particles,
+        {
+          opacity: 0.8,
+          scale: 1,
+          duration: 0.8,
+          stagger: 0.1,
+          ease: 'back.out(3)',
+        },
+        'titleStart+=3',
+      )
 
       // Continuous particle floating
       particles.forEach((particle, i) => {
         gsap.to(particle, {
-          y: "random(-20, 20)",
-          x: "random(-15, 15)",
-          rotation: "random(-45, 45)",
-          duration: "random(2, 4)",
+          y: 'random(-20, 20)',
+          x: 'random(-15, 15)',
+          rotation: 'random(-45, 45)',
+          duration: 'random(2, 4)',
           repeat: -1,
           yoyo: true,
-          ease: "sine.inOut",
-          delay: i * 0.2
-        });
-      });
+          ease: 'sine.inOut',
+          delay: i * 0.2,
+        })
+      })
 
       // 6. HOLOGRAPHIC SWEEP
-      const holo = titleRef.current.querySelector('.title-holo');
-      gsap.set(holo, { x: "-100%", opacity: 0 });
-      
-      heroTL.to(holo, {
-        x: "100%",
-        opacity: 0.6,
-        duration: 1.5,
-        ease: "power2.inOut"
-      }, "titleStart+=2.8");
+      const holo = titleRef.current.querySelector('.title-holo')
+      gsap.set(holo, { x: '-100%', opacity: 0 })
+
+      heroTL.to(
+        holo,
+        {
+          x: '100%',
+          opacity: 0.6,
+          duration: 1.5,
+          ease: 'power2.inOut',
+        },
+        'titleStart+=2.8',
+      )
 
       // 7. PREMIUM AWARD BADGE
-      const badge = titleRef.current.querySelector('.title-badge');
-      gsap.set(badge, { scale: 0, rotation: 45, opacity: 0 });
-      
-      heroTL.to(badge, {
-        scale: 1,
-        rotation: 12,
-        opacity: 1,
-        duration: 1,
-        ease: "elastic.out(1.2, 0.5)"
-      }, "titleStart+=4");
+      const badge = titleRef.current.querySelector('.title-badge')
+      gsap.set(badge, { scale: 0, rotation: 45, opacity: 0 })
+
+      heroTL.to(
+        badge,
+        {
+          scale: 1,
+          rotation: 12,
+          opacity: 1,
+          duration: 1,
+          ease: 'elastic.out(1.2, 0.5)',
+        },
+        'titleStart+=4',
+      )
 
       // Badge pulse animation
       gsap.to(badge, {
@@ -332,20 +413,24 @@ export default function Home() {
         duration: 2,
         repeat: -1,
         yoyo: true,
-        ease: "sine.inOut"
-      });
+        ease: 'sine.inOut',
+      })
 
       // 8. DECORATIVE CROWN & SPARKLE
-      const crown = titleRef.current.querySelector('.title-crown');
-      const sparkle = titleRef.current.querySelector('.title-sparkle');
-      
-      heroTL.to([crown, sparkle], {
-        opacity: 1,
-        scale: 1.2,
-        duration: 0.6,
-        stagger: 0.1,
-        ease: "back.out(3)"
-      }, "titleStart+=4.5");
+      const crown = titleRef.current.querySelector('.title-crown')
+      const sparkle = titleRef.current.querySelector('.title-sparkle')
+
+      heroTL.to(
+        [crown, sparkle],
+        {
+          opacity: 1,
+          scale: 1.2,
+          duration: 0.6,
+          stagger: 0.1,
+          ease: 'back.out(3)',
+        },
+        'titleStart+=4.5',
+      )
 
       // Continuous crown bobbing
       gsap.to(crown, {
@@ -353,8 +438,8 @@ export default function Home() {
         duration: 1.5,
         repeat: -1,
         yoyo: true,
-        ease: "sine.inOut"
-      });
+        ease: 'sine.inOut',
+      })
 
       // Sparkle twinkle
       gsap.to(sparkle, {
@@ -363,83 +448,89 @@ export default function Home() {
         duration: 2,
         repeat: -1,
         yoyo: true,
-        ease: "power2.inOut"
-      });
+        ease: 'power2.inOut',
+      })
 
       // 9. SUBTITLE ENHANCEMENT
-      const subtitle = titleRef.current.querySelector('.title-subtitle');
-      gsap.set(subtitle, { opacity: 0, y: 20, filter: "blur(5px)" });
-      
-      heroTL.to(subtitle, {
-        opacity: 1,
-        y: 0,
-        filter: "blur(0px)",
-        duration: 1,
-        ease: "power3.out"
-      }, "titleStart+=5");
-      
+      const subtitle = titleRef.current.querySelector('.title-subtitle')
+      gsap.set(subtitle, { opacity: 0, y: 20, filter: 'blur(5px)' })
+
+      heroTL.to(
+        subtitle,
+        {
+          opacity: 1,
+          y: 0,
+          filter: 'blur(0px)',
+          duration: 1,
+          ease: 'power3.out',
+        },
+        'titleStart+=5',
+      )
+
       // 10. CONTINUOUS LETTER HOVER EFFECTS
       letters.forEach((letter, i) => {
         letter.addEventListener('mouseenter', () => {
           gsap.to(letter, {
             y: -10,
             scale: 1.2,
-            color: "#10b981",
-            textShadow: "0 0 20px rgba(16, 185, 129, 0.8)",
+            color: '#10b981',
+            textShadow: '0 0 20px rgba(16, 185, 129, 0.8)',
             duration: 0.3,
-            ease: "back.out(3)"
-          });
-        });
+            ease: 'back.out(3)',
+          })
+        })
 
         letter.addEventListener('mouseleave', () => {
           gsap.to(letter, {
             y: 0,
             scale: 1,
-            color: "#1f2937",
-            textShadow: "none",
+            color: '#1f2937',
+            textShadow: 'none',
             duration: 0.3,
-            ease: "power2.out"
-          });
-        });
-      });
+            ease: 'power2.out',
+          })
+        })
+      })
 
       // 11. BACKGROUND ORBS FLOATING
       bgOrbs.forEach((orb, i) => {
         gsap.to(orb, {
-          x: "random(-30, 30)",
-          y: "random(-20, 20)",
+          x: 'random(-30, 30)',
+          y: 'random(-20, 20)',
           rotation: 360,
-          duration: "random(8, 12)",
+          duration: 'random(8, 12)',
           repeat: -1,
-          ease: "none"
-        });
-      });
+          ease: 'none',
+        })
+      })
     }
 
     // Subtitle reveal
-    heroTL.fromTo(subtitleRef.current,
+    heroTL.fromTo(
+      subtitleRef.current,
       {
         opacity: 0,
         y: 30,
-        filter: "blur(10px)"
+        filter: 'blur(10px)',
       },
       {
         duration: 1,
         opacity: 1,
         y: 0,
-        filter: "blur(0px)",
-        ease: "power3.out"
+        filter: 'blur(0px)',
+        ease: 'power3.out',
       },
-      "-=0.3"
-    );
+      '-=0.3',
+    )
 
     // Feature badges entrance
-    const pills = document.querySelectorAll('.feature-badge');
-    heroTL.fromTo(pills,
+    const pills = document.querySelectorAll('.feature-badge')
+    heroTL.fromTo(
+      pills,
       {
         opacity: 0,
         scale: 0,
-        y: 20
+        y: 20,
       },
       {
         duration: 0.8,
@@ -447,149 +538,152 @@ export default function Home() {
         scale: 1,
         y: 0,
         stagger: 0.15,
-        ease: "back.out(1.7)"
+        ease: 'back.out(1.7)',
       },
-      "-=0.2"
-    );
+      '-=0.2',
+    )
 
     // CTA buttons encryption animation
-    heroTL.fromTo(ctaRef.current,
+    heroTL.fromTo(
+      ctaRef.current,
       {
         opacity: 0,
         scale: 0.8,
-        y: 30
+        y: 30,
       },
       {
         duration: 0.8,
         opacity: 1,
         scale: 1,
         y: 0,
-        ease: "elastic.out(1.2, 0.5)"
+        ease: 'elastic.out(1.2, 0.5)',
       },
-      "-=0.1"
-    );
+      '-=0.1',
+    )
 
-    masterTL.add(heroTL);
+    masterTL.add(heroTL)
 
     // 5. DATA FLOW ANIMATION (For VPN/Server visualization)
-    const dataPackets = document.querySelectorAll('.data-packet');
+    const dataPackets = document.querySelectorAll('.data-packet')
     if (dataPackets) {
       Array.from(dataPackets).forEach((packet, i) => {
         gsap.set(packet, {
           opacity: 0,
-          scale: 0
-        });
+          scale: 0,
+        })
 
         gsap.to(packet, {
           duration: 2,
           opacity: 1,
           scale: 1,
-          ease: "power2.out",
+          ease: 'power2.out',
           delay: i * 0.2,
           repeat: -1,
-          repeatDelay: 3
-        });
-      });
+          repeatDelay: 3,
+        })
+      })
     }
 
     // 6. SCROLL-TRIGGERED SERVICE REVEALS
-    const serviceCards = servicesRef.current?.querySelectorAll('.service-card');
+    const serviceCards = servicesRef.current?.querySelectorAll('.service-card')
     if (serviceCards) {
       serviceCards.forEach((card, i) => {
         ScrollTrigger.create({
           trigger: card,
-          start: "top 85%",
-          end: "bottom 20%",
+          start: 'top 85%',
+          end: 'bottom 20%',
           onEnter: () => {
-            gsap.fromTo(card,
+            gsap.fromTo(
+              card,
               {
                 opacity: 0,
                 y: 80,
-                rotationX: -15
+                rotationX: -15,
               },
               {
                 duration: 1.2,
                 opacity: 1,
                 y: 0,
                 rotationX: 0,
-                ease: "power3.out",
-                delay: i * 0.15
-              }
-            );
-          }
-        });
-      });
+                ease: 'power3.out',
+                delay: i * 0.15,
+              },
+            )
+          },
+        })
+      })
     }
 
     // 7. ENTERPRISE TIMELINE ANIMATION
-    const timelineItems = timelineContainerRef.current?.children;
+    const timelineItems = timelineContainerRef.current?.children
     if (timelineItems) {
       Array.from(timelineItems).forEach((item, i) => {
         ScrollTrigger.create({
           trigger: item,
-          start: "top 90%",
+          start: 'top 90%',
           onEnter: () => {
-            gsap.fromTo(item,
+            gsap.fromTo(
+              item,
               {
                 opacity: 0,
                 x: i % 2 === 0 ? -50 : 50,
-                scale: 0.9
+                scale: 0.9,
               },
               {
                 duration: 0.8,
                 opacity: 1,
                 x: 0,
                 scale: 1,
-                ease: "power3.out"
-              }
-            );
-          }
-        });
-      });
+                ease: 'power3.out',
+              },
+            )
+          },
+        })
+      })
     }
 
     // 8. REAL-TIME METRICS COUNTERS
-    const metricNumbers = document.querySelectorAll('.metric-number');
-    metricNumbers.forEach(number => {
-      const target = parseInt(number.textContent?.replace(/[^0-9]/g, '') || '0');
+    const metricNumbers = document.querySelectorAll('.metric-number')
+    metricNumbers.forEach((number) => {
+      const target = parseInt(number.textContent?.replace(/[^0-9]/g, '') || '0')
       gsap.to(number, {
         duration: 2,
         innerText: target,
         snap: { innerText: 1 },
-        ease: "power2.out",
+        ease: 'power2.out',
         scrollTrigger: {
           trigger: number,
-          start: "top 80%",
-          toggleActions: "play none none none"
-        }
-      });
-    });
+          start: 'top 80%',
+          toggleActions: 'play none none none',
+        },
+      })
+    })
 
     // 9. SECURITY SEAL ROTATION
-    const securitySeals = document.querySelectorAll('.security-seal');
-    securitySeals.forEach(seal => {
+    const securitySeals = document.querySelectorAll('.security-seal')
+    securitySeals.forEach((seal) => {
       gsap.to(seal, {
         duration: 20,
         rotation: 360,
-        ease: "none",
-        repeat: -1
-      });
-    });
+        ease: 'none',
+        repeat: -1,
+      })
+    })
 
     // 10. TRUSTED BRANDS ANIMATION
-    const brandLogos = brandsRef.current?.querySelectorAll('.brand-logo');
+    const brandLogos = brandsRef.current?.querySelectorAll('.brand-logo')
     if (brandLogos) {
       // Set initial state
       gsap.set(brandLogos, {
         opacity: 0,
         y: 30,
-        scale: 0.8
-      });
+        scale: 0.8,
+      })
 
       // Animate brands on scroll
       ScrollTrigger.create({
         trigger: brandsRef.current,
-        start: "top 80%",
+        start: 'top 80%',
         onEnter: () => {
           gsap.to(brandLogos, {
             duration: 1,
@@ -597,34 +691,34 @@ export default function Home() {
             y: 0,
             scale: 1,
             stagger: 0.1,
-            ease: "power3.out"
-          });
-        }
-      });
+            ease: 'power3.out',
+          })
+        },
+      })
 
       // Continuous floating animation
       Array.from(brandLogos).forEach((logo, i) => {
         gsap.to(logo, {
           duration: 3 + i * 0.3,
-          y: "random(-10, 10)",
-          rotation: "random(-2, 2)",
-          ease: "sine.inOut",
+          y: 'random(-10, 10)',
+          rotation: 'random(-2, 2)',
+          ease: 'sine.inOut',
           repeat: -1,
           yoyo: true,
-          delay: i * 0.2
-        });
-      });
+          delay: i * 0.2,
+        })
+      })
     }
 
     return () => {
-      ScrollTrigger.getAll().forEach(trigger => trigger.kill());
-      masterTL.kill();
-    };
-  }, [isLoaded]);
+      ScrollTrigger.getAll().forEach((trigger) => trigger.kill())
+      masterTL.kill()
+    }
+  }, [isLoaded])
 
   useEffect(() => {
-    setIsLoaded(true);
-  }, []);
+    setIsLoaded(true)
+  }, [])
 
   return (
     <div className='min-h-screen relative overflow-hidden'>
@@ -1168,16 +1262,20 @@ export default function Home() {
                 </div>
               </Button>
 
-              <Link href='#services'>
-                <Button
-                  variant='outline'
-                  size='lg'
-                  className='text-lg px-12 py-6 bg-white/70 border-2 border-emerald-300 hover:border-emerald-500/70 text-gray-800 backdrop-blur-sm transition-all duration-300 shadow-lg'
-                >
+              <Button
+                variant='outline'
+                size='lg'
+                className='text-lg px-12 py-6 bg-white/70 border-2 border-emerald-300 hover:border-emerald-500/70 text-gray-800 backdrop-blur-sm transition-all duration-300 shadow-lg'
+                onClick={handleDashboardClick}
+                disabled={dashboardButtonDisabled}
+              >
+                {dashboardButtonDisabled ? (
+                  <Loader2 className='h-5 w-5 mr-3 animate-spin' />
+                ) : (
                   <Eye className='h-5 w-5 mr-3' />
-                  View Services
-                </Button>
-              </Link>
+                )}
+                {isAuthenticated ? 'View Dashboard' : 'View Services'}
+              </Button>
             </div>
 
             {/* Enterprise Metrics */}
