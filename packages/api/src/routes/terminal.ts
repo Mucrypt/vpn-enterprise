@@ -420,7 +420,7 @@ router.post(
  * ALL /api/v1/terminal/preview/:workspaceId/*
  */
 router.all(
-  '/preview/:workspaceId/:path*',
+  '/preview/:workspaceId/*',
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     await previewProxyService.handleRequest(req, res, next)
   },
