@@ -364,6 +364,71 @@ router.delete(
 )
 
 /**
+ * Execute command (legacy endpoint for frontend compatibility)
+ * POST /api/v1/terminal/execute
+ * Body: { command, workspaceId, projectPath? }
+ */
+router.post('/execute', async (req: AuthRequest, res: Response) => {
+  try {
+    const { command, workspaceId, projectPath } = req.body
+    const userId = req.user?.id
+
+    if (!command) {
+      return res.status(400).json({ error: 'Command required' })
+    }
+
+    if (!workspaceId) {
+      return res.status(400).json({ error: 'Workspace ID required' })
+    }
+
+    // Get or create container
+    let container = containerManager.getContainer(workspaceId)
+
+    if (!container) {
+      // Auto-create workspace if it doesn't exist
+      console.log(
+        `[TerminalAPI] Auto-creating workspace ${workspaceId} for user ${userId}`,
+      )
+
+      await containerManager.createContainer({
+        workspaceId,
+        userId: userId!,
+        memoryLimit: '512m',
+        cpuLimit: '1.0',
+        diskLimit: '2G',
+        timeoutMinutes: 30,
+      })
+
+      container = containerManager.getContainer(workspaceId)
+    }
+
+    // Verify ownership
+    if (container && container.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+
+    const result = await containerManager.executeCommand(workspaceId, command, {
+      cwd: projectPath || '/workspace',
+      timeout: 30000,
+    })
+
+    res.json({
+      success: result.exitCode === 0,
+      output: result.stdout || result.stderr,
+      exitCode: result.exitCode,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    })
+  } catch (error: any) {
+    console.error('[TerminalAPI] Error executing command:', error)
+    res.status(500).json({
+      error: 'Failed to execute command',
+      message: error.message,
+    })
+  }
+})
+
+/**
  * Execute command in workspace (REST fallback for non-WebSocket clients)
  * POST /api/v1/terminal/workspaces/:workspaceId/exec
  */
