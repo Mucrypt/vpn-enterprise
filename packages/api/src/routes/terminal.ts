@@ -395,7 +395,7 @@ router.post('/workspaces/:workspaceId/exec', async (req: AuthRequest, res: Respo
  * Preview proxy - handles requests to running dev servers
  * ALL /api/v1/terminal/preview/:workspaceId/*
  */
-router.all('/preview/:workspaceId/(.*)', async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.all('/preview/:workspaceId/:path(*)', async (req: AuthRequest, res: Response, next: NextFunction) => {
   await previewProxyService.handleRequest(req, res, next)
 })
 
