@@ -35,17 +35,25 @@ FROM node:20-alpine AS production
 WORKDIR /app
 
 # Install production dependencies and security updates
+# Also install Docker CLI for terminal/container management system
 RUN apk add --no-cache \
     tini \
     curl \
+    docker-cli \
+    su-exec \
     && apk upgrade --no-cache
 
 # Create non-root user for security
+# Docker group will be configured at runtime by entrypoint script
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
 # Ensure writable log directory (some services write file logs to ./logs)
 RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app/logs
+
+# Copy entrypoint script for Docker socket handling
+COPY infrastructure/docker/entrypoint-api.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Copy built artifacts
 COPY --from=builder --chown=nodejs:nodejs /app/packages/api/dist ./packages/api/dist
@@ -68,8 +76,7 @@ RUN npm ci --only=production
 ENV NODE_ENV=production
 ENV PORT=5000
 
-# Switch to non-root user
-USER nodejs
+# Note: USER directive removed - entrypoint script handles user switching
 
 # Expose port
 EXPOSE 5000
@@ -78,8 +85,8 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Use tini to handle signals properly
-ENTRYPOINT ["/sbin/tini", "--"]
+# Use custom entrypoint to handle Docker socket permissions
+ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
 
-# Start the API server
+# Start the API server (passed to entrypoint script)
 CMD ["node", "packages/api/dist/index.js"]

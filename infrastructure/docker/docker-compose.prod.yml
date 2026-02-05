@@ -36,6 +36,8 @@ services:
       - ./secrets/api_key:/run/secrets/api_key:ro
       - ./secrets/stripe_secret_key:/run/secrets/stripe_secret_key:ro
       - ./secrets/stripe_webhook_secret:/run/secrets/stripe_webhook_secret:ro
+      # Docker socket for terminal system (container management)
+      - /var/run/docker.sock:/var/run/docker.sock
     secrets:
       - api_key
       - db_password
