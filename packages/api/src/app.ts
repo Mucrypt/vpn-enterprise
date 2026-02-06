@@ -1186,6 +1186,12 @@ app.get('/api/v1/auth/me', async (req: AuthRequest, res) => {
         (subscription.purchased_credits_balance || 0)
       : 100
 
+    console.log('[API] /auth/me - User:', user.id, 'Credits:', {
+      credits_remaining: subscription?.credits_remaining,
+      purchased: subscription?.purchased_credits_balance,
+      total: totalCredits,
+    })
+
     // Return user with subscription and token info
     res.json({
       user: {

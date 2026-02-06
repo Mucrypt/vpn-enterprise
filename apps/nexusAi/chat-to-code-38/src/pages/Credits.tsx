@@ -92,10 +92,15 @@ const Credits = () => {
     refreshCredits()
   }, [refreshCredits])
 
-  // Calculate usage based on context data
-  const totalCredits = 100 // Base free tier allocation
-  const creditsUsed = Math.max(0, totalCredits - creditsRemaining)
-  const usagePercent = totalCredits > 0 ? (creditsUsed / totalCredits) * 100 : 0
+  // Get total available credits (what user actually has)
+  const totalAvailableCredits = creditsRemaining
+  
+  // For display purposes: free plan has 100 monthly credits
+  // Pro/Enterprise plans show actual total credits
+  const monthlyCreditLimit = subscription?.plan === 'free' ? 100 : 1000
+  const displayTotal = totalAvailableCredits > monthlyCreditLimit ? totalAvailableCredits : monthlyCreditLimit
+  const creditsUsed = Math.max(0, displayTotal - totalAvailableCredits)
+  const usagePercent = displayTotal > 0 ? (creditsUsed / displayTotal) * 100 : 0
 
   const handleBuyCredits = async (pkg: CreditPackage) => {
     try {
@@ -244,7 +249,7 @@ const Credits = () => {
                 {creditsUsed.toLocaleString()}
               </div>
               <p className='text-xs text-muted-foreground mt-1'>
-                out of {totalCredits} total
+                out of {displayTotal} total
               </p>
             </CardContent>
           </Card>
@@ -287,7 +292,7 @@ const Credits = () => {
                 <div className='flex items-center justify-between mb-2'>
                   <span className='text-sm font-medium'>Credit Balance</span>
                   <span className='text-sm text-muted-foreground'>
-                    {creditsRemaining} / {totalCredits} credits
+                    {creditsRemaining} / {displayTotal} credits
                   </span>
                 </div>
                 <Progress value={100 - usagePercent} className='h-2' />
