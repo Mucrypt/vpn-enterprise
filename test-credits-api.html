@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Test Credits API</title>
+    <style>
+      body {
+        font-family: monospace;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #1a1a1a;
+        color: #0f0;
+      }
+      button {
+        background: #0f0;
+        color: #000;
+        border: none;
+        padding: 10px 20px;
+        cursor: pointer;
+        margin: 10px 5px;
+      }
+      button:hover {
+        background: #0d0;
+      }
+      pre {
+        background: #000;
+        padding: 15px;
+        border: 1px solid #0f0;
+        overflow-x: auto;
+      }
+      .error {
+        color: #f00;
+      }
+      .success {
+        color: #0f0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 Test NexusAI Credits API</h1>
+    <p>
+      This page tests if the /auth/me endpoint returns credit information
+      correctly.
+    </p>
+
+    <button onclick="testAuthMe()">Test /auth/me Endpoint</button>
+    <button onclick="testWithToken()">Test with Token from localStorage</button>
+
+    <h3>Response:</h3>
+    <pre id="output">Click a button to test...</pre>
+
+    <script>
+      async function testAuthMe() {
+        const output = document.getElementById('output')
+        output.innerHTML = 'Testing /auth/me endpoint...\n'
+
+        try {
+          const response = await fetch(
+            'https://chatbuilds.com/api/v1/auth/me',
+            {
+              credentials: 'include',
+            },
+          )
+
+          const data = await response.json()
+
+          output.innerHTML += `\nStatus: ${response.status}\n`
+          output.innerHTML += `\nFull Response:\n${JSON.stringify(data, null, 2)}\n`
+
+          if (data.user?.subscription) {
+            output.innerHTML += `\n✅ Credits Found: ${data.user.subscription.credits}\n`
+            output.className = 'success'
+          } else {
+            output.innerHTML += `\n⚠️  No subscription found in response\n`
+            output.className = 'error'
+          }
+        } catch (error) {
+          output.innerHTML += `\n❌ Error: ${error.message}\n`
+          output.className = 'error'
+        }
+      }
+
+      async function testWithToken() {
+        const output = document.getElementById('output')
+        output.innerHTML = 'Getting token from localStorage...\n'
+
+        try {
+          // Try nexusai_auth first
+          let auth = localStorage.getItem('nexusai_auth')
+          if (!auth) {
+            auth = localStorage.getItem('vpn-enterprise-auth-storage')
+          }
+
+          if (!auth) {
+            output.innerHTML += '❌ No auth token found in localStorage\n'
+            output.className = 'error'
+            return
+          }
+
+          const authData = JSON.parse(auth)
+          const token = authData.token
+
+          output.innerHTML += `Token found: ${token.substring(0, 20)}...\n`
+          output.innerHTML +=
+            '\nTesting /auth/me with Authorization header...\n'
+
+          const response = await fetch(
+            'https://chatbuilds.com/api/v1/auth/me',
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              credentials: 'include',
+            },
+          )
+
+          const data = await response.json()
+
+          output.innerHTML += `\nStatus: ${response.status}\n`
+          output.innerHTML += `\nFull Response:\n${JSON.stringify(data, null, 2)}\n`
+
+          if (data.user?.subscription) {
+            output.innerHTML += `\n✅ SUCCESS!\n`
+            output.innerHTML += `Credits: ${data.user.subscription.credits}\n`
+            output.innerHTML += `Plan: ${data.user.subscription.plan}\n`
+            output.innerHTML += `Database Quota: ${data.user.subscription.database_quota}GB\n`
+            output.className = 'success'
+          } else {
+            output.innerHTML += `\n⚠️  No subscription data in response\n`
+            output.className = 'error'
+          }
+        } catch (error) {
+          output.innerHTML += `\n❌ Error: ${error.message}\n`
+          output.className = 'error'
+        }
+      }
+    </script>
+  </body>
+</html>

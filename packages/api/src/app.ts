@@ -176,7 +176,14 @@ if (process.env.NODE_ENV === 'production') {
   console.debug('Rate limiter is disabled in development')
 }
 
-// Body parsing
+// CRITICAL: Stripe webhook needs raw body BEFORE JSON parsing
+// This must come before express.json() middleware
+app.use(
+  '/api/v1/billing/stripe/webhook',
+  express.raw({ type: 'application/json' })
+)
+
+// Body parsing (for all other routes)
 app.use(express.json({ limit: '10mb' }))
 // Cookies (used for refresh token cookie)
 app.use(cookieParser())
