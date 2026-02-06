@@ -298,118 +298,119 @@ const AppBuilder = () => {
         </div>
 
         {/* Loading content */}
-        <div className='relative z-10 max-w-2xl w-full mx-auto px-6 text-center'>
-          <div className='mb-8 flex justify-center'>
+        <div className='relative z-10 max-w-2xl w-full mx-auto px-4 sm:px-6 text-center'>
+          <div className='mb-6 sm:mb-8 flex justify-center'>
             <div className='relative'>
-              <div className='w-24 h-24 border-4 border-primary/30 rounded-full' />
-              <div className='absolute inset-0 w-24 h-24 border-4 border-transparent border-t-primary rounded-full animate-spin' />
-              <Sparkles className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-10 h-10 text-primary animate-pulse' />
+              <div className='w-20 h-20 sm:w-24 sm:h-24 border-4 border-primary/30 rounded-full' />
+              <div className='absolute inset-0 w-20 h-20 sm:w-24 sm:h-24 border-4 border-transparent border-t-primary rounded-full animate-spin' />
+              <Sparkles className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 text-primary animate-pulse' />
             </div>
           </div>
 
-          <h2 className='text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-foreground via-primary to-purple-600 bg-clip-text text-transparent'>
+          <h2 className='text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-foreground via-primary to-purple-600 bg-clip-text text-transparent'>
             Creating Your Application
           </h2>
 
-          <p className='text-xl text-muted-foreground mb-8'>
+          <p className='text-lg sm:text-xl text-muted-foreground mb-6 sm:mb-8'>
             AI is building your app with production-ready code
           </p>
 
           {/* Progress bar */}
-          <div className='space-y-4 mb-8'>
-            <Progress value={progress} className='h-3' />
-            <div className='flex justify-between text-sm text-muted-foreground px-2'>
+          <div className='space-y-3 sm:space-y-4 mb-6 sm:mb-8'>
+            <Progress value={progress} className='h-2 sm:h-3' />
+            <div className='flex justify-between text-xs sm:text-sm text-muted-foreground px-2'>
               <span>Progress</span>
               <span className='font-semibold text-primary'>{progress}%</span>
             </div>
           </div>
 
           {/* Status messages */}
-          <div className='space-y-3'>
+          <div className='space-y-2 sm:space-y-3'>
             <div
-              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${progress >= 10 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}
+              className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 transition-all ${progress >= 10 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}
             >
               {progress >= 30 ? (
-                <Check className='w-5 h-5 text-primary' />
+                <Check className='w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0' />
               ) : (
-                <Loader2 className='w-5 h-5 animate-spin text-muted-foreground' />
+                <Loader2 className='w-4 h-4 sm:w-5 sm:h-5 animate-spin text-muted-foreground shrink-0' />
               )}
               <span
-                className={
+                className={`text-xs sm:text-sm ${
                   progress >= 10
                     ? 'text-foreground font-medium'
                     : 'text-muted-foreground'
-                }
+                }`}
               >
                 Analyzing requirements & planning architecture
               </span>
             </div>
 
             <div
-              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${progress >= 30 && progress < 60 ? 'border-primary bg-primary/5' : progress >= 60 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}
+              className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 transition-all ${progress >= 30 && progress < 60 ? 'border-primary bg-primary/5' : progress >= 60 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}
             >
+              {' '}
               {progress >= 60 ? (
-                <Check className='w-5 h-5 text-primary' />
+                <Check className='w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0' />
               ) : progress >= 30 ? (
-                <Loader2 className='w-5 h-5 animate-spin text-primary' />
+                <Loader2 className='w-4 h-4 sm:w-5 sm:h-5 animate-spin text-primary shrink-0' />
               ) : (
-                <Loader2 className='w-5 h-5 text-muted-foreground' />
+                <Loader2 className='w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground shrink-0' />
               )}
               <span
-                className={
+                className={`text-xs sm:text-sm ${
                   progress >= 30
                     ? 'text-foreground font-medium'
                     : 'text-muted-foreground'
-                }
+                }`}
               >
                 Generating components & project structure
               </span>
             </div>
 
             <div
-              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${progress >= 60 && progress < 90 ? 'border-primary bg-primary/5' : progress >= 90 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}
+              className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 transition-all ${progress >= 60 && progress < 90 ? 'border-primary bg-primary/5' : progress >= 90 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}
             >
               {progress >= 90 ? (
-                <Check className='w-5 h-5 text-primary' />
+                <Check className='w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0' />
               ) : progress >= 60 ? (
-                <Loader2 className='w-5 h-5 animate-spin text-primary' />
+                <Loader2 className='w-4 h-4 sm:w-5 sm:h-5 animate-spin text-primary shrink-0' />
               ) : (
-                <Loader2 className='w-5 h-5 text-muted-foreground' />
+                <Loader2 className='w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground shrink-0' />
               )}
               <span
-                className={
+                className={`text-xs sm:text-sm ${
                   progress >= 60
                     ? 'text-foreground font-medium'
                     : 'text-muted-foreground'
-                }
+                }`}
               >
                 Writing code & configuring dependencies
               </span>
             </div>
 
             <div
-              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${progress >= 90 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}
+              className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 transition-all ${progress >= 90 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}
             >
               {progress >= 100 ? (
-                <Check className='w-5 h-5 text-primary' />
+                <Check className='w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0' />
               ) : progress >= 90 ? (
-                <Loader2 className='w-5 h-5 animate-spin text-primary' />
+                <Loader2 className='w-4 h-4 sm:w-5 sm:h-5 animate-spin text-primary shrink-0' />
               ) : (
-                <Loader2 className='w-5 h-5 text-muted-foreground' />
+                <Loader2 className='w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground shrink-0' />
               )}
               <span
-                className={
+                className={`text-xs sm:text-sm ${
                   progress >= 90
                     ? 'text-foreground font-medium'
                     : 'text-muted-foreground'
-                }
+                }`}
               >
                 Finalizing & optimizing your application
               </span>
             </div>
           </div>
 
-          <p className='mt-8 text-sm text-muted-foreground'>
+          <p className='mt-6 sm:mt-8 text-xs sm:text-sm text-muted-foreground'>
             This usually takes 3-5 minutes. Hang tight! ☕
           </p>
         </div>
@@ -424,34 +425,34 @@ const AppBuilder = () => {
         <title>Code Editor - NexusAI</title>
       </Helmet>
 
-      <div className='h-screen flex flex-col bg-background'>
+      <div className='h-screen flex flex-col bg-background overflow-hidden'>
         {/* Top Navigation Bar */}
-        <div className='flex items-center justify-between px-4 py-3 border-b bg-card/50 backdrop-blur-sm'>
-          <div className='flex items-center gap-4'>
+        <div className='flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 border-b bg-card/50 backdrop-blur-sm gap-2 min-h-[60px]'>
+          <div className='flex items-center gap-2 sm:gap-4 min-w-0 flex-1'>
             <Button
               variant='ghost'
               size='sm'
               onClick={() => navigate('/describe')}
-              className='gap-2'
+              className='gap-1 sm:gap-2 shrink-0'
             >
               <ArrowLeft className='w-4 h-4' />
-              Back
+              <span className='hidden sm:inline'>Back</span>
             </Button>
-            <Separator orientation='vertical' className='h-6' />
-            <div className='flex items-center gap-2'>
-              <FileCode2 className='w-5 h-5 text-primary' />
-              <span className='font-semibold text-lg'>
-                {appDetails?.description.substring(0, 50) || 'Generated App'}
+            <Separator orientation='vertical' className='h-6 hidden sm:block' />
+            <div className='flex items-center gap-2 min-w-0'>
+              <FileCode2 className='w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0' />
+              <span className='font-semibold text-sm sm:text-lg truncate'>
+                {appDetails?.description.substring(0, 30) || 'Generated App'}
               </span>
             </div>
           </div>
 
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-1 sm:gap-2 shrink-0'>
             <Button
               variant='ghost'
               size='sm'
               onClick={() => navigate('/my-apps')}
-              className='gap-2'
+              className='gap-1 sm:gap-2 hidden md:flex'
             >
               <FileCode2 className='w-4 h-4' />
               My Apps
@@ -461,27 +462,29 @@ const AppBuilder = () => {
                 variant='outline'
                 size='sm'
                 onClick={() => window.open(deployment.app_url, '_blank')}
-                className='gap-2'
+                className='gap-1 sm:gap-2 text-xs sm:text-sm'
               >
                 <Globe className='w-4 h-4' />
-                View Live App
+                <span className='hidden sm:inline'>View Live App</span>
+                <span className='sm:hidden'>Live</span>
               </Button>
             ) : (
               <Button
                 onClick={handleDeploy}
                 disabled={deploying}
                 size='sm'
-                className='gap-2 bg-gradient-to-r from-primary to-purple-600'
+                className='gap-1 sm:gap-2 bg-gradient-to-r from-primary to-purple-600 text-xs sm:text-sm'
               >
                 {deploying ? (
                   <>
                     <Loader2 className='w-4 h-4 animate-spin' />
-                    Deploying...
+                    <span className='hidden sm:inline'>Deploying...</span>
                   </>
                 ) : (
                   <>
                     <Rocket className='w-4 h-4' />
-                    Deploy to Platform
+                    <span className='hidden sm:inline'>Deploy to Platform</span>
+                    <span className='sm:hidden'>Deploy</span>
                   </>
                 )}
               </Button>
@@ -490,10 +493,10 @@ const AppBuilder = () => {
         </div>
 
         {/* Main Editor Area */}
-        <div className='flex-1 flex overflow-hidden'>
+        <div className='flex-1 flex overflow-hidden relative'>
           {/* File Sidebar */}
           <div
-            className={`${sidebarOpen ? 'w-64' : 'w-0'} border-r bg-card/30 backdrop-blur-sm transition-all duration-300 overflow-hidden`}
+            className={`${sidebarOpen ? 'w-48 sm:w-56 md:w-64' : 'w-0'} border-r bg-card/30 backdrop-blur-sm transition-all duration-300 overflow-hidden shrink-0`}
           >
             <div className='p-4 border-b flex items-center justify-between'>
               <span className='font-semibold text-sm uppercase tracking-wide text-muted-foreground'>
@@ -541,30 +544,42 @@ const AppBuilder = () => {
           )}
 
           {/* Code/Preview Area */}
-          <div className='flex-1 flex flex-col'>
+          <div className='flex-1 flex flex-col min-w-0'>
             {selectedFile ? (
               <Tabs defaultValue='code' className='flex-1 flex flex-col'>
-                <div className='px-4 py-2 border-b bg-muted/30 flex items-center justify-between'>
-                  <div className='flex items-center gap-4'>
-                    <TabsList>
-                      <TabsTrigger value='code' className='gap-2'>
-                        <FileCode2 className='w-4 h-4' />
-                        Code
+                <div className='px-2 sm:px-4 py-2 border-b bg-muted/30 flex items-center justify-between gap-2 overflow-x-auto'>
+                  <div className='flex items-center gap-2 sm:gap-4 min-w-0 flex-1'>
+                    <TabsList className='h-9'>
+                      <TabsTrigger
+                        value='code'
+                        className='gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3'
+                      >
+                        <FileCode2 className='w-3 h-3 sm:w-4 sm:h-4' />
+                        <span className='hidden sm:inline'>Code</span>
                       </TabsTrigger>
-                      <TabsTrigger value='preview' className='gap-2'>
-                        <Eye className='w-4 h-4' />
-                        Preview
+                      <TabsTrigger
+                        value='preview'
+                        className='gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3'
+                      >
+                        <Eye className='w-3 h-3 sm:w-4 sm:h-4' />
+                        <span className='hidden sm:inline'>Preview</span>
                       </TabsTrigger>
-                      <TabsTrigger value='terminal' className='gap-2'>
-                        <TerminalIcon className='w-4 h-4' />
-                        Terminal
+                      <TabsTrigger
+                        value='terminal'
+                        className='gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3'
+                      >
+                        <TerminalIcon className='w-3 h-3 sm:w-4 sm:h-4' />
+                        <span className='hidden sm:inline'>Terminal</span>
                       </TabsTrigger>
-                      <TabsTrigger value='database' className='gap-2'>
-                        <Database className='w-4 h-4' />
-                        Database
+                      <TabsTrigger
+                        value='database'
+                        className='gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3'
+                      >
+                        <Database className='w-3 h-3 sm:w-4 sm:h-4' />
+                        <span className='hidden sm:inline'>Database</span>
                       </TabsTrigger>
                     </TabsList>
-                    <span className='text-sm text-muted-foreground'>
+                    <span className='text-xs sm:text-sm text-muted-foreground truncate hidden md:block'>
                       {selectedFile.path}
                     </span>
                   </div>
@@ -575,17 +590,17 @@ const AppBuilder = () => {
                     onClick={() =>
                       handleCopyFile(selectedFile.content, selectedFile.path)
                     }
-                    className='gap-2'
+                    className='gap-1 sm:gap-2 shrink-0'
                   >
                     {copiedFile === selectedFile.path ? (
                       <>
                         <Check className='w-4 h-4' />
-                        Copied!
+                        <span className='hidden sm:inline'>Copied!</span>
                       </>
                     ) : (
                       <>
                         <Copy className='w-4 h-4' />
-                        Copy
+                        <span className='hidden sm:inline'>Copy</span>
                       </>
                     )}
                   </Button>
