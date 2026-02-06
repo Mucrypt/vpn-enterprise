@@ -13,7 +13,13 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Navbar from '@/components/Navbar'
 
@@ -71,7 +77,12 @@ const Landing = () => {
       credits: 100,
       amount: 100,
       price: 9.99,
-      features: ['Advanced AI models', 'Unlimited projects', 'Priority support', 'Custom domains'],
+      features: [
+        'Advanced AI models',
+        'Unlimited projects',
+        'Priority support',
+        'Custom domains',
+      ],
       popular: false,
     },
     {
@@ -79,7 +90,12 @@ const Landing = () => {
       credits: 500,
       amount: 500,
       price: 39.99,
-      features: ['Advanced AI models', 'Unlimited projects', 'Priority support', 'Custom domains'],
+      features: [
+        'Advanced AI models',
+        'Unlimited projects',
+        'Priority support',
+        'Custom domains',
+      ],
       popular: true,
     },
     {
@@ -87,7 +103,12 @@ const Landing = () => {
       credits: 1000,
       amount: 1000,
       price: 69.99,
-      features: ['Advanced AI models', 'Unlimited projects', 'Priority support', 'Custom domains'],
+      features: [
+        'Advanced AI models',
+        'Unlimited projects',
+        'Priority support',
+        'Custom domains',
+      ],
       popular: false,
     },
   ]
@@ -97,7 +118,7 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero Section */}
-      <section className='relative min-h-[calc(100vh-4rem)] flex items-center justify-center overflow-hidden px-4 py-12 sm:py-20 lg:py-32'>
+      <section className='relative min-h-[calc(100vh-4rem)] flex items-center justify-center overflow-hidden px-4 py-20 sm:py-24 lg:py-32 mt-16'>
         {/* Background Effects */}
         <div className='absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent' />
         <div className='absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent' />
@@ -118,13 +139,16 @@ const Landing = () => {
                 Build Full-Stack Apps
               </span>
               <br />
-              <span className='text-foreground mt-2 block'>with Just a Description</span>
+              <span className='text-foreground mt-2 block'>
+                with Just a Description
+              </span>
             </h1>
 
             {/* Subtitle */}
             <p className='mx-auto max-w-2xl text-base sm:text-lg md:text-xl text-muted-foreground px-4'>
-              Describe your idea in plain English and watch as NexusAI generates a
-              complete, production-ready application with database, authentication, and beautiful UI.
+              Describe your idea in plain English and watch as NexusAI generates
+              a complete, production-ready application with database,
+              authentication, and beautiful UI.
             </p>
 
             {/* CTA Buttons */}
@@ -174,21 +198,29 @@ const Landing = () => {
               Everything You Need to Build Apps Faster
             </h2>
             <p className='text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4'>
-              Powered by advanced AI and integrated with enterprise-grade infrastructure
+              Powered by advanced AI and integrated with enterprise-grade
+              infrastructure
             </p>
           </div>
 
           <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-6xl mx-auto'>
             {features.map((feature, index) => (
-              <Card key={index} className='hover:shadow-xl transition-all hover:scale-[1.02] border-2'>
+              <Card
+                key={index}
+                className='hover:shadow-xl transition-all hover:scale-[1.02] border-2'
+              >
                 <CardHeader className='pb-3 sm:pb-4'>
                   <div className='w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-gradient-to-br from-primary/10 to-purple-600/10 flex items-center justify-center mb-3 sm:mb-4'>
                     <feature.icon className='w-6 h-6 sm:w-7 sm:h-7 text-primary' />
                   </div>
-                  <CardTitle className='text-lg sm:text-xl'>{feature.title}</CardTitle>
+                  <CardTitle className='text-lg sm:text-xl'>
+                    {feature.title}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className='text-sm sm:text-base'>{feature.description}</CardDescription>
+                  <CardDescription className='text-sm sm:text-base'>
+                    {feature.description}
+                  </CardDescription>
                 </CardContent>
               </Card>
             ))}
@@ -226,7 +258,9 @@ const Landing = () => {
                   </div>
                 )}
                 <div className='text-center'>
-                  <Badge className={`mb-3 sm:mb-4 text-xs sm:text-sm ${pkg.popular ? 'bg-primary/10 text-primary' : 'bg-secondary text-foreground'}`}>
+                  <Badge
+                    className={`mb-3 sm:mb-4 text-xs sm:text-sm ${pkg.popular ? 'bg-primary/10 text-primary' : 'bg-secondary text-foreground'}`}
+                  >
                     {pkg.name}
                   </Badge>
                   <div className='mb-4 sm:mb-6'>
@@ -250,8 +284,8 @@ const Landing = () => {
                       pkg.popular
                         ? 'bg-gradient-to-r from-primary to-purple-600 text-white hover:opacity-90'
                         : pkg.price === 0
-                        ? 'variant-outline'
-                        : ''
+                          ? 'variant-outline'
+                          : ''
                     }`}
                     variant={pkg.price === 0 ? 'outline' : 'default'}
                   >
@@ -278,7 +312,8 @@ const Landing = () => {
               Ready to Build Something Amazing?
             </h2>
             <p className='text-base sm:text-lg lg:text-xl text-muted-foreground px-4'>
-              Join thousands of developers who are already building the future with NexusAI
+              Join thousands of developers who are already building the future
+              with NexusAI
             </p>
             <div className='flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-4 px-4'>
               <Link to='/describe' className='w-full sm:w-auto'>
@@ -318,45 +353,131 @@ const Landing = () => {
                 <span className='text-lg font-bold'>NexusAI</span>
               </div>
               <p className='text-xs sm:text-sm text-muted-foreground'>
-                Build full-stack applications with AI. Transform your ideas into reality in minutes.
+                Build full-stack applications with AI. Transform your ideas into
+                reality in minutes.
               </p>
             </div>
 
             {/* Column 2: Product */}
             <div>
-              <h3 className='font-semibold mb-3 sm:mb-4 text-sm sm:text-base'>Product</h3>
+              <h3 className='font-semibold mb-3 sm:mb-4 text-sm sm:text-base'>
+                Product
+              </h3>
               <ul className='space-y-2 text-xs sm:text-sm text-muted-foreground'>
-                <li><Link to='/describe' className='hover:text-foreground transition-colors'>App Builder</Link></li>
-                <li><Link to='/my-apps' className='hover:text-foreground transition-colors'>My Apps</Link></li>
-                <li><Link to='/credits' className='hover:text-foreground transition-colors'>Pricing</Link></li>
-                <li><a href='https://chatbuilds.com/docs' target='_blank' rel='noopener noreferrer' className='hover:text-foreground transition-colors'>Documentation</a></li>
+                <li>
+                  <Link
+                    to='/describe'
+                    className='hover:text-foreground transition-colors'
+                  >
+                    App Builder
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to='/my-apps'
+                    className='hover:text-foreground transition-colors'
+                  >
+                    My Apps
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to='/credits'
+                    className='hover:text-foreground transition-colors'
+                  >
+                    Pricing
+                  </Link>
+                </li>
+                <li>
+                  <a
+                    href='https://chatbuilds.com/docs'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='hover:text-foreground transition-colors'
+                  >
+                    Documentation
+                  </a>
+                </li>
               </ul>
             </div>
 
             {/* Column 3: Platform */}
             <div>
-              <h3 className='font-semibold mb-3 sm:mb-4 text-sm sm:text-base'>Platform</h3>
+              <h3 className='font-semibold mb-3 sm:mb-4 text-sm sm:text-base'>
+                Platform
+              </h3>
               <ul className='space-y-2 text-xs sm:text-sm text-muted-foreground'>
-                <li><a href='https://chatbuilds.com' target='_blank' rel='noopener noreferrer' className='hover:text-foreground transition-colors'>ChatBuilds Platform</a></li>
-                <li><a href='https://chatbuilds.com/dashboard' target='_blank' rel='noopener noreferrer' className='hover:text-foreground transition-colors'>Dashboard</a></li>
-                <li><a href='https://chatbuilds.com/docs' target='_blank' rel='noopener noreferrer' className='hover:text-foreground transition-colors'>API Reference</a></li>
+                <li>
+                  <a
+                    href='https://chatbuilds.com'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='hover:text-foreground transition-colors'
+                  >
+                    ChatBuilds Platform
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href='https://chatbuilds.com/dashboard'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='hover:text-foreground transition-colors'
+                  >
+                    Dashboard
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href='https://chatbuilds.com/docs'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='hover:text-foreground transition-colors'
+                  >
+                    API Reference
+                  </a>
+                </li>
               </ul>
             </div>
 
             {/* Column 4: Legal */}
             <div>
-              <h3 className='font-semibold mb-3 sm:mb-4 text-sm sm:text-base'>Legal</h3>
+              <h3 className='font-semibold mb-3 sm:mb-4 text-sm sm:text-base'>
+                Legal
+              </h3>
               <ul className='space-y-2 text-xs sm:text-sm text-muted-foreground'>
-                <li><a href='#' className='hover:text-foreground transition-colors'>Privacy Policy</a></li>
-                <li><a href='#' className='hover:text-foreground transition-colors'>Terms of Service</a></li>
-                <li><a href='#' className='hover:text-foreground transition-colors'>Cookie Policy</a></li>
+                <li>
+                  <a
+                    href='#'
+                    className='hover:text-foreground transition-colors'
+                  >
+                    Privacy Policy
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href='#'
+                    className='hover:text-foreground transition-colors'
+                  >
+                    Terms of Service
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href='#'
+                    className='hover:text-foreground transition-colors'
+                  >
+                    Cookie Policy
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
 
           <div className='pt-6 sm:pt-8 border-t border-border/50 text-center'>
             <p className='text-xs sm:text-sm text-muted-foreground'>
-              © {new Date().getFullYear()} NexusAI by ChatBuilds. All rights reserved.
+              © {new Date().getFullYear()} NexusAI by ChatBuilds. All rights
+              reserved.
             </p>
           </div>
         </div>
