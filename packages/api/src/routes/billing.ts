@@ -639,7 +639,7 @@ router.post('/sync-payment', authMiddleware, async (req: AuthRequest, res) => {
       ) {
         // Check if already processed
         const existingPurchase = await pool.query(
-          'SELECT id FROM credit_purchases WHERE stripe_payment_id = $1',
+          'SELECT id FROM credit_purchases WHERE stripe_payment_intent_id = $1',
           [session.payment_intent],
         )
 
@@ -673,10 +673,11 @@ router.post('/sync-payment', authMiddleware, async (req: AuthRequest, res) => {
               [totalCredits, userId],
             )
 
-            // Record purchase
+            // Record purchase (using correct column name)
             await pool.query(
-              `INSERT INTO credit_purchases (user_id, package_name, credits_purchased, bonus_credits, amount_paid, stripe_payment_id)
-               VALUES ($1, $2, $3, $4, $5, $6)`,
+              `INSERT INTO credit_purchases (user_id, package_name, credits_purchased, bonus_credits, amount_paid, stripe_payment_intent_id, payment_status)
+               VALUES ($1, $2, $3, $4, $5, $6, 'succeeded')
+               ON CONFLICT (stripe_payment_intent_id) DO NOTHING`,
               [
                 userId,
                 planId,
@@ -792,8 +793,9 @@ router.post('/stripe/webhook', async (req, res) => {
 
             // Record the purchase transaction
             await pool.query(
-              `INSERT INTO credit_purchases (user_id, package_name, credits_purchased, bonus_credits, amount_paid, stripe_payment_id)
-               VALUES ($1, $2, $3, $4, $5, $6)`,
+              `INSERT INTO credit_purchases (user_id, package_name, credits_purchased, bonus_credits, amount_paid, stripe_payment_intent_id, payment_status)
+               VALUES ($1, $2, $3, $4, $5, $6, 'succeeded')
+               ON CONFLICT (stripe_payment_intent_id) DO NOTHING`,
               [
                 userId,
                 planId,
