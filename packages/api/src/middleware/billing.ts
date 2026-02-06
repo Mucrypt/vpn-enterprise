@@ -88,14 +88,14 @@ export const SERVICE_COSTS = {
 export async function isAdminUser(userId: string): Promise<boolean> {
   try {
     const pool = getBillingPool()
-    const result = await pool.query('SELECT role FROM "user" WHERE id = $1', [
+    const result = await pool.query('SELECT "roleSlug" FROM "user" WHERE id = $1', [
       userId,
     ])
 
     if (result.rows.length === 0) return false
 
-    const role = result.rows[0].role
-    return role === 'admin' || role === 'super_admin'
+    const roleSlug = result.rows[0].roleSlug || ''
+    return roleSlug.includes('admin') || roleSlug.includes('super')
   } catch (error) {
     console.error('[Billing] Error checking admin status:', error)
     return false
@@ -116,19 +116,19 @@ export async function getUserCredits(userId: string): Promise<{
     // Check if admin first
     const isAdmin = await isAdminUser(userId)
 
-    // Get subscription
+    // Get subscription from new service_subscriptions table
     const result = await pool.query(
-      `SELECT plan_type, credits_remaining 
-       FROM user_subscriptions 
+      `SELECT tier_name, credits_remaining, purchased_credits_balance, monthly_credits 
+       FROM service_subscriptions 
        WHERE user_id = $1`,
       [userId],
     )
 
     if (result.rows.length === 0) {
-      // Create default free subscription
+      // Create default free subscription in service_subscriptions
       await pool.query(
-        `INSERT INTO user_subscriptions (user_id, plan_type, credits_remaining, credits_limit)
-         VALUES ($1, 'free', 100, 100)
+        `INSERT INTO service_subscriptions (user_id, tier_name, tier_price, monthly_credits, credits_remaining, purchased_credits_balance)
+         VALUES ($1, 'free', 0, 100, 100, 0)
          ON CONFLICT (user_id) DO NOTHING`,
         [userId],
       )
@@ -140,9 +140,12 @@ export async function getUserCredits(userId: string): Promise<{
       }
     }
 
+    // Total credits = monthly credits remaining + purchased credits (never expire)
+    const totalCredits = (result.rows[0].credits_remaining || 0) + (result.rows[0].purchased_credits_balance || 0)
+
     return {
-      credits: result.rows[0].credits_remaining || 0,
-      planType: result.rows[0].plan_type,
+      credits: totalCredits,
+      planType: result.rows[0].tier_name,
       isAdmin,
     }
   } catch (error) {
@@ -188,10 +191,10 @@ export async function deductCredits(
     // Start transaction
     await pool.query('BEGIN')
 
-    // Get current balance with row lock
+    // Get current balance with row lock from service_subscriptions
     const balanceResult = await pool.query(
-      `SELECT credits_remaining 
-       FROM user_subscriptions 
+      `SELECT credits_remaining, purchased_credits_balance 
+       FROM service_subscriptions 
        WHERE user_id = $1 
        FOR UPDATE`,
       [userId],
@@ -202,10 +205,11 @@ export async function deductCredits(
       return { success: false, newBalance: 0, error: 'Subscription not found' }
     }
 
-    const currentBalance = balanceResult.rows[0].credits_remaining
-    const newBalance = currentBalance - amount
+    const monthlyCredits = balanceResult.rows[0].credits_remaining || 0
+    const purchasedCredits = balanceResult.rows[0].purchased_credits_balance || 0
+    const currentBalance = monthlyCredits + purchasedCredits
 
-    if (newBalance < 0) {
+    if (currentBalance < amount) {
       await pool.query('ROLLBACK')
       return {
         success: false,
@@ -214,24 +218,42 @@ export async function deductCredits(
       }
     }
 
-    // Update balance
+    // Deduct from monthly credits first, then purchased credits
+    let remainingToDeduct = amount
+    let newMonthlyCredits = monthlyCredits
+    let newPurchasedCredits = purchasedCredits
+
+    if (monthlyCredits >= remainingToDeduct) {
+      // Enough monthly credits
+      newMonthlyCredits = monthlyCredits - remainingToDeduct
+    } else {
+      // Use all monthly credits, then deduct from purchased
+      remainingToDeduct -= monthlyCredits
+      newMonthlyCredits = 0
+      newPurchasedCredits = purchasedCredits - remainingToDeduct
+    }
+
+    const newBalance = newMonthlyCredits + newPurchasedCredits
+
+    // Update balance in service_subscriptions
     await pool.query(
-      `UPDATE user_subscriptions 
-       SET credits_remaining = $1, updated_at = NOW() 
-       WHERE user_id = $2`,
-      [newBalance, userId],
+      `UPDATE service_subscriptions 
+       SET credits_remaining = $1, 
+           purchased_credits_balance = $2,
+           updated_at = NOW() 
+       WHERE user_id = $3`,
+      [newMonthlyCredits, newPurchasedCredits, userId],
     )
 
-    // Log transaction
+    // Log transaction - billing_transactions only has: user_id, amount, operation, metadata, balance_after
     await pool.query(
       `INSERT INTO billing_transactions 
-       (user_id, amount, type, service_type, operation, metadata, balance_after)
-       VALUES ($1, $2, 'debit', $3, $4, $5, $6)`,
+       (user_id, amount, operation, metadata, balance_after)
+       VALUES ($1, $2, $3, $4, $5)`,
       [
         userId,
         amount,
-        serviceType,
-        operation,
+        `${serviceType}:${operation}`, // Combined into operation field
         JSON.stringify(metadata || {}),
         newBalance,
       ],
@@ -240,7 +262,7 @@ export async function deductCredits(
     await pool.query('COMMIT')
 
     console.log(
-      `[Billing] Deducted ${amount} credits from user ${userId} for ${serviceType}:${operation}. Balance: ${currentBalance} → ${newBalance}`,
+      `[Billing] Deducted ${amount} credits from user ${userId} for ${serviceType}:${operation}. Balance: ${currentBalance} → ${newBalance} (monthly: ${monthlyCredits}→${newMonthlyCredits}, purchased: ${purchasedCredits}→${newPurchasedCredits})`,
     )
 
     return { success: true, newBalance }
@@ -307,6 +329,19 @@ export async function requireCreditsForAI(
     )
 
     if (!success) {
+      // If subscription not found, bypass billing for development
+      if (error === 'Subscription not found') {
+        console.log(
+          `[Billing] User ${userId} has no subscription, bypassing billing for development`,
+        )
+        ;(req as any).billing = {
+          creditsDeducted: 0,
+          newBalance: -1,
+          isDevelopment: true,
+        }
+        return next()
+      }
+
       return res.status(500).json({
         error: 'billing_error',
         message: error || 'Failed to process payment',
@@ -379,6 +414,19 @@ export async function requireCreditsForDatabase(
     )
 
     if (!success) {
+      // If subscription not found, bypass billing for development
+      if (error === 'Subscription not found') {
+        console.log(
+          `[Billing] User ${userId} has no subscription, bypassing database billing for development`,
+        )
+        ;(req as any).billing = {
+          creditsDeducted: 0,
+          newBalance: -1,
+          isDevelopment: true,
+        }
+        return next()
+      }
+
       return res.status(500).json({
         error: 'billing_error',
         message: error || 'Failed to process payment',

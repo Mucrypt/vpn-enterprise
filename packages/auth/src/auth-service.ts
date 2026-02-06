@@ -103,8 +103,9 @@ export class AuthService {
       }
     }
 
-    // Create free subscription for new user
+    // Create free subscription for new user in both tables
     try {
+      // Legacy table (for backward compatibility)
       await SubscriptionRepository.create({
         user_id: data.user.id,
         plan_type: 'free',
@@ -112,6 +113,21 @@ export class AuthService {
         max_devices: 1,
         started_at: new Date().toISOString(),
         auto_renew: false,
+      });
+
+      // New service_subscriptions table with credits
+      await supabaseAdmin.from('service_subscriptions').insert({
+        user_id: data.user.id,
+        tier_name: 'free',
+        tier_price: 0,
+        monthly_credits: 100,
+        credits_remaining: 100,
+        purchased_credits_balance: 0,
+        vpn_enabled: true,
+        database_enabled: true,
+        nexusai_enabled: true,
+        hosting_enabled: true,
+        status: 'active',
       });
     } catch (subError) {
       console.warn('[AuthService] Subscription creation warning:', subError);
