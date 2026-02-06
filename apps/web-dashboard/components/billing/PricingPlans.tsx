@@ -205,7 +205,7 @@ export function PricingPlans({
           onClick={() => setSelectedTab('credits')}
           className={`gap-2 transition-all ${
             selectedTab === 'credits'
-              ? 'bg-linear-to-br from-primary to-primary/80 shadow-lg shadow-primary/25'
+              ? 'bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/25'
               : 'hover:bg-primary/10'
           }`}
         >
@@ -237,7 +237,7 @@ export function PricingPlans({
               >
                 {/* Background Gradient Effect */}
                 <div
-                  className={`absolute inset-0 bg-linear-to-br ${
+                  className={`absolute inset-0 bg-gradient-to-br ${
                     plan.popular
                       ? 'from-primary/10 via-purple-500/5 to-transparent'
                       : isCurrent
@@ -249,7 +249,7 @@ export function PricingPlans({
 
                 {plan.popular && (
                   <div className='absolute -top-3 left-1/2 -translate-x-1/2 z-10'>
-                    <Badge className='bg-linear-to-br from-primary via-purple-500 to-primary text-primary-foreground px-4 py-1.5 gap-1.5 text-xs font-bold shadow-lg animate-pulse'>
+                    <Badge className='bg-gradient-to-br from-primary via-purple-500 to-primary text-primary-foreground px-4 py-1.5 gap-1.5 text-xs font-bold shadow-lg animate-pulse'>
                       <Sparkles className='w-3.5 h-3.5' />
                       Most Popular
                     </Badge>
@@ -257,7 +257,7 @@ export function PricingPlans({
                 )}
                 {isCurrent && (
                   <div className='absolute -top-3 right-4 z-10'>
-                    <Badge className='bg-linear-to-br from-green-500 to-emerald-600 text-white px-3 py-1.5 text-xs font-bold shadow-lg'>
+                    <Badge className='bg-gradient-to-br from-green-500 to-emerald-600 text-white px-3 py-1.5 text-xs font-bold shadow-lg'>
                       ✓ Current Plan
                     </Badge>
                   </div>
@@ -266,22 +266,22 @@ export function PricingPlans({
                 <CardHeader className='relative text-center pb-4'>
                   <div className='flex justify-center mb-4'>
                     {plan.id === 'free' && (
-                      <div className='p-3 rounded-xl bg-linear-to-br from-slate-500/20 to-slate-400/10 backdrop-blur-sm border border-slate-500/30'>
+                      <div className='p-3 rounded-xl bg-gradient-to-br from-slate-500/20 to-slate-400/10 backdrop-blur-sm border border-slate-500/30 shadow-sm'>
                         <Sparkles className='w-6 h-6 text-slate-400' />
                       </div>
                     )}
                     {plan.id === 'starter' && (
-                      <div className='p-3 rounded-xl bg-linear-to-br from-blue-500/20 to-blue-400/10 backdrop-blur-sm border border-blue-500/30'>
+                      <div className='p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-400/10 backdrop-blur-sm border border-blue-500/30 shadow-sm'>
                         <Zap className='w-6 h-6 text-blue-400' />
                       </div>
                     )}
                     {(plan.id === 'pro' || plan.id === 'professional') && (
-                      <div className='p-3 rounded-xl bg-linear-to-br from-purple-500/20 to-purple-400/10 backdrop-blur-sm border border-purple-500/30'>
+                      <div className='p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-400/10 backdrop-blur-sm border border-purple-500/30 shadow-sm'>
                         <Crown className='w-6 h-6 text-purple-400' />
                       </div>
                     )}
                     {plan.id === 'enterprise' && (
-                      <div className='p-3 rounded-xl bg-linear-to-br from-amber-500/20 to-amber-400/10 backdrop-blur-sm border border-amber-500/30'>
+                      <div className='p-3 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-400/10 backdrop-blur-sm border border-amber-500/30 shadow-sm'>
                         <Crown className='w-6 h-6 text-amber-400' />
                       </div>
                     )}
@@ -293,7 +293,7 @@ export function PricingPlans({
                     {plan.description}
                   </CardDescription>
                   <div className='mt-4'>
-                    <span className='text-4xl sm:text-5xl font-bold bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent'>
+                    <span className='text-4xl sm:text-5xl font-bold bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent'>
                       ${plan.price}
                     </span>
                     <span className='text-muted-foreground text-sm'>
@@ -308,8 +308,8 @@ export function PricingPlans({
                     </div>
                   )}
                   {plan.credits === -1 && (
-                    <div className='mt-3 px-3 py-1.5 rounded-full bg-linear-to-br from-primary/20 to-purple-500/20 border border-primary/30 inline-block'>
-                      <p className='text-sm font-bold bg-linear-to-br from-primary to-purple-500 bg-clip-text text-transparent'>
+                    <div className='mt-3 px-3 py-1.5 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 border border-primary/30 inline-block'>
+                      <p className='text-sm font-bold bg-gradient-to-br from-primary to-purple-500 bg-clip-text text-transparent'>
                         ∞ Unlimited credits
                       </p>
                     </div>
@@ -336,7 +336,7 @@ export function PricingPlans({
                       isCurrent
                         ? 'bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500/20 shadow-none'
                         : plan.popular
-                          ? 'bg-linear-to-br from-primary via-purple-500 to-primary hover:from-primary/90 hover:via-purple-500/90 hover:to-primary/90 shadow-lg hover:shadow-xl hover:shadow-primary/30 hover:scale-105'
+                          ? 'bg-gradient-to-br from-primary via-purple-500 to-primary hover:from-primary/90 hover:via-purple-500/90 hover:to-primary/90 shadow-lg hover:shadow-xl hover:shadow-primary/30 hover:scale-105'
                           : 'bg-card/80 hover:bg-primary/10 border border-border/50 hover:border-primary/30 shadow-md hover:shadow-lg'
                     }`}
                     variant={
@@ -377,12 +377,12 @@ export function PricingPlans({
               className='relative overflow-hidden transition-all duration-500 hover:scale-105 border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 group'
             >
               {/* Background Gradient Effect */}
-              <div className='absolute inset-0 bg-linear-to-br from-primary/10 via-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500' />
-              <div className='absolute inset-0 bg-[radial-gradient(circle_at_top_right,var(--tw-gradient-stops))]rom-amber-500/10 via-transparent to-transparent' />
+              <div className='absolute inset-0 bg-gradient-to-br from-primary/10 via-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500' />
+              <div className='absolute inset-0 bg-[radial-gradient(circle_at_top_right,var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent' />
 
               {pkg.bonus && (
                 <div className='absolute -top-3 left-1/2 -translate-x-1/2 z-10'>
-                  <Badge className='bg-linear-to-br from-green-500 to-emerald-600 text-white px-3 py-1 text-xs font-bold shadow-lg animate-bounce'>
+                  <Badge className='bg-gradient-to-br from-green-500 to-emerald-600 text-white px-3 py-1 text-xs font-bold shadow-lg animate-bounce'>
                     +{pkg.bonus} Bonus ⚡
                   </Badge>
                 </div>
@@ -390,13 +390,13 @@ export function PricingPlans({
 
               <CardHeader className='relative text-center pb-4 pt-6'>
                 <div className='flex justify-center mb-3'>
-                  <div className='p-3 rounded-xl bg-linear-to-br from-amber-500/20 via-yellow-500/10 to-orange-500/10 backdrop-blur-sm border border-amber-500/30 shadow-lg'>
+                  <div className='p-3 rounded-xl bg-gradient-to-br from-amber-500/20 via-yellow-500/10 to-orange-500/10 backdrop-blur-sm border border-amber-500/30 shadow-lg'>
                     <Zap className='w-7 h-7 text-amber-500' />
                   </div>
                 </div>
                 <CardTitle className='text-lg font-bold'>{pkg.name}</CardTitle>
                 <div className='mt-3'>
-                  <div className='text-3xl sm:text-4xl font-bold bg-linear-to-br from-amber-500 via-yellow-500 to-orange-500 bg-clip-text text-transparent'>
+                  <div className='text-3xl sm:text-4xl font-bold bg-gradient-to-br from-amber-500 via-yellow-500 to-orange-500 bg-clip-text text-transparent'>
                     {pkg.credits}
                   </div>
                   <div className='text-xs text-muted-foreground mt-1'>
@@ -411,8 +411,8 @@ export function PricingPlans({
               </CardHeader>
 
               <CardContent className='relative space-y-4'>
-                <div className='text-center p-4 rounded-xl bg-linear-to-br from-muted/50 to-muted/20 border border-border/50'>
-                  <span className='text-3xl font-bold bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent'>
+                <div className='text-center p-4 rounded-xl bg-gradient-to-br from-muted/50 to-muted/20 border border-border/50 shadow-sm'>
+                  <span className='text-3xl font-bold bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent'>
                     ${pkg.price}
                   </span>
                   {pkg.bonus && (
@@ -426,7 +426,7 @@ export function PricingPlans({
                 </div>
 
                 <Button
-                  className='w-full gap-2 bg-linear-to-br from-amber-500 via-yellow-500 to-orange-500 hover:from-amber-600 hover:via-yellow-600 hover:to-orange-600 text-white shadow-lg hover:shadow-xl hover:shadow-amber-500/30 transition-all hover:scale-105 font-semibold'
+                  className='w-full gap-2 bg-gradient-to-br from-amber-500 via-yellow-500 to-orange-500 hover:from-amber-600 hover:via-yellow-600 hover:to-orange-600 text-white shadow-lg hover:shadow-xl hover:shadow-amber-500/30 transition-all hover:scale-105 font-semibold'
                   disabled={loading || processingPlan !== null}
                   onClick={() => handleSelectPlan(pkg.id, pkg.stripePriceId)}
                 >

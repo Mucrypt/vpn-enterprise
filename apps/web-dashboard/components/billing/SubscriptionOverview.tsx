@@ -157,28 +157,28 @@ export function SubscriptionOverview({
   const PlanIcon = planConfig.icon
 
   return (
-    <Card className='relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm group hover:border-primary/30 transition-all duration-500'>
+    <Card className='relative overflow-hidden border-border/40 bg-card backdrop-blur-sm group hover:border-primary/50 transition-all duration-500 shadow-lg'>
       {/* Animated Background Gradient */}
       <div
-        className={`absolute inset-0 bg-linear-to-br ${planConfig.gradient} opacity-50`}
+        className={`absolute inset-0 bg-gradient-to-br ${planConfig.gradient} opacity-[0.03]`}
       />
-      <div className='absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent' />
+      <div className='absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-primary/[0.02] via-transparent to-transparent' />
 
       <CardHeader className='relative pb-4'>
         <div className='flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4'>
           <div className='space-y-2'>
             <CardTitle className='text-xl sm:text-2xl font-bold flex items-center gap-3 flex-wrap'>
               <div
-                className={`p-2.5 rounded-xl bg-linear-to-br ${planConfig.gradient} backdrop-blur-sm border border-primary/20 shadow-lg`}
+                className={`p-2.5 rounded-xl bg-gradient-to-br ${planConfig.gradient} backdrop-blur-sm border border-white/10 shadow-lg`}
               >
                 <PlanIcon
-                  className={`w-5 h-5 sm:w-6 sm:h-6 ${planConfig.color}`}
+                  className={`w-5 h-5 sm:w-6 sm:h-6 text-white`}
                 />
               </div>
               <span>Current Subscription</span>
               <Badge
                 variant='outline'
-                className='px-3 py-1 text-sm font-semibold bg-primary/10 border-primary/30 text-primary capitalize'
+                className='px-3 py-1 text-sm font-semibold bg-primary/20 border-primary/40 text-primary capitalize shadow-sm'
               >
                 {subscription.plan_type}
               </Badge>
@@ -209,18 +209,18 @@ export function SubscriptionOverview({
         <div className='space-y-4'>
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
             {/* Credits Card */}
-            <div className='p-5 rounded-xl bg-linear-to-brprimary/10 to-primary/5 border border-primary/20 backdrop-blur-sm'>
+            <div className='p-5 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-shadow'>
               <div className='flex items-start justify-between mb-3'>
                 <div>
-                  <p className='text-xs font-medium text-muted-foreground uppercase tracking-wide'>
+                  <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wide'>
                     Available Credits
                   </p>
-                  <p className='text-3xl sm:text-4xl font-bold mt-1 bg-linear-to-r from-primary to-primary/70 bg-clip-text text-transparent'>
+                  <p className='text-3xl sm:text-4xl font-bold mt-1 bg-gradient-to-r from-primary via-primary to-primary/80 bg-clip-text text-transparent'>
                     {creditsRemaining.toLocaleString()}
                   </p>
                 </div>
-                <div className='p-2 rounded-lg bg-primary/20'>
-                  <Zap className='w-5 h-5 text-primary' />
+                <div className='p-2 rounded-lg bg-primary/30 shadow-sm'>
+                  <Zap className='w-5 h-5 text-primary drop-shadow-sm' />
                 </div>
               </div>
               <p className='text-xs text-muted-foreground'>
@@ -230,7 +230,7 @@ export function SubscriptionOverview({
 
             {/* Renewal Card */}
             {subscription.current_period_end && (
-              <div className='p-5 rounded-xl bg-linear-to-br from-muted/50 to-muted/20 border border-border backdrop-blur-sm'>
+              <div className='p-5 rounded-xl bg-gradient-to-br from-muted/60 to-muted/30 border border-border/60 backdrop-blur-sm shadow-md hover:shadow-lg transition-shadow'>
                 <div className='flex items-start justify-between mb-3'>
                   <div>
                     <p className='text-xs font-medium text-muted-foreground uppercase tracking-wide'>
@@ -240,8 +240,8 @@ export function SubscriptionOverview({
                       {formatDate(subscription.current_period_end)}
                     </p>
                   </div>
-                  <div className='p-2 rounded-lg bg-muted'>
-                    <Calendar className='w-5 h-5' />
+                  <div className='p-2 rounded-lg bg-muted/80 shadow-sm'>
+                    <Calendar className='w-5 h-5 text-foreground/80' />
                   </div>
                 </div>
                 <p className='text-xs text-muted-foreground'>
@@ -267,14 +267,14 @@ export function SubscriptionOverview({
                 {creditPercentage}%
               </span>
             </div>
-            <div className='relative h-3 bg-muted rounded-full overflow-hidden border border-border/50'>
+            <div className='relative h-3 bg-muted/60 rounded-full overflow-hidden border border-border/60 shadow-inner'>
               <div
-                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out ${
+                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out shadow-md ${
                   creditPercentage > 50
-                    ? 'bg-linear-to-r from-green-500 to-emerald-500'
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500'
                     : creditPercentage > 20
-                      ? 'bg-linear-to-r from-yellow-500 to-orange-500'
-                      : 'bg-linear-to-r from-red-500 to-rose-500'
+                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
+                      : 'bg-gradient-to-r from-red-500 to-rose-500'
                 }`}
                 style={{ width: `${creditPercentage}%` }}
               >
@@ -298,16 +298,16 @@ export function SubscriptionOverview({
           {planType !== 'enterprise' && (
             <Button
               onClick={onUpgrade}
-              className='flex-1 gap-2 bg-linear-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]'
+              className='flex-1 gap-2 bg-gradient-to-r from-primary via-primary to-primary/80 hover:from-primary hover:to-primary/90 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] font-semibold'
             >
               <TrendingUp className='w-4 h-4' />
-              <span className='font-semibold'>Upgrade Plan</span>
+              <span>Upgrade Plan</span>
             </Button>
           )}
           {subscription.stripe_customer_id && (
             <Button
               variant='outline'
-              className='flex-1 gap-2 hover:bg-muted hover:border-primary/30 transition-all'
+              className='flex-1 gap-2 hover:bg-muted hover:border-primary/40 transition-all font-medium border-border/60'
             >
               <CreditCard className='w-4 h-4' />
               Manage Billing
