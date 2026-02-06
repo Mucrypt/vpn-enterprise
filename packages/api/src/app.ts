@@ -24,6 +24,7 @@ import {
   ConnectionRepository,
   ClientConfigRepository,
   SplitTunnelRepository,
+  supabase,
   supabaseAdmin,
 } from '@vpn-enterprise/database'
 import { AuditRepository, SecurityRepository } from '@vpn-enterprise/database'
@@ -333,7 +334,7 @@ console.log('[INIT] Terminal WebSocket Handler initialized')
 // Handle WebSocket upgrades for preview proxy (HMR support)
 httpServer.on('upgrade', (req, socket, head) => {
   const pathname = req.url?.split('?')[0]
-  
+
   // Route to appropriate WebSocket handler
   if (pathname?.startsWith('/api/v1/terminal/preview/')) {
     previewProxyService.handleUpgrade(req, socket, head)
@@ -1110,36 +1111,88 @@ app.get('/api/v1/user/stats', authMiddleware, async (req: AuthRequest, res) => {
 })
 
 // Auth me endpoint for NexusAI and other sub-apps
-app.get('/api/v1/auth/me', authMiddleware, async (req: AuthRequest, res) => {
+// This endpoint handles token refresh automatically if access token is expired
+app.get('/api/v1/auth/me', async (req: AuthRequest, res) => {
   try {
-    const user = req.user
-    if (!user) {
-      return res.status(401).json({ error: 'Not authenticated' })
-    }
-
-    // Get subscription info from unified billing
-    const { getUserSubscription } = await import('./middleware/unified-billing')
-    const subscription = await getUserSubscription(user.id)
-
-    // Extract token from Authorization header or cookie (same as authMiddleware)
+    // Try to get access token
     let token = req.headers.authorization?.replace('Bearer ', '')
     if (!token && req.cookies?.access_token) {
       token = req.cookies.access_token
     }
+
+    // If no access token but has refresh token, try to refresh
+    if (!token && req.cookies?.refresh_token) {
+      console.log('[API] /api/v1/auth/me - No access token, attempting refresh')
+      try {
+        const { data, error } = await supabase.auth.refreshSession({
+          refresh_token: req.cookies.refresh_token,
+        })
+
+        if (!error && data.session) {
+          // Set new access token cookie
+          const accessCookieOpts: any = {
+            httpOnly: false,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            path: '/',
+          }
+          if (data.session.expires_in) {
+            accessCookieOpts.maxAge = Number(data.session.expires_in) * 1000
+          }
+          res.cookie(
+            'access_token',
+            data.session.access_token,
+            accessCookieOpts,
+          )
+          token = data.session.access_token
+          console.log('[API] /api/v1/auth/me - Token refreshed successfully')
+        }
+      } catch (refreshError) {
+        console.warn(
+          '[API] /api/v1/auth/me - Token refresh failed:',
+          refreshError,
+        )
+      }
+    }
+
+    // Now verify the token (either original or refreshed)
+    if (!token) {
+      return res.status(401).json({
+        error: 'Not authenticated',
+        message: 'No valid authentication token found. Please log in.',
+      })
+    }
+
+    // Verify token with Supabase
+    const { data, error } = await supabase.auth.getUser(token)
+
+    if (error || !data.user) {
+      console.warn('[API] /api/v1/auth/me - Token verification failed')
+      return res.status(401).json({
+        error: 'Invalid or expired token',
+        message: 'Please log in again.',
+      })
+    }
+
+    const user = data.user
+
+    // Get subscription info from unified billing
+    const { getUserSubscription } = await import('./middleware/unified-billing')
+    const subscription = await getUserSubscription(user.id)
 
     // Return user with subscription and token info
     res.json({
       user: {
         id: user.id,
         email: user.email,
-        role: user.role || 'user',
+        role: user.user_metadata?.role || 'user',
         subscription: {
           plan: subscription?.plan_id || 'free',
           credits: subscription?.credits_remaining || 100,
           database_quota: subscription?.database_quota_gb || 1,
         },
       },
-      token: token || null,
+      token: token,
     })
   } catch (error: any) {
     console.error('[API] /api/v1/auth/me error:', error)
