@@ -25,7 +25,9 @@ export function Terminal({
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null)
   const [isExecuting, setIsExecuting] = useState(false)
   const [hasPackageJson, setHasPackageJson] = useState(false)
-  const [workspaceId, setWorkspaceId] = useState<string | null>(externalWorkspaceId || null)
+  const [workspaceId, setWorkspaceId] = useState<string | null>(
+    externalWorkspaceId || null,
+  )
   const [workspaceReady, setWorkspaceReady] = useState(false)
   const commandQueueRef = useRef<string[]>([])
   const isProcessingRef = useRef(false)
@@ -36,27 +38,33 @@ export function Terminal({
       const createWorkspace = async () => {
         try {
           console.log('[Terminal] Creating workspace for app:', appId)
-          const response = await fetch('https://chatbuilds.com/api/terminal/workspaces', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              app_id: appId,
-              name: 'NexusAI Workspace',
-            }),
-          })
+          const response = await fetch(
+            'https://chatbuilds.com/api/terminal/workspaces',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                app_id: appId,
+                name: 'NexusAI Workspace',
+              }),
+            },
+          )
 
           if (response.ok) {
             const data = await response.json()
             setWorkspaceId(data.workspace_id)
             setWorkspaceReady(true)
             console.log('[Terminal] Workspace created:', data.workspace_id)
-           
+
             if (data.instructions) {
               console.log('[Terminal] Instructions:', data.instructions)
             }
           } else {
-            console.error('[Terminal] Failed to create workspace:', await response.text())
+            console.error(
+              '[Terminal] Failed to create workspace:',
+              await response.text(),
+            )
           }
         } catch (error) {
           console.error('[Terminal] Error creating workspace:', error)

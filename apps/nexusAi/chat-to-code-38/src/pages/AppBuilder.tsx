@@ -615,7 +615,10 @@ const AppBuilder = () => {
                   </div>
                 </TabsContent>
 
-                <TabsContent value='database' className='flex-1 m-0 p-4 overflow-auto'>
+                <TabsContent
+                  value='database'
+                  className='flex-1 m-0 p-4 overflow-auto'
+                >
                   <div className='max-w-3xl mx-auto'>
                     <DatabasePanel
                       appId={savedAppId}
@@ -623,7 +626,8 @@ const AppBuilder = () => {
                       onDatabaseProvisioned={(connectionString) => {
                         toast({
                           title: '🎉 Database Ready!',
-                          description: 'You can now use the connection string in your app',
+                          description:
+                            'You can now use the connection string in your app',
                         })
                       }}
                     />
