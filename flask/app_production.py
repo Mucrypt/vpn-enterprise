@@ -118,9 +118,27 @@ app.add_middleware(
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    \"\"\"Handle validation errors with detailed messages\"\"\"
+    """Handle validation errors with detailed messages"""
     errors = exc.errors()
-    logger.error(f\"🚨 Validation Error on {request.method} {request.url.path}:\")\n    logger.error(f\"   Request body: {await request.body()}\")\n    logger.error(f\"   Errors: {json.dumps(errors, indent=2)}\")\n    \n    # Create user-friendly error message\n    error_details = []\n    for error in errors:\n        field = \" -> \".join(str(loc) for loc in error[\"loc\"])\n        msg = error[\"msg\"]\n        error_details.append(f\"{field}: {msg}\")\n    \n    return JSONResponse(\n        status_code=422,\n        content={\n            \"detail\": \"Request validation failed\",\n            \"errors\": error_details,\n            \"raw_errors\": errors\n        }\n    )
+    logger.error(f"🚨 Validation Error on {request.method} {request.url.path}:")
+    logger.error(f"   Request body: {await request.body()}")
+    logger.error(f"   Errors: {json.dumps(errors, indent=2)}")
+    
+    # Create user-friendly error message
+    error_details = []
+    for error in errors:
+        field = " -> ".join(str(loc) for loc in error["loc"])
+        msg = error["msg"]
+        error_details.append(f"{field}: {msg}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Request validation failed",
+            "errors": error_details,
+            "raw_errors": errors
+        }
+    )
 
 # ============================================
 # UTILITIES
