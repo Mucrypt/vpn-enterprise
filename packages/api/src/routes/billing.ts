@@ -501,6 +501,7 @@ router.get('/verify-payment', authMiddleware, async (req: AuthRequest, res) => {
     const product = price?.product as Stripe.Product
 
     const paymentType = session.metadata?.payment_type || 'subscription'
+    const planId = session.metadata?.plan_id
     const amount = session.amount_total
       ? (session.amount_total / 100).toFixed(2)
       : '0.00'
@@ -512,13 +513,71 @@ router.get('/verify-payment', authMiddleware, async (req: AuthRequest, res) => {
       sessionId: session.id,
     }
 
-    if (paymentType === 'subscription') {
+    // Handle credit purchases - manually apply if webhook failed
+    if (paymentType === 'credits' && planId) {
+      const pool = getBillingPool()
+
+      // Map credit package IDs to credit amounts
+      const creditPackages: Record<string, { credits: number; bonus: number }> =
+        {
+          starter: { credits: 100, bonus: 0 },
+          popular: { credits: 500, bonus: 50 },
+          pro: { credits: 1000, bonus: 200 },
+          enterprise: { credits: 5000, bonus: 1500 },
+        }
+
+      const packageConfig = creditPackages[planId.toLowerCase()]
+
+      if (packageConfig) {
+        const totalCredits = packageConfig.credits + packageConfig.bonus
+
+        // Check if this payment was already processed
+        const existingPurchase = await pool.query(
+          'SELECT id FROM credit_purchases WHERE stripe_payment_id = $1',
+          [session.payment_intent],
+        )
+
+        if (existingPurchase.rows.length === 0) {
+          // Payment not yet processed - apply credits now
+          console.log(
+            `[Billing API] Manually applying ${totalCredits} credits from session ${session.id}`,
+          )
+
+          // Add credits to user's account
+          await pool.query(
+            `UPDATE service_subscriptions 
+             SET purchased_credits_balance = purchased_credits_balance + $1,
+                 updated_at = NOW()
+             WHERE user_id = $2`,
+            [totalCredits, userId],
+          )
+
+          // Record the purchase transaction
+          await pool.query(
+            `INSERT INTO credit_purchases (user_id, package_name, credits_purchased, bonus_credits, amount_paid, stripe_payment_id)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              userId,
+              planId,
+              packageConfig.credits,
+              packageConfig.bonus,
+              parseFloat(amount),
+              session.payment_intent,
+            ],
+          )
+
+          response.creditsApplied = totalCredits
+          response.message = 'Credits successfully applied to your account'
+        } else {
+          response.message = 'Credits already applied'
+        }
+      }
+
+      response.credits = packageConfig
+        ? packageConfig.credits + packageConfig.bonus
+        : 0
+    } else if (paymentType === 'subscription') {
       response.planName = product?.name || 'Unknown Plan'
-    } else if (paymentType === 'credits') {
-      // Extract credits from product name or metadata
-      const productName = product?.name || ''
-      const creditsMatch = productName.match(/(\d+)\s*credits/i)
-      response.credits = creditsMatch ? parseInt(creditsMatch[1]) : 0
     }
 
     res.json(response)
@@ -526,6 +585,132 @@ router.get('/verify-payment', authMiddleware, async (req: AuthRequest, res) => {
     console.error('[Billing API] Error verifying payment:', error)
     res.status(500).json({
       error: 'Failed to verify payment',
+      message: error.message,
+    })
+  }
+})
+
+/**
+ * POST /api/v1/billing/sync-payment
+ * Manually sync recent Stripe payments (for when webhooks fail)
+ */
+router.post('/sync-payment', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    if (!stripe) {
+      return res.status(503).json({ error: 'Stripe not configured' })
+    }
+
+    const pool = getBillingPool()
+
+    // Get user's Stripe customer ID
+    const subResult = await pool.query(
+      'SELECT stripe_customer_id FROM service_subscriptions WHERE user_id = $1',
+      [userId],
+    )
+
+    if (subResult.rows.length === 0 || !subResult.rows[0].stripe_customer_id) {
+      return res.status(404).json({ error: 'No Stripe customer found' })
+    }
+
+    const customerId = subResult.rows[0].stripe_customer_id
+
+    // Fetch recent checkout sessions for this customer
+    const sessions = await stripe.checkout.sessions.list({
+      customer: customerId,
+      limit: 10,
+      expand: ['data.line_items', 'data.line_items.data.price.product'],
+    })
+
+    let creditsApplied = 0
+    let paymentsProcessed = 0
+
+    // Process each completed session
+    for (const session of sessions.data) {
+      if (
+        session.payment_status === 'paid' &&
+        session.metadata?.payment_type === 'credits' &&
+        session.metadata?.plan_id
+      ) {
+        // Check if already processed
+        const existingPurchase = await pool.query(
+          'SELECT id FROM credit_purchases WHERE stripe_payment_id = $1',
+          [session.payment_intent],
+        )
+
+        if (existingPurchase.rows.length === 0) {
+          // Not yet processed - apply credits
+          const creditPackages: Record<
+            string,
+            { credits: number; bonus: number }
+          > = {
+            starter: { credits: 100, bonus: 0 },
+            popular: { credits: 500, bonus: 50 },
+            pro: { credits: 1000, bonus: 200 },
+            enterprise: { credits: 5000, bonus: 1500 },
+          }
+
+          const planId = session.metadata.plan_id
+          const packageConfig = creditPackages[planId.toLowerCase()]
+
+          if (packageConfig) {
+            const totalCredits = packageConfig.credits + packageConfig.bonus
+            const amountPaid = session.amount_total
+              ? session.amount_total / 100
+              : 0
+
+            // Add credits
+            await pool.query(
+              `UPDATE service_subscriptions 
+               SET purchased_credits_balance = purchased_credits_balance + $1,
+                   updated_at = NOW()
+               WHERE user_id = $2`,
+              [totalCredits, userId],
+            )
+
+            // Record purchase
+            await pool.query(
+              `INSERT INTO credit_purchases (user_id, package_name, credits_purchased, bonus_credits, amount_paid, stripe_payment_id)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                userId,
+                planId,
+                packageConfig.credits,
+                packageConfig.bonus,
+                amountPaid,
+                session.payment_intent,
+              ],
+            )
+
+            creditsApplied += totalCredits
+            paymentsProcessed++
+
+            console.log(
+              `[Billing API] Synced payment ${session.id}: +${totalCredits} credits`,
+            )
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      paymentsProcessed,
+      creditsApplied,
+      message:
+        creditsApplied > 0
+          ? `Successfully applied ${creditsApplied} credits`
+          : 'No pending payments found',
+    })
+  } catch (error: any) {
+    console.error('[Billing API] Error syncing payment:', error)
+    res.status(500).json({
+      error: 'Failed to sync payment',
       message: error.message,
     })
   }
@@ -596,10 +781,10 @@ router.post('/stripe/webhook', async (req, res) => {
               ? session.amount_total / 100
               : 0
 
-            // Add credits to user's account
+            // Add credits to user's purchased_credits_balance (not monthly credits)
             await pool.query(
               `UPDATE service_subscriptions 
-               SET credits_remaining = credits_remaining + $1,
+               SET purchased_credits_balance = purchased_credits_balance + $1,
                    updated_at = NOW()
                WHERE user_id = $2`,
               [totalCredits, userId],

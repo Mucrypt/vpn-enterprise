@@ -1180,6 +1180,12 @@ app.get('/api/v1/auth/me', async (req: AuthRequest, res) => {
     const { getUserSubscription } = await import('./middleware/unified-billing')
     const subscription = await getUserSubscription(user.id)
 
+    // Calculate total credits (monthly + purchased)
+    const totalCredits = subscription
+      ? (subscription.credits_remaining || 0) +
+        (subscription.purchased_credits_balance || 0)
+      : 100
+
     // Return user with subscription and token info
     res.json({
       user: {
@@ -1188,7 +1194,7 @@ app.get('/api/v1/auth/me', async (req: AuthRequest, res) => {
         role: user.user_metadata?.role || 'user',
         subscription: {
           plan: subscription?.plan_id || 'free',
-          credits: subscription?.credits_remaining || 100,
+          credits: totalCredits,
           database_quota: subscription?.database_quota_gb || 1,
         },
       },

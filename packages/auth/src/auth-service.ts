@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '@vpn-enterprise/database';
+import { supabase, supabaseAdmin, supabaseAdminUntyped } from '@vpn-enterprise/database';
 import { AppUser } from '@vpn-enterprise/database';
 import type { AppUserRow } from '@vpn-enterprise/database';
 import { SubscriptionRepository } from '@vpn-enterprise/database';
@@ -116,7 +116,7 @@ export class AuthService {
       });
 
       // New service_subscriptions table with credits
-      await supabaseAdmin.from('service_subscriptions').insert({
+      await (supabaseAdminUntyped as any).from('service_subscriptions').insert({
         user_id: data.user.id,
         tier_name: 'free',
         tier_price: 0,

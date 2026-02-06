@@ -75,10 +75,10 @@ export const rateLimitPresets = {
       'You have exceeded the AI generation limit. Please try again later or upgrade your plan.',
   }),
 
-  // Database provisioning: 5 per day
+  // Database provisioning: 20 per day (increased for development)
   databaseProvisioning: rateLimit({
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    max: 5,
+    max: 20, // Increased from 5 to 20
     message:
       'You have exceeded the daily database provisioning limit. Please try again tomorrow or upgrade your plan.',
   }),
