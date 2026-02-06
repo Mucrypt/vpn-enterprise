@@ -157,77 +157,93 @@ export default function BillingPage() {
   }
 
   return (
-    <div className='space-y-6 p-6'>
-      {/* Header */}
-      <div className='space-y-2'>
-        <h1 className='text-3xl font-bold tracking-tight text-foreground'>
-          Billing & Subscriptions
-        </h1>
-        <p className='text-muted-foreground'>
-          Manage your subscription, credits, and payment methods
-        </p>
+    <div className='min-h-screen bg-linear-to-br from-background via-background to-muted/20'>
+      {/* Animated Background Elements */}
+      <div className='fixed inset-0 overflow-hidden pointer-events-none'>
+        <div className='absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse' />
+        <div className='absolute bottom-0 left-0 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse delay-1000' />
       </div>
 
-      {/* Subscription Overview - Always Visible */}
-      <SubscriptionOverview
-        subscription={subscription}
-        onUpgrade={handleUpgrade}
-        loading={loading}
-      />
+      <div className='relative space-y-6 sm:space-y-8 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto'>
+        {/* Header with Gradient */}
+        <div className='space-y-3 sm:space-y-4'>
+          <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
+            <div>
+              <h1 className='text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight bg-linear-to-r from-foreground via-primary to-purple-600 bg-clip-text text-transparent'>
+                Billing & Subscriptions
+              </h1>
+              <p className='text-sm sm:text-base text-muted-foreground mt-2'>
+                Manage your subscription, credits, and payment methods
+              </p>
+            </div>
+            <div className='flex items-center gap-2 bg-card/50 backdrop-blur-sm border border-border/50 rounded-lg px-4 py-2'>
+              <div className='w-2 h-2 bg-green-500 rounded-full animate-pulse' />
+              <span className='text-sm font-medium'>Live</span>
+            </div>
+          </div>
+        </div>
 
-      {/* Tabbed Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className='w-full'>
-        <TabsList className='grid w-full grid-cols-3 lg:w-fit bg-muted'>
-          <TabsTrigger
-            value='plans'
-            className='gap-2 data-[state=active]:bg-background'
-          >
-            <Package className='w-4 h-4' />
-            <span className='hidden sm:inline'>Plans & Credits</span>
-            <span className='sm:hidden'>Plans</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value='services'
-            className='gap-2 data-[state=active]:bg-background'
-          >
-            <Settings className='w-4 h-4' />
-            <span className='hidden sm:inline'>Services</span>
-            <span className='sm:hidden'>Services</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value='history'
-            className='gap-2 data-[state=active]:bg-background'
-          >
-            <History className='w-4 h-4' />
-            <span className='hidden sm:inline'>History</span>
-            <span className='sm:hidden'>History</span>
-          </TabsTrigger>
-        </TabsList>
+        {/* Subscription Overview - Always Visible */}
+        <SubscriptionOverview
+          subscription={subscription}
+          onUpgrade={handleUpgrade}
+          loading={loading}
+        />
 
-        <TabsContent value='plans' className='mt-6'>
-          <PricingPlans
-            currentPlan={subscription?.plan_type}
-            onSelectPlan={handleSelectPlan}
-            loading={loading}
-          />
-        </TabsContent>
+        {/* Tabbed Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className='w-full'>
+          <TabsList className='grid w-full grid-cols-3 lg:w-fit bg-card/50 backdrop-blur-sm border border-border/50 p-1'>
+            <TabsTrigger
+              value='plans'
+              className='gap-2 data-[state=active]:bg-background'
+            >
+              <Package className='w-4 h-4' />
+              <span className='hidden sm:inline'>Plans & Credits</span>
+              <span className='sm:hidden'>Plans</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value='services'
+              className='gap-2 data-[state=active]:bg-background'
+            >
+              <Settings className='w-4 h-4' />
+              <span className='hidden sm:inline'>Services</span>
+              <span className='sm:hidden'>Services</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value='history'
+              className='gap-2 data-[state=active]:bg-background'
+            >
+              <History className='w-4 h-4' />
+              <span className='hidden sm:inline'>History</span>
+              <span className='sm:hidden'>History</span>
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value='services' className='mt-6'>
-          <ServiceManagement
-            services={services}
-            onToggleService={handleToggleService}
-            loading={loading}
-          />
-        </TabsContent>
+          <TabsContent value='plans' className='mt-6'>
+            <PricingPlans
+              currentPlan={subscription?.plan_type}
+              onSelectPlan={handleSelectPlan}
+              loading={loading}
+            />
+          </TabsContent>
 
-        <TabsContent value='history' className='mt-6'>
-          <BillingHistory
-            transactions={transactions}
-            invoices={invoices}
-            loading={loading}
-          />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value='services' className='mt-6'>
+            <ServiceManagement
+              services={services}
+              onToggleService={handleToggleService}
+              loading={loading}
+            />
+          </TabsContent>
+
+          <TabsContent value='history' className='mt-6'>
+            <BillingHistory
+              transactions={transactions}
+              invoices={invoices}
+              loading={loading}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   )
 }

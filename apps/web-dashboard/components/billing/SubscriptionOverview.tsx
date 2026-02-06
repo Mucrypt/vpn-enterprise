@@ -9,7 +9,15 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Zap, TrendingUp, Calendar, CreditCard } from 'lucide-react'
+import {
+  Zap,
+  TrendingUp,
+  Calendar,
+  CreditCard,
+  Sparkles,
+  Crown,
+  AlertCircle,
+} from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 interface SubscriptionOverviewProps {
@@ -25,17 +33,45 @@ interface SubscriptionOverviewProps {
   loading?: boolean
 }
 
-const PLAN_COLORS: Record<string, string> = {
-  free: 'bg-slate-500/10 text-slate-300 border-slate-500/20',
-  pro: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-  enterprise: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
+const PLAN_CONFIGS: Record<
+  string,
+  { gradient: string; icon: any; color: string }
+> = {
+  free: {
+    gradient: 'from-slate-500/20 via-slate-400/10 to-background',
+    icon: Sparkles,
+    color: 'text-slate-400',
+  },
+  starter: {
+    gradient: 'from-blue-500/20 via-blue-400/10 to-background',
+    icon: Zap,
+    color: 'text-blue-400',
+  },
+  pro: {
+    gradient: 'from-purple-500/20 via-purple-400/10 to-background',
+    icon: Crown,
+    color: 'text-purple-400',
+  },
+  professional: {
+    gradient: 'from-purple-500/20 via-purple-400/10 to-background',
+    icon: Crown,
+    color: 'text-purple-400',
+  },
+  enterprise: {
+    gradient: 'from-amber-500/20 via-amber-400/10 to-background',
+    icon: Crown,
+    color: 'text-amber-400',
+  },
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-green-500/10 text-green-300 border-green-500/20',
-  trialing: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-  past_due: 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20',
-  canceled: 'bg-red-500/10 text-red-300 border-red-500/20',
+const STATUS_CONFIGS: Record<
+  string,
+  { bg: string; text: string; icon: string }
+> = {
+  active: { bg: 'bg-green-500/10', text: 'text-green-500', icon: '●' },
+  trialing: { bg: 'bg-blue-500/10', text: 'text-blue-500', icon: '◐' },
+  past_due: { bg: 'bg-yellow-500/10', text: 'text-yellow-500', icon: '!' },
+  canceled: { bg: 'bg-red-500/10', text: 'text-red-500', icon: '✕' },
 }
 
 export function SubscriptionOverview({
@@ -45,13 +81,17 @@ export function SubscriptionOverview({
 }: SubscriptionOverviewProps) {
   if (loading) {
     return (
-      <Card className='border-primary/20 bg-card'>
-        <CardHeader>
-          <div className='h-6 w-32 animate-pulse rounded bg-muted' />
-          <div className='h-4 w-48 animate-pulse rounded bg-gray-200 mt-2' />
+      <Card className='relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm'>
+        <div className='absolute inset-0 bg-linear-to-br from-primary/5 to-transparent' />
+        <CardHeader className='relative'>
+          <div className='h-8 w-48 animate-pulse rounded-lg bg-muted' />
+          <div className='h-4 w-64 animate-pulse rounded bg-muted mt-3' />
         </CardHeader>
-        <CardContent>
-          <div className='h-24 animate-pulse rounded bg-gray-200' />
+        <CardContent className='relative'>
+          <div className='space-y-4'>
+            <div className='h-24 animate-pulse rounded-xl bg-muted' />
+            <div className='h-32 animate-pulse rounded-xl bg-muted' />
+          </div>
         </CardContent>
       </Card>
     )
@@ -59,28 +99,45 @@ export function SubscriptionOverview({
 
   if (!subscription) {
     return (
-      <Card className='border-primary/20 bg-card'>
-        <CardHeader>
-          <CardTitle className='text-foreground'>
-            No Active Subscription
+      <Card className='relative overflow-hidden border-border/50 bg-linear-to-br from-card via-card to-primary/5 backdrop-blur-sm'>
+        <div className='absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent' />
+        <CardHeader className='relative pb-4'>
+          <CardTitle className='text-2xl sm:text-3xl font-bold flex items-center gap-3'>
+            <div className='p-3 rounded-xl bg-primary/10 backdrop-blur-sm border border-primary/20'>
+              <Sparkles className='w-6 h-6 sm:w-7 sm:h-7 text-primary' />
+            </div>
+            <span className='bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-transparent'>
+              No Active Subscription
+            </span>
           </CardTitle>
-          <CardDescription>
+          <CardDescription className='text-base'>
             Start your journey with VPN Enterprise
           </CardDescription>
         </CardHeader>
-        <CardContent className='text-center py-8'>
-          <Zap className='w-12 h-12 mx-auto text-primary mb-4' />
-          <p className='text-muted-foreground mb-6'>
-            Choose a plan to unlock powerful features and scale your business
-          </p>
-          <Button
-            onClick={onUpgrade}
-            size='lg'
-            className='gap-2 bg-primary hover:bg-primary/90'
-          >
-            <TrendingUp className='w-4 h-4' />
-            Choose Your Plan
-          </Button>
+        <CardContent className='relative text-center py-8 sm:py-12'>
+          <div className='max-w-md mx-auto space-y-6'>
+            <div className='relative'>
+              <div className='absolute inset-0 bg-primary/20 blur-3xl' />
+              <Zap className='relative w-16 h-16 sm:w-20 sm:h-20 mx-auto text-primary animate-pulse' />
+            </div>
+            <div className='space-y-2'>
+              <p className='text-base sm:text-lg font-medium'>
+                Unlock powerful features and scale your business
+              </p>
+              <p className='text-sm text-muted-foreground'>
+                Choose from our flexible plans designed for every stage of
+                growth
+              </p>
+            </div>
+            <Button
+              onClick={onUpgrade}
+              size='lg'
+              className='gap-2 bg-linear-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30 hover:scale-105'
+            >
+              <TrendingUp className='w-5 h-5' />
+              <span className='font-semibold'>Choose Your Plan</span>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     )
@@ -90,93 +147,179 @@ export function SubscriptionOverview({
   const status = subscription.status?.toLowerCase() || 'active'
   const creditsRemaining = subscription.credits_remaining || 0
   const creditsLimit = subscription.credits_limit || 1
-  const creditPercentage = Math.round((creditsRemaining / creditsLimit) * 100)
+  const creditPercentage = Math.min(
+    Math.round((creditsRemaining / creditsLimit) * 100),
+    100,
+  )
+
+  const planConfig = PLAN_CONFIGS[planType] || PLAN_CONFIGS.free
+  const statusConfig = STATUS_CONFIGS[status] || STATUS_CONFIGS.active
+  const PlanIcon = planConfig.icon
 
   return (
-    <Card className='border-primary/20 bg-card'>
-      <CardHeader>
-        <div className='flex items-center justify-between'>
-          <div>
-            <CardTitle className='flex items-center gap-2 text-foreground'>
-              Current Subscription
+    <Card className='relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm group hover:border-primary/30 transition-all duration-500'>
+      {/* Animated Background Gradient */}
+      <div
+        className={`absolute inset-0 bg-linear-to-br ${planConfig.gradient} opacity-50`}
+      />
+      <div className='absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent' />
+
+      <CardHeader className='relative pb-4'>
+        <div className='flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4'>
+          <div className='space-y-2'>
+            <CardTitle className='text-xl sm:text-2xl font-bold flex items-center gap-3 flex-wrap'>
+              <div
+                className={`p-2.5 rounded-xl bg-linear-to-br ${planConfig.gradient} backdrop-blur-sm border border-primary/20 shadow-lg`}
+              >
+                <PlanIcon
+                  className={`w-5 h-5 sm:w-6 sm:h-6 ${planConfig.color}`}
+                />
+              </div>
+              <span>Current Subscription</span>
               <Badge
                 variant='outline'
-                className={PLAN_COLORS[planType] || PLAN_COLORS.free}
+                className='px-3 py-1 text-sm font-semibold bg-primary/10 border-primary/30 text-primary capitalize'
               >
                 {subscription.plan_type}
               </Badge>
             </CardTitle>
-            <CardDescription>
-              Manage your subscription and billing
+            <CardDescription className='text-sm'>
+              Manage your subscription and track usage
             </CardDescription>
           </div>
-          <CreditCard className='w-8 h-8 text-primary' />
-        </div>
-      </CardHeader>
-      <CardContent className='space-y-6'>
-        {/* Status and Renewal */}
-        <div className='flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border'>
-          <div>
-            <p className='text-sm text-muted-foreground'>Status</p>
-            <Badge
-              variant='outline'
-              className={STATUS_COLORS[status] || STATUS_COLORS.active}
+
+          {/* Status Badge */}
+          <div
+            className={`flex items-center gap-2 px-4 py-2 rounded-full ${statusConfig.bg} border border-border/50 backdrop-blur-sm`}
+          >
+            <span className={`text-lg ${statusConfig.text}`}>
+              {statusConfig.icon}
+            </span>
+            <span
+              className={`text-sm font-medium ${statusConfig.text} capitalize`}
             >
               {subscription.status}
-            </Badge>
+            </span>
           </div>
-          {subscription.current_period_end && (
-            <div className='text-right'>
-              <p className='text-sm text-muted-foreground flex items-center gap-1'>
-                <Calendar className='w-3 h-3' />
-                Renews on
-              </p>
-              <p className='font-semibold'>
-                {formatDate(subscription.current_period_end)}
+        </div>
+      </CardHeader>
+
+      <CardContent className='relative space-y-6'>
+        {/* Credits Section with Modern Design */}
+        <div className='space-y-4'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+            {/* Credits Card */}
+            <div className='p-5 rounded-xl bg-linear-to-brprimary/10 to-primary/5 border border-primary/20 backdrop-blur-sm'>
+              <div className='flex items-start justify-between mb-3'>
+                <div>
+                  <p className='text-xs font-medium text-muted-foreground uppercase tracking-wide'>
+                    Available Credits
+                  </p>
+                  <p className='text-3xl sm:text-4xl font-bold mt-1 bg-linear-to-r from-primary to-primary/70 bg-clip-text text-transparent'>
+                    {creditsRemaining.toLocaleString()}
+                  </p>
+                </div>
+                <div className='p-2 rounded-lg bg-primary/20'>
+                  <Zap className='w-5 h-5 text-primary' />
+                </div>
+              </div>
+              <p className='text-xs text-muted-foreground'>
+                of {creditsLimit.toLocaleString()} total credits
               </p>
             </div>
-          )}
+
+            {/* Renewal Card */}
+            {subscription.current_period_end && (
+              <div className='p-5 rounded-xl bg-linear-to-br from-muted/50 to-muted/20 border border-border backdrop-blur-sm'>
+                <div className='flex items-start justify-between mb-3'>
+                  <div>
+                    <p className='text-xs font-medium text-muted-foreground uppercase tracking-wide'>
+                      Next Billing
+                    </p>
+                    <p className='text-lg sm:text-xl font-bold mt-1'>
+                      {formatDate(subscription.current_period_end)}
+                    </p>
+                  </div>
+                  <div className='p-2 rounded-lg bg-muted'>
+                    <Calendar className='w-5 h-5' />
+                  </div>
+                </div>
+                <p className='text-xs text-muted-foreground'>
+                  Auto-renewal enabled
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Progress Bar */}
+          <div className='space-y-3'>
+            <div className='flex items-center justify-between text-sm'>
+              <span className='font-medium'>Credit Usage</span>
+              <span
+                className={`font-bold ${
+                  creditPercentage > 50
+                    ? 'text-green-500'
+                    : creditPercentage > 20
+                      ? 'text-yellow-500'
+                      : 'text-red-500'
+                }`}
+              >
+                {creditPercentage}%
+              </span>
+            </div>
+            <div className='relative h-3 bg-muted rounded-full overflow-hidden border border-border/50'>
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out ${
+                  creditPercentage > 50
+                    ? 'bg-linear-to-r from-green-500 to-emerald-500'
+                    : creditPercentage > 20
+                      ? 'bg-linear-to-r from-yellow-500 to-orange-500'
+                      : 'bg-linear-to-r from-red-500 to-rose-500'
+                }`}
+                style={{ width: `${creditPercentage}%` }}
+              >
+                <div className='absolute inset-0 bg-white/20 animate-pulse' />
+              </div>
+            </div>
+            {creditPercentage < 20 && (
+              <div className='flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20'>
+                <AlertCircle className='w-4 h-4 text-red-500 shrink-0 mt-0.5' />
+                <p className='text-xs text-red-500 font-medium'>
+                  Low credits! Consider purchasing more or upgrading your plan
+                  to avoid service interruption.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Credits Overview */}
-        <div>
-          <div className='flex items-center justify-between mb-2'>
-            <p className='text-sm font-medium'>Credits Available</p>
-            <p className='text-sm text-muted-foreground'>
-              {(subscription.credits_remaining || 0).toLocaleString()} /{' '}
-              {(subscription.credits_limit || 0).toLocaleString()}
-            </p>
-          </div>
-          <div className='h-2 bg-gray-200 rounded-full overflow-hidden'>
-            <div
-              className={`h-full transition-all ${
-                creditPercentage > 50
-                  ? 'bg-green-500'
-                  : creditPercentage > 20
-                    ? 'bg-yellow-500'
-                    : 'bg-red-500'
-              }`}
-              style={{ width: `${creditPercentage}%` }}
-            />
-          </div>
-          {creditPercentage < 20 && (
-            <p className='text-xs text-red-600 mt-2'>
-              ⚠️ Low credits! Consider purchasing more or upgrading your plan.
-            </p>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className='flex gap-3'>
+        {/* Action Buttons */}
+        <div className='flex flex-col sm:flex-row gap-3 pt-2'>
           {planType !== 'enterprise' && (
-            <Button onClick={onUpgrade} className='flex-1'>
-              <TrendingUp className='w-4 h-4 mr-2' />
-              Upgrade Plan
+            <Button
+              onClick={onUpgrade}
+              className='flex-1 gap-2 bg-linear-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]'
+            >
+              <TrendingUp className='w-4 h-4' />
+              <span className='font-semibold'>Upgrade Plan</span>
             </Button>
           )}
           {subscription.stripe_customer_id && (
-            <Button variant='outline' className='flex-1'>
+            <Button
+              variant='outline'
+              className='flex-1 gap-2 hover:bg-muted hover:border-primary/30 transition-all'
+            >
+              <CreditCard className='w-4 h-4' />
               Manage Billing
+            </Button>
+          )}
+          {!subscription.stripe_customer_id && planType === 'enterprise' && (
+            <Button
+              variant='outline'
+              className='w-full gap-2 hover:bg-muted hover:border-primary/30 transition-all'
+            >
+              <CreditCard className='w-4 h-4' />
+              Add Payment Method
             </Button>
           )}
         </div>
