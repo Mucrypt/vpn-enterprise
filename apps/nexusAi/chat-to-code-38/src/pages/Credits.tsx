@@ -94,11 +94,14 @@ const Credits = () => {
 
   // Get total available credits (what user actually has)
   const totalAvailableCredits = creditsRemaining
-  
+
   // For display purposes: free plan has 100 monthly credits
   // Pro/Enterprise plans show actual total credits
   const monthlyCreditLimit = subscription?.plan === 'free' ? 100 : 1000
-  const displayTotal = totalAvailableCredits > monthlyCreditLimit ? totalAvailableCredits : monthlyCreditLimit
+  const displayTotal =
+    totalAvailableCredits > monthlyCreditLimit
+      ? totalAvailableCredits
+      : monthlyCreditLimit
   const creditsUsed = Math.max(0, displayTotal - totalAvailableCredits)
   const usagePercent = displayTotal > 0 ? (creditsUsed / displayTotal) * 100 : 0
 
@@ -179,9 +182,9 @@ const Credits = () => {
       </Helmet>
       <Navbar />
 
-      <div className='container mx-auto px-6 py-8 pt-24'>
+      <div className='container mx-auto px-4 sm:px-6 py-6 sm:py-8 pt-20 sm:pt-24'>
         {/* Header */}
-        <div className='mb-8'>
+        <div className='mb-6 sm:mb-8'>
           <Button
             variant='ghost'
             size='sm'
@@ -217,17 +220,17 @@ const Credits = () => {
         </div>
 
         {/* Current Plan & Usage Section */}
-        <div className='grid gap-6 md:grid-cols-3 mb-8'>
+        <div className='grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 mb-6 sm:mb-8'>
           {/* Credits Remaining */}
           <Card className='border-primary/20 bg-gradient-to-br from-primary/5 to-purple-500/5'>
-            <CardHeader className='pb-3'>
-              <CardTitle className='text-sm font-medium text-muted-foreground flex items-center gap-2'>
+            <CardHeader className='pb-2 sm:pb-3'>
+              <CardTitle className='text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2'>
                 <Coins className='w-4 h-4 text-primary' />
                 Available Credits
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className='text-3xl font-bold text-primary'>
+              <div className='text-2xl sm:text-3xl font-bold text-primary'>
                 {creditsRemaining.toLocaleString()}
               </div>
               <p className='text-xs text-muted-foreground mt-1'>
@@ -238,14 +241,14 @@ const Credits = () => {
 
           {/* Credits Used */}
           <Card>
-            <CardHeader className='pb-3'>
-              <CardTitle className='text-sm font-medium text-muted-foreground flex items-center gap-2'>
+            <CardHeader className='pb-2 sm:pb-3'>
+              <CardTitle className='text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2'>
                 <TrendingUp className='w-4 h-4' />
                 Credits Used
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className='text-3xl font-bold'>
+              <div className='text-2xl sm:text-3xl font-bold'>
                 {creditsUsed.toLocaleString()}
               </div>
               <p className='text-xs text-muted-foreground mt-1'>
@@ -324,15 +327,15 @@ const Credits = () => {
         </Card>
 
         {/* Buy Credits Section */}
-        <div className='mb-8'>
-          <div className='mb-6'>
-            <h2 className='text-2xl font-bold'>Buy More Credits</h2>
-            <p className='text-muted-foreground'>
+        <div className='py-6 sm:py-8'>
+          <div className='mb-6 sm:mb-8'>
+            <h2 className='text-2xl sm:text-3xl font-bold'>Buy More Credits</h2>
+            <p className='text-sm sm:text-base text-muted-foreground mt-2'>
               Choose a credit package that fits your needs
             </p>
           </div>
 
-          <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-4'>
+          <div className='grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'>
             {creditPackages.map((pkg) => (
               <Card
                 key={pkg.id}
@@ -343,17 +346,17 @@ const Credits = () => {
                 }`}
               >
                 {pkg.popular && (
-                  <Badge className='absolute -top-3 left-1/2 -translate-x-1/2 bg-primary'>
+                  <Badge className='absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-xs sm:text-sm'>
                     Most Popular
                   </Badge>
                 )}
-                <CardHeader>
-                  <CardTitle className='flex items-center justify-between'>
+                <CardHeader className='pb-3 sm:pb-4'>
+                  <CardTitle className='flex items-center justify-between text-base sm:text-lg'>
                     <span>{pkg.name}</span>
-                    <Coins className='w-5 h-5 text-primary' />
+                    <Coins className='w-4 h-4 sm:w-5 sm:h-5 text-primary' />
                   </CardTitle>
                   <CardDescription>
-                    <div className='text-3xl font-bold text-foreground mt-2'>
+                    <div className='text-2xl sm:text-3xl font-bold text-foreground mt-2'>
                       {pkg.credits.toLocaleString()}
                       {pkg.bonus && (
                         <span className='text-sm text-primary ml-2'>

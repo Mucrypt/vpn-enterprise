@@ -116,7 +116,9 @@ const Navbar = () => {
                   className='hidden sm:flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-secondary/50 rounded-lg border border-border/50 hover:bg-secondary hover:border-primary/50 transition-all cursor-pointer'
                 >
                   <Coins className='w-4 h-4 text-primary' />
-                  <span className='text-xs sm:text-sm font-medium'>{credits}</span>
+                  <span className='text-xs sm:text-sm font-medium'>
+                    {credits}
+                  </span>
                 </Link>
               )}
 
@@ -190,7 +192,9 @@ const Navbar = () => {
                     <span>Settings</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={async () => await authService.logout()}>
+                  <DropdownMenuItem
+                    onClick={async () => await authService.logout()}
+                  >
                     <LogOut className='mr-2 h-4 w-4' />
                     <span>Log out</span>
                   </DropdownMenuItem>
@@ -245,7 +249,11 @@ const Navbar = () => {
               <div className='flex flex-col h-full'>
                 {/* Mobile Header */}
                 <div className='flex items-center justify-between mb-6'>
-                  <Link to='/' className='flex items-center gap-2' onClick={() => setMobileMenuOpen(false)}>
+                  <Link
+                    to='/'
+                    className='flex items-center gap-2'
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
                     <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg'>
                       <Sparkles className='w-4 h-4 text-primary-foreground' />
                     </div>
@@ -260,18 +268,27 @@ const Navbar = () => {
                   <div className='mb-6 p-4 bg-secondary/50 rounded-lg border border-border/50'>
                     <div className='flex items-center gap-3 mb-3'>
                       <div className='w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold'>
-                        {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                        {user.name?.[0]?.toUpperCase() ||
+                          user.email[0].toUpperCase()}
                       </div>
                       <div className='flex-1 min-w-0'>
-                        <p className='text-sm font-medium truncate'>{user.name || 'User'}</p>
-                        <p className='text-xs text-muted-foreground truncate'>{user.email}</p>
+                        <p className='text-sm font-medium truncate'>
+                          {user.name || 'User'}
+                        </p>
+                        <p className='text-xs text-muted-foreground truncate'>
+                          {user.email}
+                        </p>
                       </div>
                     </div>
                     <div className='flex items-center justify-between'>
                       <Badge variant='secondary' className='text-xs'>
                         {subscriptionInfo?.planName || 'Free'} Plan
                       </Badge>
-                      <Link to='/credits' onClick={() => setMobileMenuOpen(false)} className='flex items-center gap-1.5 text-sm font-medium text-primary'>
+                      <Link
+                        to='/credits'
+                        onClick={() => setMobileMenuOpen(false)}
+                        className='flex items-center gap-1.5 text-sm font-medium text-primary'
+                      >
                         <Coins className='w-4 h-4' />
                         {credits} credits
                       </Link>
@@ -310,7 +327,10 @@ const Navbar = () => {
                       </Link>
                       <button
                         onClick={() => {
-                          window.open('https://chatbuilds.com/dashboard', '_blank')
+                          window.open(
+                            'https://chatbuilds.com/dashboard',
+                            '_blank',
+                          )
                           setMobileMenuOpen(false)
                         }}
                         className='w-full flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-secondary/50 transition-colors'
@@ -320,7 +340,10 @@ const Navbar = () => {
                       </button>
                       <button
                         onClick={() => {
-                          window.open('https://chatbuilds.com/dashboard/profile', '_blank')
+                          window.open(
+                            'https://chatbuilds.com/dashboard/profile',
+                            '_blank',
+                          )
                           setMobileMenuOpen(false)
                         }}
                         className='w-full flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-secondary/50 transition-colors'
@@ -373,7 +396,10 @@ const Navbar = () => {
                         variant='outline'
                         className='w-full'
                         onClick={() => {
-                          window.open('https://chatbuilds.com/auth/login?redirect=nexusai', '_blank')
+                          window.open(
+                            'https://chatbuilds.com/auth/login?redirect=nexusai',
+                            '_blank',
+                          )
                           setMobileMenuOpen(false)
                         }}
                       >
@@ -382,7 +408,10 @@ const Navbar = () => {
                       <Button
                         className='w-full bg-gradient-to-r from-primary to-purple-600 text-white hover:opacity-90'
                         onClick={() => {
-                          window.open('https://chatbuilds.com/auth/signup?redirect=nexusai', '_blank')
+                          window.open(
+                            'https://chatbuilds.com/auth/signup?redirect=nexusai',
+                            '_blank',
+                          )
                           setMobileMenuOpen(false)
                         }}
                       >
