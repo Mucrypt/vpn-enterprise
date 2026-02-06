@@ -5,7 +5,9 @@ Scalable FastAPI microservice with authentication, rate limiting, and caching
 """
 from fastapi import FastAPI, HTTPException, status, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, ValidationError
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from typing import Optional, Dict, Any, List
@@ -109,6 +111,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ============================================
+# EXCEPTION HANDLERS
+# ============================================
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    \"\"\"Handle validation errors with detailed messages\"\"\"
+    errors = exc.errors()
+    logger.error(f\"🚨 Validation Error on {request.method} {request.url.path}:\")\n    logger.error(f\"   Request body: {await request.body()}\")\n    logger.error(f\"   Errors: {json.dumps(errors, indent=2)}\")\n    \n    # Create user-friendly error message\n    error_details = []\n    for error in errors:\n        field = \" -> \".join(str(loc) for loc in error[\"loc\"])\n        msg = error[\"msg\"]\n        error_details.append(f\"{field}: {msg}\")\n    \n    return JSONResponse(\n        status_code=422,\n        content={\n            \"detail\": \"Request validation failed\",\n            \"errors\": error_details,\n            \"raw_errors\": errors\n        }\n    )
 
 # ============================================
 # UTILITIES
@@ -279,7 +291,7 @@ class UsageStats(BaseModel):
     tier: str
 
 class MultiFileGenerateRequest(BaseModel):
-    description: str = Field(..., min_length=10, max_length=2000, description="Description of the app to generate")
+    description: str = Field(..., min_length=3, max_length=5000, description="Description of the app to generate")
     framework: str = Field(default="react", description="Framework to use (react, vue, angular, nextjs, etc.)")
     styling: str = Field(default="tailwind", description="Styling framework (tailwind, bootstrap, etc.)")
     features: Optional[List[str]] = Field(default=None, description="List of features to include")
@@ -341,12 +353,19 @@ async def get_usage(user: Dict[str, Any] = Depends(verify_token)):
 @app.post("/ai/generate/app", response_model=MultiFileGenerateResponse)
 async def generate_full_app(
     request: MultiFileGenerateRequest,
-    user: Dict[str, Any] = Depends(verify_token)
+    user: Dict[str, Any] = Depends(verify_token),
+    http_request: Request = None
 ):
     """
     Generate a complete application with multiple files - MORE POWERFUL than Cursor/Lovable
     Uses OpenAI GPT-4o or Anthropic Claude 3.7 Sonnet for superior code generation
     """
+    # Debug logging
+    logger.info(f"📥 Received app generation request:")
+    logger.info(f"   Description length: {len(request.description)} chars")
+    logger.info(f"   Framework: {request.framework}")
+    logger.info(f"   Provider: {request.provider}")
+    logger.info(f"   User tier: {user.get('tier', 'unknown')}")
     
     # Rate limiting
     rate_check = await check_rate_limit(
