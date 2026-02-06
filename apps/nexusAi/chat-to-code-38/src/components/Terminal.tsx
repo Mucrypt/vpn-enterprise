@@ -11,7 +11,12 @@ interface TerminalProps {
   onPreviewReady?: (url: string) => void
 }
 
-export function Terminal({ onCommand, workspaceId, projectPath, onPreviewReady }: TerminalProps) {
+export function Terminal({
+  onCommand,
+  workspaceId,
+  projectPath,
+  onPreviewReady,
+}: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<XTerm | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -64,7 +69,9 @@ export function Terminal({ onCommand, workspaceId, projectPath, onPreviewReady }
 
     // Welcome message
     term.writeln('🚀 \x1b[1;32mNexusAI Terminal\x1b[0m - Ready')
-    term.writeln('Type commands to install dependencies, run builds, preview apps, etc.')
+    term.writeln(
+      'Type commands to install dependencies, run builds, preview apps, etc.',
+    )
     term.writeln('')
     term.write('$ ')
 
@@ -118,26 +125,33 @@ export function Terminal({ onCommand, workspaceId, projectPath, onPreviewReady }
 
     async function checkForPackageJson(term: XTerm) {
       try {
-        const response = await fetch('https://chatbuilds.com/api/terminal/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            command: 'ls package.json',
-            workspaceId: workspaceId || 'default',
-            projectPath: projectPath || '/workspace',
-          }),
-        })
+        const response = await fetch(
+          'https://chatbuilds.com/api/terminal/execute',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              command: 'ls package.json',
+              workspaceId: workspaceId || 'default',
+              projectPath: projectPath || '/workspace',
+            }),
+          },
+        )
 
         if (response.ok) {
           const data = await response.json()
           if (data.success && data.stdout?.includes('package.json')) {
             setHasPackageJson(true)
             term.writeln('\x1b[1;36m📦 Project detected! You can run:\x1b[0m')
-            term.writeln('   \x1b[33mnpm install\x1b[0m     - Install dependencies')
-            term.writeln('   \x1b[33mnpm run dev\x1b[0m     - Start preview server')
+            term.writeln(
+              '   \x1b[33mnpm install\x1b[0m     - Install dependencies',
+            )
+            term.writeln(
+              '   \x1b[33mnpm run dev\x1b[0m     - Start preview server',
+            )
             term.writeln('')
-            
+
             // Auto-install dependencies
             term.writeln('\x1b[1;32m⚡ Auto-installing dependencies...\x1b[0m')
             term.writeln('')
@@ -156,15 +170,25 @@ export function Terminal({ onCommand, workspaceId, projectPath, onPreviewReady }
         term.write('$ ')
         return
       }
-      
+
       if (cmd === 'help') {
         term.writeln('\x1b[1;36m📖 Available commands:\x1b[0m')
-        term.writeln('   \x1b[33mnpm install\x1b[0m          - Install dependencies')
-        term.writeln('   \x1b[33mnpm run dev\x1b[0m          - Start development server')
-        term.writeln('   \x1b[33mnpm run build\x1b[0m        - Build for production')
+        term.writeln(
+          '   \x1b[33mnpm install\x1b[0m          - Install dependencies',
+        )
+        term.writeln(
+          '   \x1b[33mnpm run dev\x1b[0m          - Start development server',
+        )
+        term.writeln(
+          '   \x1b[33mnpm run build\x1b[0m        - Build for production',
+        )
         term.writeln('   \x1b[33mls\x1b[0m                   - List files')
-        term.writeln('   \x1b[33mpwd\x1b[0m                  - Print working directory')
-        term.writeln('   \x1b[33mcat <file>\x1b[0m           - View file contents')
+        term.writeln(
+          '   \x1b[33mpwd\x1b[0m                  - Print working directory',
+        )
+        term.writeln(
+          '   \x1b[33mcat <file>\x1b[0m           - View file contents',
+        )
         term.writeln('   \x1b[33mclear\x1b[0m                - Clear terminal')
         term.writeln('   \x1b[33mhelp\x1b[0m                 - Show this help')
         term.write('\r\n$ ')
@@ -210,16 +234,19 @@ export function Terminal({ onCommand, workspaceId, projectPath, onPreviewReady }
           }, 100)
         }
 
-        const response = await fetch('https://chatbuilds.com/api/terminal/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            command: cmd,
-            workspaceId: workspaceId || 'default',
-            projectPath: projectPath || '/workspace',
-          }),
-        })
+        const response = await fetch(
+          'https://chatbuilds.com/api/terminal/execute',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              command: cmd,
+              workspaceId: workspaceId || 'default',
+              projectPath: projectPath || '/workspace',
+            }),
+          },
+        )
 
         if (spinnerInterval) {
           clearInterval(spinnerInterval)
@@ -248,8 +275,12 @@ export function Terminal({ onCommand, workspaceId, projectPath, onPreviewReady }
         // Success indicator
         if (data.exitCode === 0) {
           if (cmd.includes('install')) {
-            term.writeln('\r\n\x1b[1;32m✅ Dependencies installed successfully!\x1b[0m')
-            term.writeln('\x1b[1;36m💡 Tip: Run "\x1b[33mnpm run dev\x1b[0m\x1b[1;36m" to start the preview\x1b[0m')
+            term.writeln(
+              '\r\n\x1b[1;32m✅ Dependencies installed successfully!\x1b[0m',
+            )
+            term.writeln(
+              '\x1b[1;36m💡 Tip: Run "\x1b[33mnpm run dev\x1b[0m\x1b[1;36m" to start the preview\x1b[0m',
+            )
           } else if (cmd.includes('dev') || cmd.includes('start')) {
             term.writeln('\r\n\x1b[1;32m✅ Dev server started!\x1b[0m')
             const previewUrl = `https://chatbuilds.com/api/terminal/preview/${workspaceId || 'default'}/`
@@ -258,15 +289,21 @@ export function Terminal({ onCommand, workspaceId, projectPath, onPreviewReady }
               onPreviewReady(previewUrl)
             }
           } else {
-            term.writeln('\r\n\x1b[1;32m✅ Command completed successfully\x1b[0m')
+            term.writeln(
+              '\r\n\x1b[1;32m✅ Command completed successfully\x1b[0m',
+            )
           }
         } else if (data.exitCode !== undefined && data.exitCode !== 0) {
-          term.writeln(`\r\n\x1b[1;33m⚠️  Command exited with code ${data.exitCode}\x1b[0m`)
+          term.writeln(
+            `\r\n\x1b[1;33m⚠️  Command exited with code ${data.exitCode}\x1b[0m`,
+          )
         }
 
         if (onCommand) onCommand(cmd)
       } catch (error) {
-        term.writeln(`\r\n\x1b[1;31m❌ Failed to execute command:\x1b[0m ${error instanceof Error ? error.message : 'Unknown error'}`)
+        term.writeln(
+          `\r\n\x1b[1;31m❌ Failed to execute command:\x1b[0m ${error instanceof Error ? error.message : 'Unknown error'}`,
+        )
       }
     }
 
@@ -291,7 +328,14 @@ export function Terminal({ onCommand, workspaceId, projectPath, onPreviewReady }
       }
       term.dispose()
     }
-  }, [onCommand, workspaceId, projectPath, wsConnection, isExecuting, onPreviewReady])
+  }, [
+    onCommand,
+    workspaceId,
+    projectPath,
+    wsConnection,
+    isExecuting,
+    onPreviewReady,
+  ])
 
   return (
     <div
