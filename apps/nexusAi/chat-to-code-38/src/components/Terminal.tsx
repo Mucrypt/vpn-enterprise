@@ -6,6 +6,7 @@ import '@xterm/xterm/css/xterm.css'
 
 interface TerminalProps {
   onCommand?: (command: string) => void
+  appId?: string
   workspaceId?: string
   projectPath?: string
   onPreviewReady?: (url: string) => void
@@ -13,7 +14,8 @@ interface TerminalProps {
 
 export function Terminal({
   onCommand,
-  workspaceId,
+  appId,
+  workspaceId: externalWorkspaceId,
   projectPath,
   onPreviewReady,
 }: TerminalProps) {
@@ -23,12 +25,61 @@ export function Terminal({
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null)
   const [isExecuting, setIsExecuting] = useState(false)
   const [hasPackageJson, setHasPackageJson] = useState(false)
+  const [workspaceId, setWorkspaceId] = useState<string | null>(externalWorkspaceId || null)
+  const [workspaceReady, setWorkspaceReady] = useState(false)
   const commandQueueRef = useRef<string[]>([])
   const isProcessingRef = useRef(false)
+
+  // Create workspace with app files on mount
+  useEffect(() => {
+    if (appId && !workspaceId && !workspaceReady) {
+      const createWorkspace = async () => {
+        try {
+          console.log('[Terminal] Creating workspace for app:', appId)
+          const response = await fetch('https://chatbuilds.com/api/terminal/workspaces', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              app_id: appId,
+              name: 'NexusAI Workspace',
+            }),
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            setWorkspaceId(data.workspace_id)
+            setWorkspaceReady(true)
+            console.log('[Terminal] Workspace created:', data.workspace_id)
+           
+            if (data.instructions) {
+              console.log('[Terminal] Instructions:', data.instructions)
+            }
+          } else {
+            console.error('[Terminal] Failed to create workspace:', await response.text())
+          }
+        } catch (error) {
+          console.error('[Terminal] Error creating workspace:', error)
+        }
+      }
+      createWorkspace()
+    } else if (externalWorkspaceId) {
+      setWorkspaceId(externalWorkspaceId)
+      setWorkspaceReady(true)
+    } else if (!appId) {
+      // Use default workspace if no appId provided
+      setWorkspaceId('default')
+      setWorkspaceReady(true)
+    }
+  }, [appId, workspaceId, workspaceReady, externalWorkspaceId])
 
   // Initialize terminal and WebSocket connection
   useEffect(() => {
     if (!terminalRef.current) return
+    if (!workspaceReady || !workspaceId) {
+      console.log('[Terminal] Waiting for workspace to be ready...')
+      return
+    }
 
     // Initialize terminal
     const term = new XTerm({
@@ -331,6 +382,7 @@ export function Terminal({
   }, [
     onCommand,
     workspaceId,
+    workspaceReady,
     projectPath,
     wsConnection,
     isExecuting,

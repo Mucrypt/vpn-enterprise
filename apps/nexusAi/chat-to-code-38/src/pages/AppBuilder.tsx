@@ -611,7 +611,7 @@ const AppBuilder = () => {
 
                 <TabsContent value='terminal' className='flex-1 m-0 p-0'>
                   <div className='h-full bg-black'>
-                    <Terminal />
+                    <Terminal appId={savedAppId || undefined} />
                   </div>
                 </TabsContent>
 
