@@ -74,6 +74,16 @@ export interface DeploymentResponse {
   app_url?: string
   environment?: Record<string, string>
   steps: Array<{ step: string; status: string }>
+  n8n?: {
+    workflow_id: string
+    execution_id: string
+    webhook_url: string
+  }
+  slack?: {
+    notification_sent: boolean
+    channel: string
+    message_ts?: string
+  }
 }
 
 export interface SQLAssistRequest {
@@ -98,14 +108,66 @@ export interface UsageStats {
   window_reset: string
 }
 
+export interface AIProvider {
+  name: 'openai' | 'anthropic' | 'auto'
+  model: string
+}
+
+export interface DeploymentStatus {
+  deployment_id: string
+  status:
+    | 'pending'
+    | 'building'
+    | 'deploying'
+    | 'testing'
+    | 'success'
+    | 'failed'
+  progress: number
+  current_step: string
+  logs: string[]
+  error?: string
+}
+
+export interface NotificationStatus {
+  slack_sent: boolean
+  channel: string
+  message: string
+  timestamp: string
+}
+
 export class AIService {
   private apiKey: string | null = null
   private baseURL: string
+  private n8nWebhookURL: string
 
   constructor(apiKey?: string, usePublicAPI = true) {
     // Default to public API for browser usage
     this.apiKey = apiKey || this.getStoredAPIKey()
     this.baseURL = usePublicAPI ? PUBLIC_API_URL : AI_API_URL
+    this.n8nWebhookURL =
+      import.meta.env.VITE_N8N_WEBHOOK_URL || 'http://localhost:5678/webhook'
+  }
+
+  // Trigger N8N webhook for notifications (Slack integration)
+  private async triggerN8NWebhook(
+    webhookName: string,
+    payload: any,
+  ): Promise<void> {
+    try {
+      const response = await fetch(`${this.n8nWebhookURL}/${webhookName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        console.warn(`N8N webhook ${webhookName} failed:`, response.statusText)
+      }
+    } catch (error) {
+      console.warn(`N8N webhook ${webhookName} error:`, error)
+    }
   }
 
   // Store API key in localStorage
@@ -168,9 +230,11 @@ export class AIService {
   }
 
   // Generate full application with multiple files (MORE POWERFUL than Cursor/Lovable)
-  // Uses OpenAI GPT-4o or Anthropic Claude 3.7 Sonnet
+  // Uses BOTH OpenAI GPT-4o AND Anthropic Claude 3.7 Sonnet
+  // Auto-routes: Claude for backend, GPT-4o for frontend (best of both worlds)
   async generateFullApp(
     request: MultiFileGenerateRequest,
+    provider?: AIProvider,
   ): Promise<MultiFileGenerateResponse> {
     const response = await fetch(`${this.baseURL}/generate/app`, {
       method: 'POST',
@@ -180,8 +244,10 @@ export class AIService {
         framework: request.framework || 'react',
         features: request.features || [],
         styling: request.styling || 'tailwind',
-        provider: 'openai', // Use OpenAI GPT-4o by default (more powerful than any local model)
-        model: 'gpt-4o', // GPT-4o is excellent for code generation
+        provider: provider?.name || 'auto', // Auto-routing: Claude (backend) + GPT-4o (frontend)
+        model: provider?.model || 'auto',
+        enable_slack: true, // Enable Slack notifications via N8N
+        enable_monitoring: true, // Enable Prometheus metrics
       }),
     })
 
@@ -192,7 +258,17 @@ export class AIService {
       throw new Error(error.detail || `API Error: ${response.status}`)
     }
 
-    return response.json()
+    const result = await response.json()
+
+    // Trigger N8N webhook for app generation notification
+    this.triggerN8NWebhook('nexusai-app-generated', {
+      app_name: request.description.substring(0, 50),
+      framework: request.framework,
+      files_count: result.files?.length || 0,
+      timestamp: new Date().toISOString(),
+    }).catch((err) => console.warn('N8N webhook failed:', err))
+
+    return result
   }
 
   // SQL assistance (generate, explain, optimize, fix)
@@ -398,19 +474,99 @@ Return only the completion text that should be inserted at the cursor, no explan
     return response.response
   }
 
-  // Deploy app to VPN Enterprise Platform
+  // Deploy app to VPN Enterprise Platform with N8N automation
   async deployApp(request: DeployAppRequest): Promise<DeploymentResponse> {
     const response = await fetch(`${this.baseURL}/deploy/app`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify(request),
+      body: JSON.stringify({
+        ...request,
+        enable_n8n: true, // Enable N8N automated deployment
+        enable_slack: true, // Send Slack notifications
+      }),
     })
 
     if (!response.ok) {
       const error = await response
         .json()
         .catch(() => ({ detail: 'Deployment failed' }))
+
+      // Trigger N8N error webhook
+      this.triggerN8NWebhook('nexusai-error', {
+        error_type: 'deployment_failed',
+        app_name: request.app_name,
+        error_message: error.detail || 'Unknown deployment error',
+        timestamp: new Date().toISOString(),
+      }).catch((err) => console.warn('N8N error webhook failed:', err))
+
       throw new Error(error.detail || `Deployment Error: ${response.status}`)
+    }
+
+    const result = await response.json()
+
+    // Trigger N8N deployment webhook
+    this.triggerN8NWebhook('nexusai-deploy', {
+      app_name: request.app_name,
+      deployment_id: result.deployment_id,
+      status: result.status,
+      app_url: result.app_url,
+      timestamp: new Date().toISOString(),
+    }).catch((err) => console.warn('N8N deployment webhook failed:', err))
+
+    return result
+  }
+
+  // Get deployment status (polls N8N workflow execution)
+  async getDeploymentStatus(deploymentId: string): Promise<DeploymentStatus> {
+    const response = await fetch(
+      `${this.baseURL}/deploy/status/${deploymentId}`,
+      {
+        method: 'GET',
+        headers: this.getHeaders(),
+      },
+    )
+
+    if (!response.ok) {
+      throw new Error(`Failed to get deployment status: ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  // Trigger N8N webhook directly
+  async triggerN8NWebhook(webhookName: string, data: any): Promise<void> {
+    const n8nURL =
+      import.meta.env.VITE_N8N_WEBHOOK_URL || 'http://localhost:5678'
+
+    await fetch(`${n8nURL}/webhook/${webhookName}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Get AI provider info (shows which AI is being used)
+  async getAIProviderInfo(): Promise<{
+    providers: Array<{ name: string; model: string; status: string }>
+    routing_strategy: string
+  }> {
+    const response = await fetch(`${this.baseURL}/ai/providers`, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    })
+
+    if (!response.ok) {
+      return {
+        providers: [
+          { name: 'OpenAI', model: 'gpt-4o', status: 'available' },
+          {
+            name: 'Anthropic',
+            model: 'claude-3-7-sonnet-20250219',
+            status: 'available',
+          },
+        ],
+        routing_strategy: 'auto',
+      }
     }
 
     return response.json()
