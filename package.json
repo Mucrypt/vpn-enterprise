@@ -21,6 +21,8 @@
     "db:platform": "bash ./scripts/start-database-platform.sh",
     "db:platform:stop": "bash ./scripts/stop-database-platform.sh",
     "secrets:setup": "bash ./scripts/setup-secrets.sh",
+    "cicd:fix": "bash ./scripts/quick-fix-workflows.sh",
+    "cicd:status": "gh run list --limit 10 && echo '' && gh secret list",
     "vercel:deploy": "bash ./scripts/deploy-vercel.sh",
     "vercel:auto": "bash ./scripts/auto-deploy.sh",
     "release:hetzner": "bash ./scripts/release-hetzner.sh",
