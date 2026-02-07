@@ -254,8 +254,22 @@ if [[ "$CHECK_STATUS" == "y" ]]; then
         echo -e "${GREEN}✅ Healthy${NC}"
     else
         echo -e "${YELLOW}⚠️  Unavailable${NC}"
-    fiWorkflow Complete!${NC}"
-echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    fi
+    
+    echo ""
+    if [[ $FAIL_COUNT -eq 0 ]]; then
+        echo -e "${GREEN}✅ All critical services healthy${NC}"
+    else
+        echo -e "${YELLOW}⚠️  $FAIL_COUNT service(s) need attention${NC}"
+    fi
+else
+    echo -e "${YELLOW}⏭️  Skipped health checks${NC}"
+fi
+
+echo ""
+echo -e "${GREEN}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║     🎉 Deployment Workflow Complete!         ║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "📊 ${BLUE}Summary:${NC}"
 echo "   • Branch:    $BRANCH"
@@ -270,24 +284,5 @@ echo "   • Logs:     ${CYAN}npm run hetzner:logs${NC}"
 echo "   • Status:   ${CYAN}npm run hetzner:status${NC}"
 echo "   • Actions:  ${CYAN}https://github.com/$REPO/actions${NC}"
 echo ""
-echo -e "${GREEN}✨ Your feature is now live!${NC}
-
-# ==============================================
-# Summary
-# ==============================================
-echo ""
-echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
-echo -e "${GREEN}🎉 Deployment Complete!${NC}"
-echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
-echo ""
-echo -e "📊 ${BLUE}Deployment Summary:${NC}"
-echo "   • Branch: $BRANCH"
-echo "   • Server: $SERVER_HOST"
-echo "   • CI/CD: https://github.com/$REPO/actions"
-echo "   • Live Site: https://chatbuilds.com"
-echo ""
-echo -e "${YELLOW}📝 Next Steps:${NC}"
-echo "   1. Monitor logs: npm run hetzner:logs"
-echo "   2. Check status: npm run hetzner:status"
-echo "   3. View workflows: gh run list --repo $REPO"
+echo -e "${GREEN}✨ Your feature is now live!${NC}"
 echo ""
