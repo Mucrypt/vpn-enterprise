@@ -1,0 +1,461 @@
+{
+  "name": "NexusAI - Error Handler & Auto-Fix",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nexusai-error",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-error",
+      "name": "Webhook - Error Report",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "nexusai-error"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract error details\nconst payload = $input.all()[0].json;\n\nconst error = {\n  app_id: payload.app_id || 'unknown',\n  user_id: payload.user_id || 'unknown',\n  error_type: payload.error_type || 'unknown',\n  error_message: payload.error_message || '',\n  stack_trace: payload.stack_trace || '',\n  file_path: payload.file_path || '',\n  line_number: payload.line_number || 0,\n  timestamp: payload.timestamp || new Date().toISOString(),\n  context: payload.context || {},\n  severity: payload.severity || 'error'\n};\n\nreturn [{ json: error }];"
+      },
+      "id": "function-error-1",
+      "name": "Parse Error Details",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.severity}}",
+              "operation": "equals",
+              "value2": "critical"
+            }
+          ]
+        }
+      },
+      "id": "if-critical",
+      "name": "Is Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format critical alert for PagerDuty/on-call\nconst error = $input.all()[0].json;\n\nconst alert = {\n  routing_key: process.env.PAGERDUTY_KEY || '',\n  event_action: 'trigger',\n  payload: {\n    summary: `CRITICAL: ${error.error_type} in ${error.app_id}`,\n    severity: 'critical',\n    source: 'nexusai',\n    component: error.file_path,\n    custom_details: {\n      app_id: error.app_id,\n      user_id: error.user_id,\n      error_message: error.error_message,\n      stack_trace: error.stack_trace,\n      timestamp: error.timestamp\n    }\n  }\n};\n\nreturn [{ json: { ...error, alert } }];"
+      },
+      "id": "function-error-2",
+      "name": "Create Critical Alert",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://events.pagerduty.com/v2/enqueue",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "routing_key",
+              "value": "={{$json.alert.routing_key}}"
+            },
+            {
+              "name": "event_action",
+              "value": "trigger"
+            },
+            {
+              "name": "payload",
+              "value": "={{JSON.stringify($json.alert.payload)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-pagerduty",
+      "name": "Send to PagerDuty",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare AI analysis prompt\nconst error = $input.all()[0].json;\n\nconst prompt = `You are an expert software engineer debugging a production error in a ${error.context.framework || 'web'} application.\n\n**Error Details:**\n- Type: ${error.error_type}\n- Message: ${error.error_message}\n- File: ${error.file_path}:${error.line_number}\n- Timestamp: ${error.timestamp}\n\n**Stack Trace:**\n\\`\\`\\`\n${error.stack_trace}\n\\`\\`\\`\n\n**Context:**\n\\`\\`\\`json\n${JSON.stringify(error.context, null, 2)}\n\\`\\`\\`\n\n**Your Tasks:**\n1. Analyze the root cause of this error\n2. Explain why it happened\n3. Provide a code fix (if possible)\n4. Suggest prevention strategies\n\n**Response Format (JSON):**\n\\`\\`\\`json\n{\n  \"root_cause\": \"detailed analysis\",\n  \"explanation\": \"why it happened\",\n  \"fix_code\": \"actual code to fix the issue\",\n  \"file_to_modify\": \"path/to/file.ts\",\n  \"prevention\": [\"strategy 1\", \"strategy 2\"],\n  \"confidence\": 0.95,\n  \"can_auto_fix\": true\n}\n\\`\\`\\`\n\nAnalyze and fix:`;\n\nreturn [{ json: { ...error, ai_prompt: prompt } }];"
+      },
+      "id": "function-error-3",
+      "name": "Prepare AI Analysis",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.NEXUSAI_API_URL}}/generate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{$json.ai_prompt}}"
+            },
+            {
+              "name": "model",
+              "value": "claude-3-7-sonnet-20250219"
+            },
+            {
+              "name": "provider",
+              "value": "anthropic"
+            },
+            {
+              "name": "response_format",
+              "value": "json_object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-ai-analyze",
+      "name": "AI Analyze Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "NexusAI API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse AI response\nconst aiResponse = $input.all()[0].json;\nconst error = $node[\"Prepare AI Analysis\"].json;\n\nlet analysis;\ntry {\n  analysis = JSON.parse(aiResponse.generated_text || '{}');\n} catch (e) {\n  analysis = {\n    root_cause: 'Failed to parse AI response',\n    can_auto_fix: false\n  };\n}\n\nreturn [{\n  json: {\n    ...error,\n    ai_analysis: analysis,\n    can_auto_fix: analysis.can_auto_fix || false,\n    confidence: analysis.confidence || 0\n  }\n}];"
+      },
+      "id": "function-error-4",
+      "name": "Parse AI Analysis",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.can_auto_fix}}",
+              "value2": true
+            }
+          ],
+          "number": [
+            {
+              "value1": "={{$json.confidence}}",
+              "operation": "largerEqual",
+              "value2": 0.8
+            }
+          ]
+        }
+      },
+      "id": "if-autofix",
+      "name": "Can Auto-Fix?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare GitHub PR for auto-fix\nconst data = $input.all()[0].json;\nconst analysis = data.ai_analysis;\n\nconst branchName = `autofix/${data.app_id}-${Date.now()}`;\nconst commitMessage = `🤖 Auto-fix: ${data.error_type} in ${analysis.file_to_modify}`;\n\nconst prBody = `## 🤖 Automated Fix\n\n**Error:** ${data.error_type}\n**File:** ${analysis.file_to_modify}:${data.line_number}\n\n### Root Cause\n${analysis.root_cause}\n\n### Explanation\n${analysis.explanation}\n\n### Fix Applied\n\\`\\`\\`typescript\n${analysis.fix_code}\n\\`\\`\\`\n\n### Prevention\n${analysis.prevention.map(p => `- ${p}`).join('\\n')}\n\n---\n*Generated by NexusAI Auto-Fix (Confidence: ${(analysis.confidence * 100).toFixed(1)}%)*\n*Review carefully before merging*`;\n\nreturn [{\n  json: {\n    ...data,\n    github: {\n      branch_name: branchName,\n      commit_message: commitMessage,\n      pr_title: `🤖 Auto-fix: ${data.error_type}`,\n      pr_body: prBody,\n      file_to_modify: analysis.file_to_modify,\n      fix_code: analysis.fix_code\n    }\n  }\n}];"
+      },
+      "id": "function-error-5",
+      "name": "Prepare GitHub PR",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "create",
+        "owner": "={{$env.GITHUB_OWNER}}",
+        "repository": "nexusai-apps",
+        "filePath": "={{$json.github.file_to_modify}}",
+        "fileContent": "={{$json.github.fix_code}}",
+        "commitMessage": "={{$json.github.commit_message}}",
+        "additionalParameters": {
+          "branch": "={{$json.github.branch_name}}"
+        }
+      },
+      "id": "github-commit",
+      "name": "Create GitHub Branch & Commit",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [1850, 300],
+      "credentials": {
+        "githubApi": {
+          "id": "3",
+          "name": "GitHub API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "pullRequest",
+        "operation": "create",
+        "owner": "={{$env.GITHUB_OWNER}}",
+        "repository": "nexusai-apps",
+        "title": "={{$json.github.pr_title}}",
+        "body": "={{$json.github.pr_body}}",
+        "head": "={{$json.github.branch_name}}",
+        "base": "main",
+        "additionalParameters": {
+          "labels": ["auto-fix", "bug"]
+        }
+      },
+      "id": "github-pr",
+      "name": "Create Pull Request",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [2050, 300],
+      "credentials": {
+        "githubApi": {
+          "id": "3",
+          "name": "GitHub API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format final Slack notification\nconst data = $input.all()[0].json;\nconst analysis = data.ai_analysis;\nconst prUrl = data.html_url || '#';\n\nconst message = {\n  text: `🚨 Error Auto-Fix Created`,\n  blocks: [\n    {\n      type: \"header\",\n      text: {\n        type: \"plain_text\",\n        text: data.severity === 'critical' ? '🚨 CRITICAL Error Auto-Fixed' : '⚠️ Error Auto-Fix Created'\n      }\n    },\n    {\n      type: \"section\",\n      fields: [\n        {\n          type: \"mrkdwn\",\n          text: `*App:*\\n${data.app_id}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*Error:*\\n${data.error_type}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*File:*\\n${analysis.file_to_modify}:${data.line_number}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*Confidence:*\\n${(analysis.confidence * 100).toFixed(1)}%`\n        }\n      ]\n    },\n    {\n      type: \"section\",\n      text: {\n        type: \"mrkdwn\",\n        text: `*Root Cause:* ${analysis.root_cause}`\n      }\n    },\n    {\n      type: \"actions\",\n      elements: [\n        {\n          type: \"button\",\n          text: {\n            type: \"plain_text\",\n            text: \"Review PR\"\n          },\n          url: prUrl,\n          style: \"primary\"\n        },\n        {\n          type: \"button\",\n          text: {\n            type: \"plain_text\",\n            text: \"View App\"\n          },\n          url: `https://chatbuilds.com/app/${data.app_id}`\n        }\n      ]\n    }\n  ]\n};\n\nreturn [{ json: { ...data, message } }];"
+      },
+      "id": "function-error-6",
+      "name": "Format Success Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2250, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_ERRORS}}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{$json.message.text}}"
+            },
+            {
+              "name": "blocks",
+              "value": "={{JSON.stringify($json.message.blocks)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-slack-errors",
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2450, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"error_id\": $json.app_id, \"auto_fix_applied\": $json.can_auto_fix, \"pr_url\": $json.html_url } }}"
+      },
+      "id": "respond-error",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Error Report": {
+      "main": [
+        [
+          {
+            "node": "Parse Error Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Error Details": {
+      "main": [
+        [
+          {
+            "node": "Is Critical?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Critical?": {
+      "main": [
+        [
+          {
+            "node": "Create Critical Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Critical Alert": {
+      "main": [
+        [
+          {
+            "node": "Send to PagerDuty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to PagerDuty": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "AI Analyze Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Analyze Error": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Can Auto-Fix?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Can Auto-Fix?": {
+      "main": [
+        [
+          {
+            "node": "Prepare GitHub PR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare GitHub PR": {
+      "main": [
+        [
+          {
+            "node": "Create GitHub Branch & Commit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create GitHub Branch & Commit": {
+      "main": [
+        [
+          {
+            "node": "Create Pull Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Pull Request": {
+      "main": [
+        [
+          {
+            "node": "Format Success Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Success Message": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Slack": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "executionTimeout": 300
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "NexusAI",
+      "id": "nexusai"
+    },
+    {
+      "name": "Error Handling",
+      "id": "error-handling"
+    },
+    {
+      "name": "AI",
+      "id": "ai"
+    }
+  ],
+  "meta": {
+    "instanceId": "nexusai-production"
+  }
+}

@@ -1,0 +1,381 @@
+{
+  "name": "NexusAI - Auto Deploy Application",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nexusai-deploy",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-deploy",
+      "name": "Webhook - Deploy Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "nexusai-deploy"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract deployment payload\nconst payload = $input.all()[0].json;\n\nconst appId = payload.app_id || `app-${Date.now()}`;\nconst userId = payload.user_id || 'unknown';\nconst files = payload.files || [];\nconst framework = payload.framework || 'react';\nconst requiresDatabase = payload.requires_database || false;\nconst databaseSchema = payload.database_schema || null;\n\n// Create deployment directory\nconst deployPath = `/tmp/nexusai-deploy/${appId}`;\n\nreturn [{\n  json: {\n    app_id: appId,\n    user_id: userId,\n    files,\n    framework,\n    requires_database: requiresDatabase,\n    database_schema: databaseSchema,\n    deploy_path: deployPath,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "function-deploy-1",
+      "name": "Prepare Deployment",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "command": "mkdir -p {{$json.deploy_path}} && echo '{{JSON.stringify($json.files)}}' > {{$json.deploy_path}}/files.json"
+      },
+      "id": "exec-1",
+      "name": "Create Deploy Directory",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Write files to disk\nconst fs = require('fs');\nconst path = require('path');\n\nconst deployPath = $input.all()[0].json.deploy_path;\nconst files = $input.all()[0].json.files;\n\nfor (const file of files) {\n  const filePath = path.join(deployPath, file.path);\n  const dir = path.dirname(filePath);\n  \n  // Create directory if needed\n  if (!fs.existsSync(dir)) {\n    fs.mkdirSync(dir, { recursive: true });\n  }\n  \n  // Write file\n  fs.writeFileSync(filePath, file.content, 'utf8');\n}\n\nreturn [{\n  json: {\n    ...$input.all()[0].json,\n    files_written: files.length,\n    status: 'files_written'\n  }\n}];"
+      },
+      "id": "function-deploy-2",
+      "name": "Write Files to Disk",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.requires_database}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-1",
+      "name": "Requires Database?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.DATABASE_API_URL}}/create",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "app_id",
+              "value": "={{$json.app_id}}"
+            },
+            {
+              "name": "user_id",
+              "value": "={{$json.user_id}}"
+            },
+            {
+              "name": "schema",
+              "value": "={{JSON.stringify($json.database_schema)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-db",
+      "name": "Create Database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "command": "cd {{$json.deploy_path}} && npm install --production"
+      },
+      "id": "exec-npm",
+      "name": "Install Dependencies",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "command": "cd {{$json.deploy_path}} && npm test"
+      },
+      "id": "exec-test",
+      "name": "Run Tests",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Build Docker image\nconst appId = $input.all()[0].json.app_id;\nconst deployPath = $input.all()[0].json.deploy_path;\nconst registry = process.env.DOCKER_REGISTRY || 'ghcr.io/mucrypt';\n\n// Create Dockerfile\nconst dockerfile = `\nFROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci --production\nCOPY . .\nEXPOSE 3000\nCMD [\"npm\", \"start\"]\n`;\n\nconst fs = require('fs');\nfs.writeFileSync(`${deployPath}/Dockerfile`, dockerfile);\n\nconst imageName = `${registry}/nexusai-${appId}:latest`;\n\nreturn [{\n  json: {\n    ...$input.all()[0].json,\n    docker_image: imageName,\n    dockerfile_created: true\n  }\n}];"
+      },
+      "id": "function-docker",
+      "name": "Prepare Docker Build",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "command": "cd {{$json.deploy_path}} && docker build -t {{$json.docker_image}} . && docker push {{$json.docker_image}}"
+      },
+      "id": "exec-docker",
+      "name": "Build & Push Docker Image",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "command": "docker run -d --name nexusai-{{$json.app_id}} -p 0:3000 --restart unless-stopped {{$json.docker_image}}"
+      },
+      "id": "exec-deploy",
+      "name": "Deploy Container",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "command": "sleep 5 && docker ps | grep nexusai-{{$json.app_id}}"
+      },
+      "id": "exec-health",
+      "name": "Health Check",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Get container port\nconst output = $input.all()[0].json.stdout;\nconst match = output.match(/(\\d+)->3000/);\nconst port = match ? match[1] : 'unknown';\n\nconst appId = $input.all()[0].json.app_id;\nconst deployUrl = `https://chatbuilds.com/apps/${appId}`;\n\n// Format success message\nconst message = {\n  text: `✅ Deployment Successful!`,\n  blocks: [\n    {\n      type: \"header\",\n      text: {\n        type: \"plain_text\",\n        text: \"✅ NexusAI App Deployed Successfully\"\n      }\n    },\n    {\n      type: \"section\",\n      fields: [\n        {\n          type: \"mrkdwn\",\n          text: `*App ID:*\\n${appId}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*Port:*\\n${port}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*URL:*\\n${deployUrl}`\n        }\n      ]\n    },\n    {\n      type: \"actions\",\n      elements: [\n        {\n          type: \"button\",\n          text: {\n            type: \"plain_text\",\n            text: \"Open App\"\n          },\n          url: deployUrl,\n          style: \"primary\"\n        }\n      ]\n    }\n  ]\n};\n\nreturn [{\n  json: {\n    ...$input.all()[0].json,\n    port,\n    deploy_url: deployUrl,\n    message,\n    status: 'deployed'\n  }\n}];"
+      },
+      "id": "function-success",
+      "name": "Format Success Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_APPS}}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{$json.message.text}}"
+            },
+            {
+              "name": "blocks",
+              "value": "={{JSON.stringify($json.message.blocks)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-slack-success",
+      "name": "Send Success to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2650, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"app_id\": $json.app_id, \"deploy_url\": $json.deploy_url, \"port\": $json.port } }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Deploy Request": {
+      "main": [
+        [
+          {
+            "node": "Prepare Deployment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Deployment": {
+      "main": [
+        [
+          {
+            "node": "Create Deploy Directory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Deploy Directory": {
+      "main": [
+        [
+          {
+            "node": "Write Files to Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Files to Disk": {
+      "main": [
+        [
+          {
+            "node": "Requires Database?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Requires Database?": {
+      "main": [
+        [
+          {
+            "node": "Create Database",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Install Dependencies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Database": {
+      "main": [
+        [
+          {
+            "node": "Install Dependencies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Install Dependencies": {
+      "main": [
+        [
+          {
+            "node": "Run Tests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Tests": {
+      "main": [
+        [
+          {
+            "node": "Prepare Docker Build",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Docker Build": {
+      "main": [
+        [
+          {
+            "node": "Build & Push Docker Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build & Push Docker Image": {
+      "main": [
+        [
+          {
+            "node": "Deploy Container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deploy Container": {
+      "main": [
+        [
+          {
+            "node": "Health Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Check": {
+      "main": [
+        [
+          {
+            "node": "Format Success Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Success Message": {
+      "main": [
+        [
+          {
+            "node": "Send Success to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Success to Slack": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 600,
+    "saveDataErrorExecution": "all"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "NexusAI",
+      "id": "nexusai"
+    },
+    {
+      "name": "Deployment",
+      "id": "deployment"
+    }
+  ],
+  "meta": {
+    "instanceId": "nexusai-production"
+  }
+}

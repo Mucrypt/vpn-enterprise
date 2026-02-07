@@ -46,5 +46,6 @@ EXPOSE 5001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:5001/health || exit 1
 
-# Run with production settings
-CMD ["uvicorn", "app_production:app", "--host", "0.0.0.0", "--port", "5001", "--workers", "4", "--log-level", "info"]
+# Run with production settings using new dual AI provider app
+# Higher worker count for handling concurrent OpenAI + Anthropic requests
+CMD ["uvicorn", "app_nexusai_production:app", "--host", "0.0.0.0", "--port", "5001", "--workers", "4", "--log-level", "info"]

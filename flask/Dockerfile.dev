@@ -28,5 +28,5 @@ EXPOSE 5001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5001/health || exit 1
 
-# Run with hot reload
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5001", "--reload"]
+# Run with hot reload using new dual AI provider app
+CMD ["uvicorn", "app_nexusai_production:app", "--host", "0.0.0.0", "--port", "5001", "--reload"]

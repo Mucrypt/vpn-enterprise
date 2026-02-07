@@ -1,0 +1,295 @@
+{
+  "name": "NexusAI - Hourly Credit Tracking",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-1",
+      "name": "Schedule - Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Get current hour timestamp\nconst now = new Date();\nconst hourAgo = new Date(now.getTime() - 60 * 60 * 1000);\n\nconst prometheusUrl = process.env.PROMETHEUS_URL || 'http://prometheus:9090/api/v1';\n\n// Define metrics to query\nconst metrics = [\n  {\n    name: 'http_requests',\n    query: 'sum by (app_id, user_id) (increase(nexusai_http_requests_total[1h]))'\n  },\n  {\n    name: 'ai_generations',\n    query: 'sum by (app_id, user_id) (increase(nexusai_ai_generations_total[1h]))'\n  },\n  {\n    name: 'database_queries',\n    query: 'sum by (app_id, user_id) (increase(nexusai_db_queries_total[1h]))'\n  },\n  {\n    name: 'storage_bytes',\n    query: 'avg by (app_id, user_id) (nexusai_storage_bytes)'\n  },\n  {\n    name: 'compute_seconds',\n    query: 'sum by (app_id, user_id) (increase(nexusai_compute_seconds_total[1h]))'\n  }\n];\n\nreturn [{\n  json: {\n    timestamp: now.toISOString(),\n    hour_start: hourAgo.toISOString(),\n    hour_end: now.toISOString(),\n    prometheus_url: prometheusUrl,\n    metrics\n  }\n}];"
+      },
+      "id": "function-credits-1",
+      "name": "Prepare Metrics Query",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-1",
+      "name": "Split Metrics",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.prometheus_url}}/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{$node[\"Prepare Metrics Query\"].json.metrics[$node[\"Split Metrics\"].context.currentItemIndex].query}}"
+            },
+            {
+              "name": "time",
+              "value": "={{$node[\"Prepare Metrics Query\"].json.timestamp}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-prom",
+      "name": "Query Prometheus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse Prometheus response\nconst metricName = $node[\"Prepare Metrics Query\"].json.metrics[$node[\"Split Metrics\"].context.currentItemIndex].name;\nconst prometheusData = $input.all()[0].json;\n\nconst results = prometheusData.data?.result || [];\n\nconst parsedMetrics = results.map(item => {\n  const labels = item.metric || {};\n  const value = parseFloat(item.value[1]) || 0;\n  \n  return {\n    metric_name: metricName,\n    app_id: labels.app_id || 'unknown',\n    user_id: labels.user_id || 'unknown',\n    value,\n    timestamp: $node[\"Prepare Metrics Query\"].json.timestamp\n  };\n});\n\nreturn parsedMetrics.map(m => ({ json: m }));"
+      },
+      "id": "function-credits-2",
+      "name": "Parse Metric Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {},
+      "id": "aggregate-1",
+      "name": "Wait for All Metrics",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate credit costs per metric\nconst CREDIT_RATES = {\n  http_requests: 0.001,      // 1 credit per 1000 requests\n  ai_generations: 10,         // 10 credits per generation\n  database_queries: 0.01,     // 1 credit per 100 queries\n  storage_bytes: 0.00000001,  // 1 credit per 100MB\n  compute_seconds: 0.1        // 1 credit per 10 seconds\n};\n\nconst allMetrics = $input.all();\n\n// Group by user_id and app_id\nconst userAppMetrics = {};\n\nfor (const item of allMetrics) {\n  const { user_id, app_id, metric_name, value } = item.json;\n  const key = `${user_id}:${app_id}`;\n  \n  if (!userAppMetrics[key]) {\n    userAppMetrics[key] = {\n      user_id,\n      app_id,\n      metrics: {},\n      total_credits: 0\n    };\n  }\n  \n  userAppMetrics[key].metrics[metric_name] = value;\n  \n  // Calculate credits for this metric\n  const rate = CREDIT_RATES[metric_name] || 0;\n  const credits = value * rate;\n  userAppMetrics[key].total_credits += credits;\n}\n\n// Convert to array for database insertion\nconst creditRecords = Object.values(userAppMetrics).map(record => ({\n  user_id: record.user_id,\n  app_id: record.app_id,\n  hour_timestamp: $node[\"Prepare Metrics Query\"].json.timestamp,\n  http_requests: record.metrics.http_requests || 0,\n  ai_generations: record.metrics.ai_generations || 0,\n  database_queries: record.metrics.database_queries || 0,\n  storage_bytes: record.metrics.storage_bytes || 0,\n  compute_seconds: record.metrics.compute_seconds || 0,\n  total_credits: Math.round(record.total_credits * 100) / 100, // Round to 2 decimals\n  created_at: new Date().toISOString()\n}));\n\nreturn creditRecords.map(r => ({ json: r }));"
+      },
+      "id": "function-credits-3",
+      "name": "Calculate Credits",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO credit_usage_hourly (user_id, app_id, hour_timestamp, http_requests, ai_generations, database_queries, storage_bytes, compute_seconds, total_credits, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (user_id, app_id, hour_timestamp) DO UPDATE SET http_requests = EXCLUDED.http_requests, ai_generations = EXCLUDED.ai_generations, database_queries = EXCLUDED.database_queries, storage_bytes = EXCLUDED.storage_bytes, compute_seconds = EXCLUDED.compute_seconds, total_credits = EXCLUDED.total_credits, updated_at = NOW()",
+        "additionalFields": {
+          "parametersJson": "=[{{JSON.stringify($json)}}]"
+        }
+      },
+      "id": "postgres-1",
+      "name": "Insert Credit Records",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1650, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL - NexusAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Aggregate totals for summary\nconst allRecords = $input.all();\n\nconst totalUsers = new Set(allRecords.map(r => r.json.user_id)).size;\nconst totalApps = new Set(allRecords.map(r => r.json.app_id)).size;\nconst totalCredits = allRecords.reduce((sum, r) => sum + r.json.total_credits, 0);\nconst totalGenerations = allRecords.reduce((sum, r) => sum + r.json.ai_generations, 0);\n\nconst summary = {\n  hour_timestamp: $node[\"Prepare Metrics Query\"].json.timestamp,\n  total_users: totalUsers,\n  total_apps: totalApps,\n  total_credits_consumed: Math.round(totalCredits * 100) / 100,\n  total_ai_generations: totalGenerations,\n  records_processed: allRecords.length\n};\n\n// Find top spenders\nconst topSpenders = allRecords\n  .sort((a, b) => b.json.total_credits - a.json.total_credits)\n  .slice(0, 5)\n  .map(r => ({\n    user_id: r.json.user_id,\n    app_id: r.json.app_id,\n    credits: r.json.total_credits\n  }));\n\nreturn [{\n  json: {\n    summary,\n    top_spenders: topSpenders,\n    hour: new Date($node[\"Prepare Metrics Query\"].json.timestamp).toISOString()\n  }\n}];"
+      },
+      "id": "function-credits-4",
+      "name": "Create Summary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format Slack message\nconst summary = $json.summary;\nconst topSpenders = $json.top_spenders;\n\nconst message = {\n  text: `💰 Hourly Credit Report`,\n  blocks: [\n    {\n      type: \"header\",\n      text: {\n        type: \"plain_text\",\n        text: \"💰 NexusAI Hourly Credit Report\"\n      }\n    },\n    {\n      type: \"section\",\n      fields: [\n        {\n          type: \"mrkdwn\",\n          text: `*Total Users:*\\n${summary.total_users}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*Total Apps:*\\n${summary.total_apps}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*Credits Consumed:*\\n${summary.total_credits_consumed.toFixed(2)}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*AI Generations:*\\n${summary.total_ai_generations}`\n        }\n      ]\n    },\n    {\n      type: \"section\",\n      text: {\n        type: \"mrkdwn\",\n        text: `*Top 5 Spenders:*\\n${topSpenders.map((s, i) => `${i+1}. User ${s.user_id} (App ${s.app_id}): ${s.credits.toFixed(2)} credits`).join('\\n')}`\n      }\n    },\n    {\n      type: \"context\",\n      elements: [\n        {\n          type: \"mrkdwn\",\n          text: `Hour: ${$json.hour}`\n        }\n      ]\n    }\n  ]\n};\n\nreturn [{ json: { message } }];"
+      },
+      "id": "function-credits-5",
+      "name": "Format Slack Report",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_BILLING}}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{$json.message.text}}"
+            },
+            {
+              "name": "blocks",
+              "value": "={{JSON.stringify($json.message.blocks)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-slack-billing",
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2250, 300]
+    }
+  ],
+  "connections": {
+    "Schedule - Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Prepare Metrics Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Metrics Query": {
+      "main": [
+        [
+          {
+            "node": "Split Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Metrics": {
+      "main": [
+        [
+          {
+            "node": "Query Prometheus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Prometheus": {
+      "main": [
+        [
+          {
+            "node": "Parse Metric Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Metric Data": {
+      "main": [
+        [
+          {
+            "node": "Wait for All Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for All Metrics": {
+      "main": [
+        [
+          {
+            "node": "Calculate Credits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Credits": {
+      "main": [
+        [
+          {
+            "node": "Insert Credit Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Credit Records": {
+      "main": [
+        [
+          {
+            "node": "Create Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Summary": {
+      "main": [
+        [
+          {
+            "node": "Format Slack Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Slack Report": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "NexusAI",
+      "id": "nexusai"
+    },
+    {
+      "name": "Billing",
+      "id": "billing"
+    },
+    {
+      "name": "Credits",
+      "id": "credits"
+    }
+  ],
+  "meta": {
+    "instanceId": "nexusai-production"
+  }
+}

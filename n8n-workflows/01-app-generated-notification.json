@@ -1,0 +1,157 @@
+{
+  "name": "NexusAI - App Generated Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nexusai-app-generated",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook - App Generated",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "nexusai-app-generated"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract webhook payload\nconst payload = $input.all()[0].json;\n\nconst appId = payload.app_id || 'unknown';\nconst userId = payload.user_id || 'unknown';\nconst framework = payload.framework || 'unknown';\nconst provider = payload.provider || 'unknown';\nconst filesCount = payload.files_count || 0;\nconst requiresDatabase = payload.requires_database || false;\nconst generatedAt = payload.generated_at || new Date().toISOString();\n\n// Format Slack message\nconst message = {\n  text: `🎉 New App Generated!`,\n  blocks: [\n    {\n      type: \"header\",\n      text: {\n        type: \"plain_text\",\n        text: \"🚀 NexusAI Generated New App\"\n      }\n    },\n    {\n      type: \"section\",\n      fields: [\n        {\n          type: \"mrkdwn\",\n          text: `*App ID:*\\n${appId}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*User:*\\n${userId}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*Framework:*\\n${framework}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*AI Provider:*\\n${provider}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*Files:*\\n${filesCount}`\n        },\n        {\n          type: \"mrkdwn\",\n          text: `*Database:*\\n${requiresDatabase ? '✅ Yes' : '❌ No'}`\n        }\n      ]\n    },\n    {\n      type: \"context\",\n      elements: [\n        {\n          type: \"mrkdwn\",\n          text: `Generated at: ${generatedAt}`\n        }\n      ]\n    },\n    {\n      type: \"actions\",\n      elements: [\n        {\n          type: \"button\",\n          text: {\n            type: \"plain_text\",\n            text: \"View App\"\n          },\n          url: `https://chatbuilds.com/app/${appId}`,\n          style: \"primary\"\n        },\n        {\n          type: \"button\",\n          text: {\n            type: \"plain_text\",\n            text: \"Deploy Now\"\n          },\n          url: `https://chatbuilds.com/deploy/${appId}`,\n          style: \"primary\"\n        }\n      ]\n    }\n  ]\n};\n\nreturn [{\n  json: {\n    message,\n    app_id: appId,\n    user_id: userId,\n    framework,\n    provider\n  }\n}];"
+      },
+      "id": "function-1",
+      "name": "Format Slack Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_APPS}}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{$json.message.text}}"
+            },
+            {
+              "name": "blocks",
+              "value": "={{JSON.stringify($json.message.blocks)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-1",
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.NEXUSAI_API_URL}}/analytics/event",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "event_type",
+              "value": "app_generated"
+            },
+            {
+              "name": "app_id",
+              "value": "={{$json.app_id}}"
+            },
+            {
+              "name": "user_id",
+              "value": "={{$json.user_id}}"
+            },
+            {
+              "name": "framework",
+              "value": "={{$json.framework}}"
+            },
+            {
+              "name": "provider",
+              "value": "={{$json.provider}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-2",
+      "name": "Log Analytics Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 450]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Notification sent\", \"app_id\": $json.app_id } }}"
+      },
+      "id": "respond-1",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - App Generated": {
+      "main": [
+        [
+          {
+            "node": "Format Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Analytics Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Slack": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "NexusAI",
+      "id": "nexusai"
+    },
+    {
+      "name": "Notifications",
+      "id": "notifications"
+    }
+  ],
+  "meta": {
+    "instanceId": "nexusai-production"
+  }
+}
