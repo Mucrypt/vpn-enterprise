@@ -387,7 +387,7 @@ services:
   # PGADMIN (Database Administration)
   # ============================================
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:9.12
     container_name: dbplatform-pgadmin
     restart: unless-stopped
     ports:

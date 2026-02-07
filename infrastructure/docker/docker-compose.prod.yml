@@ -164,7 +164,7 @@ services:
   # PGADMIN4 (Database Administration)
   # ============================================
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:9.12
     container_name: vpn-pgadmin
     restart: always
     environment:
