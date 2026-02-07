@@ -46,6 +46,107 @@ const adminMiddleware = async (req: any, res: any, next: any) => {
 }
 
 /**
+ * GET /api/v1/admin/dashboard/stats
+ * Get comprehensive dashboard statistics for admin panel
+ */
+router.get(
+  '/dashboard/stats',
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    try {
+      // Get total users count
+      const { data: usersData, error: usersError } =
+        await supabaseAdmin.auth.admin.listUsers()
+
+      if (usersError) {
+        throw new Error(`Failed to fetch users: ${usersError.message}`)
+      }
+
+      const totalUsers = usersData.users.length
+
+      // Get database statistics
+      const dbStatsResult = await dbPlatform.platformPool.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM public.tenants) as total_tenants,
+        (SELECT COUNT(*) FROM public.generated_apps WHERE status = 'ready') as nexus_ai_apps,
+        (SELECT COUNT(*) FROM public.tenants WHERE region = 'us-east-1') as us_east_tenants,
+        (SELECT COUNT(*) FROM public.tenants WHERE region = 'eu-west-1') as eu_west_tenants
+    `)
+
+      const dbStats = dbStatsResult.rows[0]
+
+      // Get subscription/billing stats if available
+      let subscriptionStats = { total: 0, active: 0, trial: 0 }
+      try {
+        const subResult = await dbPlatform.platformPool.query(`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(CASE WHEN status = 'active' THEN 1 END) as active,
+          COUNT(CASE WHEN status = 'trial' THEN 1 END) as trial
+        FROM public.subscriptions
+      `)
+        if (subResult.rows.length > 0) {
+          subscriptionStats = {
+            total: parseInt(subResult.rows[0].total || '0'),
+            active: parseInt(subResult.rows[0].active || '0'),
+            trial: parseInt(subResult.rows[0].trial || '0'),
+          }
+        }
+      } catch (err) {
+        console.log('Subscriptions table might not exist:', err)
+      }
+
+      // Calculate additional metrics
+      const dbPlatformStats = {
+        databases: parseInt(dbStats.total_tenants || '0'),
+        regions: 2, // us-east-1 and eu-west-1
+      }
+
+      const nexusAiStats = {
+        apps: parseInt(dbStats.nexus_ai_apps || '0'),
+      }
+
+      res.json({
+        users: {
+          total: totalUsers,
+          active: usersData.users.filter((u) => {
+            const lastSignIn = u.last_sign_in_at
+            if (!lastSignIn) return false
+            const daysSinceSignIn =
+              (Date.now() - new Date(lastSignIn).getTime()) /
+              (1000 * 60 * 60 * 24)
+            return daysSinceSignIn <= 30
+          }).length,
+          new_this_month: usersData.users.filter((u) => {
+            const created = new Date(u.created_at)
+            const now = new Date()
+            return (
+              created.getMonth() === now.getMonth() &&
+              created.getFullYear() === now.getFullYear()
+            )
+          }).length,
+        },
+        database_platform: dbPlatformStats,
+        nexus_ai: nexusAiStats,
+        subscriptions: subscriptionStats,
+        system: {
+          uptime: process.uptime(),
+          memory_usage: process.memoryUsage().heapUsed / 1024 / 1024, // MB
+          node_version: process.version,
+        },
+      })
+    } catch (error) {
+      console.error('Get dashboard stats error:', error)
+      res.status(500).json({
+        error: 'Failed to fetch dashboard statistics',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  },
+)
+
+/**
  * GET /api/v1/admin/users
  * List all platform users
  */

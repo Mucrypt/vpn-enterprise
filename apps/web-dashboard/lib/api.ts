@@ -249,11 +249,14 @@ class APIClient {
     }
 
     // Normalize endpoint: remove /api/v1 prefix if present to avoid duplication
-    const normalizedEndpoint = endpoint.startsWith('/api/v1') 
-      ? endpoint.slice(7) 
+    const normalizedEndpoint = endpoint.startsWith('/api/v1')
+      ? endpoint.slice(7)
       : endpoint
 
-    let response = await fetch(`${API_BASE_URL}/api/v1${normalizedEndpoint}`, config)
+    let response = await fetch(
+      `${API_BASE_URL}/api/v1${normalizedEndpoint}`,
+      config,
+    )
 
     // Handle 401 - token expired
     if (response.status === 401 && token) {
@@ -273,7 +276,10 @@ class APIClient {
           ...config.headers,
           Authorization: `Bearer ${newToken}`,
         }
-        response = await fetch(`${API_BASE_URL}/api/v1${normalizedEndpoint}`, config)
+        response = await fetch(
+          `${API_BASE_URL}/api/v1${normalizedEndpoint}`,
+          config,
+        )
       } else {
         // Refresh failed, logout user silently and redirect
         await this.handleLogout()
@@ -918,6 +924,11 @@ class APIClient {
     return this.fetchAPI('/debug/request', {
       method: 'POST',
     })
+  }
+
+  // ==================== ADMIN ENDPOINTS ====================
+  getAdminDashboardStats() {
+    return this.fetchAPI('/admin/dashboard/stats')
   }
 }
 
