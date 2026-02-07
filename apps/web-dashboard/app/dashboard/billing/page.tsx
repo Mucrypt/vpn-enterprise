@@ -157,7 +157,7 @@ export default function BillingPage() {
   }
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-background via-background to-muted/20'>
+    <div className='min-h-screen bg-linear-to-br from-background via-background to-muted/20'>
       {/* Animated Background Elements */}
       <div className='fixed inset-0 overflow-hidden pointer-events-none'>
         <div className='absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse' />
@@ -169,7 +169,7 @@ export default function BillingPage() {
         <div className='space-y-3 sm:space-y-4'>
           <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
             <div>
-              <h1 className='text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight bg-gradient-to-r from-foreground via-primary to-purple-600 bg-clip-text text-transparent'>
+              <h1 className='text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight bg-linear-to-r from-foreground via-primary to-purple-600 bg-clip-text text-transparent'>
                 Billing & Subscriptions
               </h1>
               <p className='text-sm sm:text-base text-muted-foreground mt-2'>

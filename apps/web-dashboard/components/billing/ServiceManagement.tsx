@@ -65,13 +65,13 @@ export function ServiceManagement({
     switch (status) {
       case 'active':
         return (
-          <Badge className='bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-sm'>
+          <Badge className='bg-linear-to-br from-green-500 to-emerald-600 text-white border-0 shadow-sm'>
             ● Active
           </Badge>
         )
       case 'provisioning':
         return (
-          <Badge className='bg-gradient-to-br from-yellow-500 to-orange-500 text-white border-0 shadow-sm'>
+          <Badge className='bg-linear-to-br from-yellow-500 to-orange-500 text-white border-0 shadow-sm'>
             ◐ Provisioning
           </Badge>
         )
@@ -116,10 +116,10 @@ export function ServiceManagement({
 
   return (
     <Card className='relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm'>
-      <div className='absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent' />
+      <div className='absolute inset-0 bg-linear-to-br from-primary/5 to-transparent' />
       <CardHeader className='relative'>
         <CardTitle className='text-xl sm:text-2xl font-bold flex items-center gap-3'>
-          <div className='p-2.5 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-400/10 backdrop-blur-sm border border-blue-500/30 shadow-sm'>
+          <div className='p-2.5 rounded-xl bg-linear-to-br from-blue-500/20 to-blue-400/10 backdrop-blur-sm border border-blue-500/30 shadow-sm'>
             <Activity className='w-5 h-5 text-blue-400' />
           </div>
           Service Management
@@ -135,7 +135,7 @@ export function ServiceManagement({
               key={service.id}
               className={`group flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-xl border transition-all duration-500 ${
                 service.enabled
-                  ? 'border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 shadow-lg hover:shadow-xl hover:shadow-primary/10'
+                  ? 'border-primary/30 bg-linear-to-br from-primary/10 to-primary/5 shadow-lg hover:shadow-xl hover:shadow-primary/10'
                   : 'border-border/50 bg-card/50 hover:border-primary/20 hover:shadow-lg'
               }`}
               style={{
@@ -147,7 +147,7 @@ export function ServiceManagement({
                 <div
                   className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-transform group-hover:scale-110 shadow-sm ${
                     service.enabled
-                      ? 'bg-gradient-to-br from-primary/20 to-primary/10 border-primary/30'
+                      ? 'bg-linear-to-br from-primary/20 to-primary/10 border-primary/30'
                       : 'bg-muted/50 border-border/50'
                   }`}
                 >
@@ -191,13 +191,13 @@ export function ServiceManagement({
                   handleToggle(service.id, service.enabled)
                 }
                 disabled={service.status === 'provisioning'}
-                className='data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-primary data-[state=checked]:to-primary/80 shadow-sm'
+                className='data-[state=checked]:bg-linear-to-br data-[state=checked]:from-primary data-[state=checked]:to-primary/80 shadow-sm'
               />
             </div>
           ))}
         </div>
 
-        <div className='mt-6 p-5 rounded-xl bg-gradient-to-br from-muted/50 to-muted/20 border border-border/50 backdrop-blur-sm shadow-sm'>
+        <div className='mt-6 p-5 rounded-xl bg-linear-to-br from-muted/50 to-muted/20 border border-border/50 backdrop-blur-sm shadow-sm'>
           <div className='flex items-start gap-3'>
             <div className='p-2 rounded-lg bg-primary/20 border border-primary/30 shrink-0 shadow-sm'>
               <Activity className='w-5 h-5 text-primary' />
