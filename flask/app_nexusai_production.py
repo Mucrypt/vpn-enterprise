@@ -391,22 +391,14 @@ def choose_ai_provider(description: str, provider: AIProvider) -> tuple[str, Any
     
     # AUTO mode - intelligent routing
     if provider == AIProvider.AUTO:
-        # Prefer Claude for complex backend code
-        if any(keyword in description.lower() for keyword in ["api", "backend", "database", "authentication", "security"]):
-            if anthropic_client:
-                logger.info("🧠 AUTO: Chose Claude 3.5 Sonnet (backend complexity)")
-                return ("anthropic", anthropic_client)
-        
-        # Prefer GPT-4o for frontend/UI
-        if any(keyword in description.lower() for keyword in ["ui", "frontend", "react", "component", "design"]):
-            if openai_client:
-                logger.info("🧠 AUTO: Chose GPT-4o (frontend/UI)")
-                return ("openai", openai_client)
-        
-        # Default: use whichever is available
+        # Prefer OpenAI GPT-4o as primary (most reliable and widely available)
         if openai_client:
+            logger.info("🧠 AUTO: Chose GPT-4o (primary provider)")
             return ("openai", openai_client)
+        
+        # Fallback to Claude if OpenAI unavailable
         if anthropic_client:
+            logger.info("🧠 AUTO: Chose Claude 3.5 Sonnet (fallback)")
             return ("anthropic", anthropic_client)
     
     raise HTTPException(
@@ -926,21 +918,18 @@ async def generate_fullstack_app(
 ):
     """
     🚀 ADVANCED: Generate complete full-stack app with backend API
-    Uses DUAL-AI system (Claude + GPT-4) for maximum power
+    Uses intelligent AI provider selection for maximum power
     More capable than Cursor/Lovable/Bolt
     
-    Phase 1: Claude creates architecture plan
-    Phase 2: GPT-4 generates frontend code  
-    Phase 3: GPT-4 generates backend API + Postman collection
-    Phase 4: Claude reviews and integrates everything
+    Generates complete frontend, backend, database, and Docker setup
     """
     start_time = time.time()
     
-    # Must have both providers for fullstack mode
-    if not openai_client or not anthropic_client:
+    # Need at least one provider
+    if not openai_client and not anthropic_client:
         raise HTTPException(
             status_code=503,
-            detail="Fullstack mode requires both OpenAI and Anthropic API keys"
+            detail="Fullstack generation requires at least one AI provider (OpenAI or Anthropic)"
         )
     
     try:
