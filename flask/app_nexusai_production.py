@@ -919,172 +919,126 @@ async def generate_fullstack_app(
     try:
         logger.info(f"🎯 Starting FULLSTACK generation: {request.description[:100]}")
         
-        # Import advanced prompts
-        from advanced_prompts import (
-            get_architecture_prompt,
-            get_fullstack_generation_prompt,
-            get_integration_prompt
-        )
+        # For now, use the enhanced single-provider flow (the dual-AI orchestration
+        # requires advanced_prompts.py which isn't yet part of the deployment).
+        # This still produces excellent fullstack apps using either OpenAI or Claude.
+        logger.info("🎨 Using enhanced single-provider fullstack generation...")
         
-        # PHASE 1: Architecture Planning (Claude - better at system design)
-        logger.info("📐 Phase 1: Claude creating architecture...")
-        arch_prompt = get_architecture_prompt(request)
-        
-        arch_response = await anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=8192,
-            temperature=0.3,  # Lower temperature for planning
-            messages=[{
-                "role": "user",
-                "content": arch_prompt
-            }]
-        )
-        
-        arch_text = arch_response.content[0].text.strip()
-        if arch_text.startswith("```"):
-            arch_text = re.sub(r'```json?\n?', '', arch_text)
-            arch_text = re.sub(r'\n?```$', '', arch_text)
-        
-        architecture = json.loads(arch_text)
-        logger.info(f"✅ Architecture created with {len(architecture.get('file_structure', {}).get('frontend', []))} frontend files")
-        
-        # PHASE 2: Frontend Generation (GPT-4 - better at code generation)
-        logger.info("⚛️  Phase 2: GPT-4 generating frontend...")
-        frontend_prompt = get_fullstack_generation_prompt(architecture, request, is_frontend=True)
-        
-        frontend_response = await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{
-                "role": "system",
-                "content": "You are an elite frontend developer. Generate COMPLETE production code."
-            }, {
-                "role": "user",
-                "content": frontend_prompt
-            }],
-            temperature=0.7,
-            max_tokens=16000,
-            response_format={"type": "json_object"}
-        )
-        
-        frontend_text = frontend_response.choices[0].message.content.strip()
-        frontend_data = json.loads(frontend_text)
-        frontend_files = frontend_data.get("files", [])
-        logger.info(f"✅ Frontend: {len(frontend_files)} files generated")
-        
-        # PHASE 3: Backend API Generation (GPT-4)
-        logger.info("🔧 Phase 3: GPT-4 generating backend API...")
-        backend_prompt = get_fullstack_generation_prompt(architecture, request, is_frontend=False)
-        
-        backend_response = await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{
-                "role": "system",
-                "content": "You are an elite backend developer. Generate COMPLETE production API with Postman collection."
-            }, {
-                "role": "user",
-                "content": backend_prompt
-            }],
-            temperature=0.7,
-            max_tokens=16000,
-            response_format={"type": "json_object"}
-        )
-        
-        backend_text = backend_response.choices[0].message.content.strip()
-        backend_data = json.loads(backend_text)
-        backend_files = backend_data.get("files", [])
-        logger.info(f"✅ Backend: {len(backend_files)} files generated including Postman collection")
-        
-        # PHASE 4: Integration & Review (Claude - better at code review)
-        logger.info("🔗 Phase 4: Claude integrating and reviewing...")
-        integration_prompt = get_integration_prompt(frontend_files, backend_files, architecture)
-        
-        integration_response = await anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=4096,
-            temperature=0.2,
-            messages=[{
-                "role": "user",
-                "content": integration_prompt
-            }]
-        )
-        
-        integration_text = integration_response.content[0].text.strip()
-        if integration_text.startswith("```"):
-            integration_text = re.sub(r'```json?\n?', '', integration_text)
-            integration_text = re.sub(r'\n?```$', '', integration_text)
-        
-        integration_data = json.loads(integration_text)
-        logger.info("✅ Integration complete")
-        
-        # Combine all files
-        all_files = frontend_files + backend_files
-        
-        # Add docker-compose for full stack orchestration
-        all_files.append({
-            "path": "docker-compose.yml",
-            "content": integration_data.get("docker_compose", ""),
-            "language": "yaml"
-        })
-        
-        # Add root README with architecture documentation
-        all_files.append({
-            "path": "README.md",
-            "content": f"""# {request.description}
+        # Build a comprehensive fullstack prompt
+        arch_prompt = f"""Generate a COMPLETE full-stack application with the following:
 
-## Architecture Overview
-{json.dumps(architecture.get('architecture', {}), indent=2)}
+**Description:** {request.description}
 
-## Setup Instructions
-{integration_data.get('setup_instructions', '')}
+**Tech Stack:**
+- Frontend: {request.framework.value} with {request.styling.value}
+- Backend: Express.js REST API
+- Database: PostgreSQL with full schema
+- Features: {', '.join(request.features) if request.features else 'CRUD operations'}
 
-## Test Endpoints
-{chr(10).join([f"- {test['name']}: `{test['curl']}`" for test in integration_data.get('test_endpoints', [])])}
+**Requirements:**
+1. Complete frontend with routes, components, and state management
+2. Complete backend API with all CRUD endpoints
+3. PostgreSQL schema with tables, indexes, and constraints
+4. Docker setup for both frontend and backend
+5. Environment configuration files
+6. README with setup instructions
+7. Package.json for both frontend and backend
 
-## Generated by NexusAI
-Powered by dual-AI system (Claude 3.5 Sonnet + GPT-4o)
-More powerful than Cursor, Lovable, or Bolt!
-""",
-            "language": "markdown"
-        })
+Return JSON with this structure:
+{{
+  "files": [
+    {{"path": "frontend/src/App.tsx", "content": "...", "language": "typescript"}},
+    {{"path": "backend/src/index.ts", "content": "...", "language": "typescript"}},
+    {{"path": "database/schema.sql", "content": "...", "language": "sql"}},
+    ...
+  ],
+  "instructions": "Step-by-step setup guide",
+  "dependencies": {{"react": "^18.0.0", "express": "^4.18.0", ...}},
+  "requires_database": true,
+  "database_schema": "CREATE TABLE ... statements"
+}}
+
+Return ONLY valid JSON, no markdown."""
         
-        # Calculate totals
-        total_tokens = (
-            arch_response.usage.input_tokens + arch_response.usage.output_tokens +
-            frontend_response.usage.total_tokens +
-            backend_response.usage.total_tokens +
-            integration_response.usage.input_tokens + integration_response.usage.output_tokens
-        )
+        # Choose provider intelligently
+        provider_name, client = choose_ai_provider(request.description, AIProvider.AUTO)
         
-        generation_time = int((time.time() - start_time) * 1000)
+        # Generate fullstack app in a single comprehensive call
+        if provider_name == "openai":
+            model = _default_openai_model()
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are an expert fullstack developer. Generate COMPLETE production code with frontend, backend, and database. Return valid JSON only."},
+                    {"role": "user", "content": arch_prompt}
+                ],
+                temperature=0.7,
+                max_tokens=16000,
+                response_format={"type": "json_object"}
+            )
+            result_text = response.choices[0].message.content
+            tokens = response.usage.total_tokens if response.usage else 0
+            
+        else:  # anthropic
+            model = _default_anthropic_model()
+            response = await client.messages.create(
+                model=model,
+                max_tokens=8192,
+                temperature=0.7,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "You are an expert fullstack developer. Generate COMPLETE production code with frontend, backend, and database. Return valid JSON only."},
+                        {"type": "text", "text": arch_prompt}
+                    ]
+                }]
+            )
+            result_text = response.content[0].text
+            tokens = response.usage.input_tokens + response.usage.output_tokens
         
-        # Send N8N webhook
-        if N8N_APP_GENERATED:
-            asyncio.create_task(send_n8n_webhook(N8N_APP_GENERATED, {
-                "description": request.description,
+        # Parse result
+        result_text = result_text.strip()
+        if result_text.startswith("```"):
+            result_text = re.sub(r'```json?\n?', '', result_text)
+            result_text = re.sub(r'\n?```$', '', result_text)
+        
+        result_json = json.loads(result_text)
+        logger.info(f"✅ Fullstack app generated with {len(result_json.get('files', []))} files")
+        
+        elapsed = int((time.time() - start_time) * 1000)
+        
+        # Build response  
+        response_data = {
+            "files": result_json.get("files", []),
+            "instructions": result_json.get("instructions", "No instructions provided"),
+            "dependencies": result_json.get("dependencies", {}),
+            "requires_database": result_json.get("requires_database", request.include_database),
+            "database_schema": result_json.get("database_schema"),
+            "deployment_config": {
                 "framework": request.framework.value,
-                "file_count": len(all_files),
-                "has_backend": True,
-                "has_database": backend_data.get("requires_database", False),
-                "generation_time_ms": generation_time,
-                "provider": "dual-ai (claude + gpt4)"
-            }))
-        
-        logger.info(f"🎉 FULLSTACK generation complete: {len(all_files)} files in {generation_time}ms")
-        
-        return MultiFileAppResponse(
-            files=all_files,
-            instructions=integration_data.get('setup_instructions', ''),
-            dependencies={
-                **frontend_data.get("dependencies", {}),
-                **backend_data.get("dependencies", {})
+                "port": 3000,
+                "build_command": "npm run build",
+                "start_command": "npm start"
             },
-            requires_database=backend_data.get("requires_database", False),
-            database_schema=backend_data.get("database_schema"),
-            deployment_config=backend_data.get("deployment_config"),
-            provider_used="dual-ai (claude-3.5-sonnet + gpt-4o)",
-            generation_time_ms=generation_time,
-            tokens_used=total_tokens
-        )
+            "provider_used": f"{provider_name}/{model}",
+            "generation_time_ms": elapsed,
+            "tokens_used": tokens
+        }
+        
+        # Send N8N webhook (async, non-blocking)
+        asyncio.create_task(send_n8n_webhook(N8N_APP_GENERATED, {
+            "event": "fullstack_app_generated",
+            "user_id": "anonymous",
+            "framework": request.framework.value,
+            "provider": provider_name,
+            "files_count": len(response_data["files"]),
+            "requires_database": response_data["requires_database"],
+            "generated_at": datetime.utcnow().isoformat()
+        }))
+        
+        logger.info(f"✅ Fullstack app generated successfully: {len(response_data['files'])} files in {elapsed}ms using {provider_name}")
+        
+        return MultiFileAppResponse(**response_data)
         
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error: {str(e)}")
