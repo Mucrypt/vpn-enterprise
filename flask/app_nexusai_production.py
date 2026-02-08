@@ -72,6 +72,57 @@ def read_secret(env_var_name: str, file_env_var_name: str) -> str:
         logger.info(f"✅ Loaded {env_var_name} from environment variable")
     return direct_value
 
+def sanitize_and_parse_json(text: str, context: str = "AI response") -> dict:
+    """
+    Sanitize AI-generated JSON and parse it safely.
+    Handles common issues: markdown fences, control characters, malformed strings.
+    
+    Args:
+        text: Raw text response from AI
+        context: Description for error messages
+    
+    Returns:
+        Parsed JSON dict
+    
+    Raises:
+        ValueError: If JSON cannot be parsed even after sanitization
+    """
+    try:
+        # 1. Remove markdown code fences
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r'```json?\n?', '', cleaned)
+            cleaned = re.sub(r'\n?```$', '', cleaned)
+        
+        # 2. Try parsing first (fast path for clean JSON)
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+        
+        # 3. Fix common control character issues in file content
+        # Replace literal control characters with escaped versions in strings
+        # This handles cases where AI includes raw newlines in JSON strings
+        cleaned = re.sub(r'(?<!\\)\n(?=.*")', '\\n', cleaned)  # Unescaped newlines
+        cleaned = re.sub(r'(?<!\\)\t', '\\t', cleaned)  # Unescaped tabs
+        cleaned = re.sub(r'(?<!\\)\r', '\\r', cleaned)  # Unescaped carriage returns
+        
+        # Try parsing again
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            # Log the problematic area
+            error_pos = e.pos if hasattr(e, 'pos') else 0
+            snippet_start = max(0, error_pos - 100)
+            snippet_end = min(len(cleaned), error_pos + 100)
+            problematic = cleaned[snippet_start:snippet_end]
+            logger.warning(f"JSON parse failed in {context} near position {error_pos}: {problematic[:200]}")
+            raise ValueError(f"AI returned invalid JSON in {context}: {str(e)}")
+            
+    except Exception as e:
+        logger.error(f"Failed to sanitize and parse JSON from {context}: {str(e)}")
+        raise ValueError(f"AI returned unparseable JSON in {context}: {str(e)}")
+
 # ============================================
 # CONFIGURATION
 # ============================================
@@ -775,14 +826,8 @@ async def generate_full_app(
             result_text = response.content[0].text
             tokens = response.usage.input_tokens + response.usage.output_tokens
         
-        # Parse AI response
-        # Clean JSON (remove markdown if present)
-        result_text = result_text.strip()
-        if result_text.startswith("```"):
-            result_text = re.sub(r'```json?\n?', '', result_text)
-            result_text = re.sub(r'\n?```$', '', result_text)
-        
-        result_json = json.loads(result_text)
+        # Parse AI response with sanitization
+        result_json = sanitize_and_parse_json(result_text, "generate_app")
         
         elapsed = int((time.time() - start_time) * 1000)
         
@@ -1081,11 +1126,7 @@ Return ONLY valid JSON."""
             arch_text = arch_response.choices[0].message.content
             arch_tokens = arch_response.usage.total_tokens if arch_response.usage else 0
         
-        if arch_text.startswith("```"):
-            arch_text = re.sub(r'```json?\n?', '', arch_text)
-            arch_text = re.sub(r'\n?```$', '', arch_text)
-        
-        architecture = json.loads(arch_text)
+        architecture = sanitize_and_parse_json(arch_text, "Phase 1: Architecture")
         logger.info(f"✅ Phase 1 complete: Architecture designed with {len(architecture.get('file_list', []))} files planned")
         
         # ==============================================
@@ -1138,7 +1179,7 @@ Return ONLY valid JSON."""
         )
         
         frontend_text = frontend_response.choices[0].message.content
-        frontend_data = json.loads(frontend_text)
+        frontend_data = sanitize_and_parse_json(frontend_text, "Phase 2: Frontend")
         all_files = frontend_data.get('files', [])
         logger.info(f"✅ Phase 2 complete: {len(all_files)} frontend files generated")
         
@@ -1198,7 +1239,7 @@ Return ONLY valid JSON."""
         )
         
         backend_text = backend_response.choices[0].message.content
-        backend_data = json.loads(backend_text)
+        backend_data = sanitize_and_parse_json(backend_text, "Phase 3: Backend")
         all_files.extend(backend_data.get('files', []))
         logger.info(f"✅ Phase 3 complete: {len(backend_data.get('files', []))} backend files generated")
         
@@ -1270,11 +1311,7 @@ Return ONLY valid JSON."""
             integration_text = integration_response.choices[0].message.content
             integration_tokens = integration_response.usage.total_tokens if integration_response.usage else 0
         
-        if integration_text.startswith("```"):
-            integration_text = re.sub(r'```json?\n?', '', integration_text)
-            integration_text = re.sub(r'\n?```$', '', integration_text)
-        
-        integration_data = json.loads(integration_text)
+        integration_data = sanitize_and_parse_json(integration_text, "Phase 4: Integration")
         all_files.extend(integration_data.get('files', []))
         logger.info(f"✅ Phase 4 complete: {len(integration_data.get('files', []))} deployment files added")
         
