@@ -266,7 +266,7 @@ async def lifespan(app: FastAPI):
     # Initialize Redis for async job queue
     try:
         # Use direct connection parameters for async Redis client
-        redis_client = redis.asyncio.Redis(
+        redis_client = redis.Redis(
             host=REDIS_HOST,
             port=REDIS_PORT,
             password=REDIS_PASSWORD if REDIS_PASSWORD else None,
