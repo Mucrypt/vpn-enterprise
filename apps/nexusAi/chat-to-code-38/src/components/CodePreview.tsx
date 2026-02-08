@@ -1,6 +1,7 @@
 // Code Preview Component with Syntax Highlighting
-import { useEffect, useRef } from 'react'
 import { Highlight, themes } from 'prism-react-renderer'
+import { Sandpack } from '@codesandbox/sandpack-react'
+import { useMemo } from 'react'
 
 interface CodePreviewProps {
   code: string
@@ -38,63 +39,54 @@ export function CodePreview({
   )
 }
 
-// Live Preview Component
-interface LivePreviewProps {
-  code: string
-  framework: string
+// Live Preview Component with Sandpack
+interface FileOutput {
+  path: string
+  content: string
+  language?: string
 }
 
-export function LivePreview({ code, framework }: LivePreviewProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+interface LivePreviewProps {
+  files: FileOutput[]
+  framework?: string
+}
 
-  useEffect(() => {
-    if (!iframeRef.current) return
-
-    const doc = iframeRef.current.contentDocument
-    if (!doc) return
-
-    // Create a complete HTML document with the code
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    body { margin: 0; padding: 20px; font-family: system-ui, -apple-system, sans-serif; }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="text/babel">
-    ${code}
+export function LivePreview({ files, framework = 'react' }: LivePreviewProps) {
+  const sandpackFiles = useMemo(() => {
+    const filesObj: Record<string, string> = {}
     
-    // Auto-render if there's an App component
-    if (typeof App !== 'undefined') {
-      const root = ReactDOM.createRoot(document.getElementById('root'));
-      root.render(<App />);
-    }
-  </script>
-</body>
-</html>
-    `
+    files.forEach((file) => {
+      // Convert file paths to Sandpack format
+      let sandpackPath = file.path
+      
+      // Ensure paths start with /
+      if (!sandpackPath.startsWith('/')) {
+        sandpackPath = '/' + sandpackPath
+      }
+      
+      filesObj[sandpackPath] = file.content
+    })
+    
+    return filesObj
+  }, [files])
 
-    doc.open()
-    doc.write(html)
-    doc.close()
-  }, [code, framework])
+  const template = framework === 'react' ? 'react-ts' : 'react'
 
   return (
-    <div className='w-full h-full border rounded-lg bg-white'>
-      <iframe
-        ref={iframeRef}
-        className='w-full h-full rounded-lg'
-        title='Live Preview'
-        sandbox='allow-scripts'
+    <div className='w-full h-full'>
+      <Sandpack
+        template={template}
+        files={sandpackFiles}
+        theme="dark"
+        options={{
+          showNavigator: true,
+          showTabs: true,
+          showLineNumbers: true,
+          editorHeight: '100%',
+          editorWidthPercentage: 0,
+          showInlineErrors: true,
+          wrapContent: true,
+        }}
       />
     </div>
   )

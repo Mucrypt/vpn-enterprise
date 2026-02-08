@@ -617,10 +617,12 @@ const AppBuilder = () => {
 
                 <TabsContent value='preview' className='flex-1 m-0 p-0'>
                   <div className='h-full bg-muted/20'>
-                    <LivePreview
-                      code={selectedFile.content}
-                      framework={appDetails?.framework || 'react'}
-                    />
+                    {generatedApp && generatedApp.files && (
+                      <LivePreview
+                        files={generatedApp.files}
+                        framework={appDetails?.framework || 'react'}
+                      />
+                    )}
                   </div>
                 </TabsContent>
 
