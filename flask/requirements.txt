@@ -19,7 +19,7 @@ asyncpg==0.30.0
 redis==5.2.1
 
 # JSON repair for AI-generated malformed JSON
-json-repair==0.31.1
+json-repair==0.31.0
 
 # Authentication and security
 python-multipart==0.0.20
