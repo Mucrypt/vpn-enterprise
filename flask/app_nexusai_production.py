@@ -100,23 +100,40 @@ def sanitize_and_parse_json(text: str, context: str = "AI response") -> dict:
         except json.JSONDecodeError:
             pass
         
-        # 3. Fix common control character issues in file content
-        # Replace literal control characters with escaped versions in strings
-        # This handles cases where AI includes raw newlines in JSON strings
-        cleaned = re.sub(r'(?<!\\)\n(?=.*")', '\\n', cleaned)  # Unescaped newlines
-        cleaned = re.sub(r'(?<!\\)\t', '\\t', cleaned)  # Unescaped tabs
-        cleaned = re.sub(r'(?<!\\)\r', '\\r', cleaned)  # Unescaped carriage returns
+        # 3. More aggressive control character handling
+        # Remove or escape control characters (0x00-0x1F except whitespace)
+        # Keep: \t (0x09), \n (0x0A), \r (0x0D)
+        def clean_control_chars(match):
+            char = match.group(0)
+            code = ord(char)
+            if code == 0x09:  # tab
+                return '\\t'
+            elif code == 0x0A:  # newline
+                return '\\n'
+            elif code == 0x0D:  # carriage return
+                return '\\r'
+            else:  # other control chars - remove or escape
+                return ''  # Remove completely
         
-        # Try parsing again
+        # Replace control characters
+        cleaned = re.sub(r'[\x00-\x1F]', clean_control_chars, cleaned)
+        
+        # 4. Try parsing with cleaned control characters
         try:
             return json.loads(cleaned)
         except json.JSONDecodeError as e:
-            # Log the problematic area
+            # Last resort: try to fix common issues in strings
+            # Sometimes AI puts actual newlines in string values instead of \n
+            # This is a heuristic approach - may not catch all cases
+            
+            # Log the problematic area for debugging
             error_pos = e.pos if hasattr(e, 'pos') else 0
-            snippet_start = max(0, error_pos - 100)
-            snippet_end = min(len(cleaned), error_pos + 100)
+            snippet_start = max(0, error_pos - 150)
+            snippet_end = min(len(cleaned), error_pos + 150)
             problematic = cleaned[snippet_start:snippet_end]
-            logger.warning(f"JSON parse failed in {context} near position {error_pos}: {problematic[:200]}")
+            logger.warning(f"JSON parse failed in {context} near position {error_pos}")
+            logger.warning(f"Problematic snippet: ...{problematic}...")
+            
             raise ValueError(f"AI returned invalid JSON in {context}: {str(e)}")
             
     except Exception as e:
