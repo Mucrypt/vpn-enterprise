@@ -182,7 +182,14 @@ API_BASE_URL = os.getenv("API_URL", "https://chatbuilds.com/api")
 DATABASE_PROVISIONER_URL = os.getenv("DATABASE_PROVISIONER_URL", "http://localhost:3003")
 
 # Redis Configuration (for async job queue)
-REDIS_URL = os.getenv("REDIS_URL", "redis://vpn-redis:6379")
+REDIS_HOST = os.getenv("REDIS_HOST", "vpn-redis")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_PASSWORD = read_secret("REDIS_PASSWORD", "REDIS_PASSWORD_FILE")
+# Construct Redis URL with authentication if password exists
+if REDIS_PASSWORD:
+    REDIS_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
+else:
+    REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 redis_client: Optional[redis.Redis] = None
 
 # Cache & Rate Limiting
@@ -265,7 +272,9 @@ async def lifespan(app: FastAPI):
             socket_connect_timeout=5
         )
         await redis_client.ping()
-        logger.info(f"✅ Redis connected: {REDIS_URL.split('@')[-1]} (Async Job Queue)")
+        # Mask password in log output
+        safe_url = REDIS_URL.replace(f":{REDIS_PASSWORD}@", ":****@") if REDIS_PASSWORD else REDIS_URL
+        logger.info(f"✅ Redis connected: {safe_url} (Async Job Queue)")
     except Exception as e:
         logger.error(f"❌ Redis connection failed: {e}")
         logger.warning("⚠️  Job queue will operate in memory-only mode (not recommended for production)")
