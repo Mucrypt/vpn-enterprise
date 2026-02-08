@@ -46,12 +46,39 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================
+# HELPER FUNCTIONS
+# ============================================
+
+def read_secret(env_var_name: str, file_env_var_name: str) -> str:
+    """
+    Read secret from file if *_FILE env var is set, otherwise from direct env var.
+    This follows Docker secrets pattern used throughout the application.
+    """
+    # First check if there's a *_FILE env var pointing to a secret file
+    secret_file_path = os.getenv(file_env_var_name, "")
+    if secret_file_path and os.path.exists(secret_file_path):
+        try:
+            with open(secret_file_path, 'r') as f:
+                secret = f.read().strip()
+                if secret:
+                    logger.info(f"✅ Loaded {env_var_name} from secret file: {secret_file_path}")
+                    return secret
+        except Exception as e:
+            logger.error(f"❌ Failed to read {secret_file_path}: {e}")
+    
+    # Fallback to direct env var
+    direct_value = os.getenv(env_var_name, "")
+    if direct_value:
+        logger.info(f"✅ Loaded {env_var_name} from environment variable")
+    return direct_value
+
+# ============================================
 # CONFIGURATION
 # ============================================
 
-# AI Provider Keys
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+# AI Provider Keys (support both direct env vars and Docker secrets)
+OPENAI_API_KEY = read_secret("OPENAI_API_KEY", "OPENAI_API_KEY_FILE")
+ANTHROPIC_API_KEY = read_secret("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY_FILE")
 
 # N8N Webhook Configuration
 N8N_WEBHOOK_BASE = os.getenv("N8N_WEBHOOK_URL", "https://chatbuilds.com/webhook")
