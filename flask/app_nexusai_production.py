@@ -416,6 +416,15 @@ def _default_anthropic_model() -> str:
     # Keep this aligned with ANTHROPIC_MODELS.
     return "claude-3-haiku-20240307"
 
+def _get_model_max_tokens(provider_name: str, model: str) -> int:
+    """Get the appropriate max_tokens for a model."""
+    if provider_name == "anthropic":
+        model_info = ANTHROPIC_MODELS.get(model, {})
+        return model_info.get("max_tokens", 4096)  # Default to 4096 for safety
+    else:  # openai
+        model_info = OPENAI_MODELS.get(model, {})
+        return model_info.get("max_tokens", 16000)
+
 def _normalize_requested_model(provider_name: str, requested_model: Optional[str]) -> str:
     """Avoid passing invalid/placeholder model names upstream.
 
@@ -748,9 +757,10 @@ async def generate_full_app(
             
         else:  # anthropic
             model = _default_anthropic_model()
+            max_tokens = _get_model_max_tokens("anthropic", model)
             response = await client.messages.create(
                 model=model,
-                max_tokens=8192,
+                max_tokens=max_tokens,
                 temperature=0.7,
                 messages=[
                     {
@@ -1043,9 +1053,11 @@ Return ONLY valid JSON."""
 
         # Call AI for architecture (prefer Claude, fallback to GPT-4o)
         if has_anthropic:
+            model = _default_anthropic_model()
+            max_tokens = _get_model_max_tokens("anthropic", model)
             arch_response = await anthropic_client.messages.create(
-                model=_default_anthropic_model(),
-                max_tokens=8192,
+                model=model,
+                max_tokens=max_tokens,
                 temperature=0.3,  # Low temp for structured thinking
                 messages=[{
                     "role": "user",
@@ -1231,9 +1243,11 @@ Return ONLY valid JSON."""
 Return ONLY valid JSON."""
 
         if has_anthropic:
+            model = _default_anthropic_model()
+            max_tokens = _get_model_max_tokens("anthropic", model)
             integration_response = await anthropic_client.messages.create(
-                model=_default_anthropic_model(),
-                max_tokens=8192,
+                model=model,
+                max_tokens=max_tokens,
                 temperature=0.5,
                 messages=[{
                     "role": "user",
