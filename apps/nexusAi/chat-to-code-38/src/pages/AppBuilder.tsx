@@ -20,6 +20,7 @@ import { CodePreview, LivePreview } from '@/components/CodePreview'
 import { Terminal } from '@/components/Terminal'
 import { DatabasePanel } from '@/components/DatabasePanel'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { useToast } from '@/hooks/use-toast'
@@ -191,41 +192,62 @@ const AppBuilder = () => {
         setSelectedFile(result.files[0])
       }
 
-      // Save to database
+      // Handle app saving
       try {
-        const appName = appDetails.description
-          .split(' ')
-          .slice(0, 5)
-          .join(' ')
-          .substring(0, 50)
+        // If fullstack mode, app is already saved by Python API
+        if (appDetails.fullStackMode && result.app_id) {
+          setSavedAppId(result.app_id)
 
-        const savedApp = await generatedAppsService.saveApp({
-          app_name: appName || 'Untitled App',
-          description: appDetails.description,
-          framework: appDetails.framework,
-          styling: appDetails.styling,
-          features: appDetails.features,
-          dependencies: result.dependencies || {},
-          requires_database: result.requires_database ?? false,
-          files: (result.files || []).map((file) => ({
-            file_path: file.path || file.name || 'unknown',
-            content: file.content || '',
-            language: file.language || 'text',
-            is_entry_point:
-              (file.path || file.name || '')?.toLowerCase().includes('index') ||
-              (file.path || file.name || '')?.toLowerCase().includes('main'),
-          })),
-        })
+          // Update URL with appId so it persists on refresh
+          navigate(`/build?appId=${result.app_id}`, { replace: true })
 
-        setSavedAppId(savedApp.id)
+          // Show database info if available
+          const dbMessage = result.database_info?.tables_created
+            ? ` Database provisioned with ${result.database_info.tables_created} tables!`
+            : ''
 
-        // Update URL with appId so it persists on refresh
-        navigate(`/build?appId=${savedApp.id}`, { replace: true })
+          toast({
+            title: '✨ Full-Stack App Ready!',
+            description: `Generated ${result.files?.length || 0} files and saved automatically.${dbMessage}`,
+          })
+        } else {
+          // Regular mode - save to database manually
+          const appName = appDetails.description
+            .split(' ')
+            .slice(0, 5)
+            .join(' ')
+            .substring(0, 50)
 
-        toast({
-          title: '✨ App Generated & Saved!',
-          description: `Created ${result.files?.length || 0} files and saved to your library`,
-        })
+          const savedApp = await generatedAppsService.saveApp({
+            app_name: appName || 'Untitled App',
+            description: appDetails.description,
+            framework: appDetails.framework,
+            styling: appDetails.styling,
+            features: appDetails.features,
+            dependencies: result.dependencies || {},
+            requires_database: result.requires_database ?? false,
+            files: (result.files || []).map((file) => ({
+              file_path: file.path || file.name || 'unknown',
+              content: file.content || '',
+              language: file.language || 'text',
+              is_entry_point:
+                (file.path || file.name || '')
+                  ?.toLowerCase()
+                  .includes('index') ||
+                (file.path || file.name || '')?.toLowerCase().includes('main'),
+            })),
+          })
+
+          setSavedAppId(savedApp.id)
+
+          // Update URL with appId so it persists on refresh
+          navigate(`/build?appId=${savedApp.id}`, { replace: true })
+
+          toast({
+            title: '✨ App Generated & Saved!',
+            description: `Created ${result.files?.length || 0} files and saved to your library`,
+          })
+        }
       } catch (saveError) {
         // Still show success for generation even if save fails
         console.error('Failed to save app:', saveError)
@@ -459,6 +481,25 @@ const AppBuilder = () => {
               <span className='font-semibold text-sm sm:text-lg truncate'>
                 {appDetails?.description.substring(0, 30) || 'Generated App'}
               </span>
+              {/* AI Provider Badge */}
+              {generatedApp?.provider_used && (
+                <Badge
+                  variant='outline'
+                  className='hidden lg:flex gap-1 text-xs'
+                >
+                  <Sparkles className='w-3 h-3' />
+                  {generatedApp.provider_used.includes('gpt')
+                    ? 'GPT-4o'
+                    : generatedApp.provider_used.includes('claude')
+                      ? 'Claude 3.5'
+                      : 'Dual-AI'}
+                  {generatedApp.generation_time_ms && (
+                    <span className='text-muted-foreground'>
+                      • {(generatedApp.generation_time_ms / 1000).toFixed(1)}s
+                    </span>
+                  )}
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -655,6 +696,7 @@ const AppBuilder = () => {
                     <DatabasePanel
                       appId={savedAppId}
                       requiresDatabase={generatedApp?.requires_database}
+                      initialDatabaseInfo={generatedApp?.database_info}
                       onDatabaseProvisioned={(connectionString) => {
                         toast({
                           title: '🎉 Database Ready!',

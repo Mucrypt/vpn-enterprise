@@ -46,6 +46,24 @@ export interface MultiFileGenerateResponse {
   instructions: string
   dependencies: Record<string, string>
   requires_database?: boolean
+  database_schema?: string
+  database_info?: {
+    // Database connection credentials (from automatic provisioning)
+    tenantId?: string
+    database?: string
+    host?: string
+    port?: number
+    username?: string
+    password?: string
+    connection_string?: string
+    tables_created?: number
+    status?: 'provisioned' | 'exists'
+  }
+  app_id?: string // Saved app ID (already persisted to database)
+  deployment_config?: Record<string, any>
+  provider_used?: string // AI provider that generated the code (e.g., "openai-gpt4o", "anthropic-claude")
+  generation_time_ms?: number // Time taken to generate (milliseconds)
+  tokens_used?: number // Total tokens consumed
 }
 
 export interface DeployAppRequest {

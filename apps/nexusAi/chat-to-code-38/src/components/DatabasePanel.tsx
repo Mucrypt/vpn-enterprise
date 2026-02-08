@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Database,
   Check,
@@ -31,12 +31,25 @@ interface DatabasePanelProps {
   appId: string | null
   requiresDatabase?: boolean
   onDatabaseProvisioned?: (connectionString: string) => void
+  initialDatabaseInfo?: {
+    // Database info from fullstack generation (already provisioned)
+    tenantId?: string
+    database?: string
+    host?: string
+    port?: number
+    username?: string
+    password?: string
+    connection_string?: string
+    tables_created?: number
+    status?: 'provisioned' | 'exists'
+  }
 }
 
 export function DatabasePanel({
   appId,
   requiresDatabase = false,
   onDatabaseProvisioned,
+  initialDatabaseInfo,
 }: DatabasePanelProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -49,6 +62,46 @@ export function DatabasePanel({
   const [initializeSchema, setInitializeSchema] = useState(true)
   const [showConnectionString, setShowConnectionString] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  // Auto-populate if initial database info provided (from fullstack generation)
+  useEffect(() => {
+    if (initialDatabaseInfo && initialDatabaseInfo.connection_string) {
+      setProvisionResult({
+        database: {
+          tenantId: initialDatabaseInfo.tenantId || '',
+          database: initialDatabaseInfo.database || '',
+          host: initialDatabaseInfo.host || '',
+          port: initialDatabaseInfo.port || 5432,
+          username: initialDatabaseInfo.username || '',
+          password: initialDatabaseInfo.password,
+          connectionString: initialDatabaseInfo.connection_string,
+          status: initialDatabaseInfo.status || 'provisioned',
+          tablesCreated: initialDatabaseInfo.tables_created,
+        },
+        connection_string: initialDatabaseInfo.connection_string,
+        tables_created: initialDatabaseInfo.tables_created,
+        message: 'Database automatically provisioned during generation',
+        already_exists: false,
+      })
+
+      setDatabaseInfo({
+        has_database: true,
+        database: {
+          tenantId: initialDatabaseInfo.tenantId,
+          database: initialDatabaseInfo.database,
+          connectionString: initialDatabaseInfo.connection_string,
+          tablesCreated: initialDatabaseInfo.tables_created,
+        },
+        connection_string: initialDatabaseInfo.connection_string,
+        tables_created: initialDatabaseInfo.tables_created,
+      })
+
+      // Call the callback
+      if (onDatabaseProvisioned) {
+        onDatabaseProvisioned(initialDatabaseInfo.connection_string)
+      }
+    }
+  }, [initialDatabaseInfo, onDatabaseProvisioned])
 
   const checkDatabaseStatus = async () => {
     if (!appId) return
