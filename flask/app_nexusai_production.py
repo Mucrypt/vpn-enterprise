@@ -443,7 +443,7 @@ async def generate_ai_text(
             tokens = response.usage.total_tokens if response.usage else 0
             
         else:  # anthropic
-            model = request.model or "claude-3-5-sonnet-20240620"
+            model = request.model or "claude-3-opus-20240229"
             response = await client.messages.create(
                 model=model,
                 max_tokens=request.max_tokens,
@@ -522,7 +522,7 @@ async def generate_full_app(
             tokens = response.usage.total_tokens if response.usage else 0
             
         else:  # anthropic
-            model = "claude-3-5-sonnet-20240620"  # Claude 3.5 Sonnet (June 2024 release)
+            model = "claude-3-opus-20240229"  # Claude 3 Opus (most capable)
             response = await client.messages.create(
                 model=model,
                 max_tokens=8192,
@@ -688,7 +688,7 @@ async def generate_fullstack_app(
         arch_prompt = get_architecture_prompt(request)
         
         arch_response = await anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20240620",
+            model="claude-3-opus-20240229",
             max_tokens=8192,
             temperature=0.3,  # Lower temperature for planning
             messages=[{
@@ -756,7 +756,7 @@ async def generate_fullstack_app(
         integration_prompt = get_integration_prompt(frontend_files, backend_files, architecture)
         
         integration_response = await anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20240620",
+            model="claude-3-opus-20240229",
             max_tokens=4096,
             temperature=0.2,
             messages=[{
