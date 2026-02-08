@@ -34,7 +34,7 @@ const AppDescription = () => {
   const [styling, setStyling] = useState<string>('tailwind')
   const [features, setFeatures] = useState<string[]>([])
   const [featureInput, setFeatureInput] = useState('')
-  const [fullStackMode, setFullStackMode] = useState(false)
+  const [fullStackMode, setFullStackMode] = useState(true)
 
   // Pre-fill description if coming from home page
   useEffect(() => {

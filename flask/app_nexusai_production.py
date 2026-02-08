@@ -1216,33 +1216,51 @@ async def get_deployment_status(deployment_id: str):
 # ADVANCED DUAL-AI FULL-STACK GENERATION
 # ============================================
 
-@app.post("/ai/generate/fullstack", response_model=MultiFileAppResponse)
+@app.post("/ai/generate/fullstack", response_model=MultiFileAppResponse, deprecated=True)
 async def generate_fullstack_app(
     request: MultiFileAppRequest,
     x_api_key: Optional[str] = Header(None),
     x_user_id: Optional[str] = Header(None)
 ):
     """
-    🚀 ENTERPRISE-GRADE FULLSTACK GENERATION
+    ⚠️ DEPRECATED: Use /ai/generate/fullstack/async instead
     
-    **Dual-AI Orchestration System (World's Most Advanced):**
-    - Phase 1: Claude 3.5 Sonnet creates comprehensive architecture & database design
-    - Phase 2: GPT-4o generates complete production-ready frontend code
-    - Phase 3: GPT-4o generates backend API with all endpoints + Postman collection
-    - Phase 4: Claude 3.5 Sonnet reviews, integrates, and optimizes everything
-    - Phase 5: Automatic database provisioning with tables created in Database-as-a-Service
+    This synchronous endpoint is deprecated and will be removed in a future version.
+    It causes timeouts and 502 errors for large applications (60-120 seconds).
     
-    **More Powerful Than Any Competitor:**
-    - ✅ Generates 20-40 complete files (vs Cursor: 5-10, Lovable: 8-12, Bolt: 10-15)
-    - ✅ Real backend API with auth, validation, error handling (competitors skip this)
-    - ✅ Complete database with indexes, constraints, migrations (competitors use fake data)
-    - ✅ Docker + deployment config + CI/CD ready (competitors provide basic setup)
-    - ✅ Postman collection for API testing (competitors don't include this)
-    - ✅ Production-grade code quality with NO placeholders! (competitors use TODOs)
-    - ✅ **AUTOMATIC DATABASE PROVISIONING** - Tables created instantly! (competitors don't do this)
+    **Use the new async endpoint instead:**
+    - POST /ai/generate/fullstack/async - Returns job_id immediately
+    - GET /ai/jobs/{job_id} - Poll for progress and results
     
-    **Result:** Deploy-ready professional application in 30-45 seconds
+    **Benefits of async endpoint:**
+    - ✅ No timeouts or 502 errors
+    - ✅ Real-time progress updates (5 phases with percentages)
+    - ✅ Better user experience with visual feedback
+    - ✅ Handles large applications (50+ files)
+    - ✅ Job persistence (survives server restarts)
     """
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "error": "Endpoint deprecated",
+            "message": "This synchronous endpoint is deprecated. Use /ai/generate/fullstack/async instead.",
+            "migration_guide": {
+                "old_flow": "POST /ai/generate/fullstack (waits 60-120s, times out)",
+                "new_flow": [
+                    "1. POST /ai/generate/fullstack/async → Get job_id",
+                    "2. GET /ai/jobs/{job_id} → Poll every 2s for progress",
+                    "3. Job completes → Get full result with all files"
+                ],
+                "example_response": {
+                    "job_id": "job_abc123",
+                    "status": "pending",
+                    "message": "Job created, use GET /ai/jobs/job_abc123 to check progress"
+                }
+            },
+            "documentation": "https://chatbuilds.com/docs/api/async-generation"
+        }
+    )
+    # Old synchronous code removed to prevent accidental usage
     start_time = time.time()
     user_id = x_user_id or "anonymous"
     

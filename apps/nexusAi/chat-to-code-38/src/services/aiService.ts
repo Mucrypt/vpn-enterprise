@@ -33,9 +33,7 @@ export interface MultiFileGenerateRequest {
 }
 
 export interface FileOutput {
-  name: any
-  name: any
-  name: any
+  name: string
   path: string
   content: string
   language: string
@@ -674,18 +672,6 @@ Return only the completion text that should be inserted at the cursor, no explan
     }
 
     return response.json()
-  }
-
-  // Trigger N8N webhook directly
-  async triggerN8NWebhook(webhookName: string, data: any): Promise<void> {
-    const n8nURL =
-      import.meta.env.VITE_N8N_WEBHOOK_URL || 'http://localhost:5678'
-
-    await fetch(`${n8nURL}/webhook/${webhookName}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
   }
 
   // Get AI provider info (shows which AI is being used)
