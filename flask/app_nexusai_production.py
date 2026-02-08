@@ -443,7 +443,7 @@ async def generate_ai_text(
             tokens = response.usage.total_tokens if response.usage else 0
             
         else:  # anthropic
-            model = request.model or "claude-3-5-sonnet-20241022"
+            model = request.model or "claude-3-5-sonnet-20240620"
             response = await client.messages.create(
                 model=model,
                 max_tokens=request.max_tokens,
@@ -522,7 +522,7 @@ async def generate_full_app(
             tokens = response.usage.total_tokens if response.usage else 0
             
         else:  # anthropic
-            model = "claude-3-5-sonnet-20241022"  # Correct Claude 3.5 Sonnet
+            model = "claude-3-5-sonnet-20240620"  # Claude 3.5 Sonnet (June 2024 release)
             response = await client.messages.create(
                 model=model,
                 max_tokens=8192,
