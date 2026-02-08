@@ -265,16 +265,19 @@ async def lifespan(app: FastAPI):
     
     # Initialize Redis for async job queue
     try:
-        redis_client = await redis.from_url(
-            REDIS_URL,
+        # Use direct connection parameters instead of from_url() due to redis-py URL parsing issues
+        redis_client = redis.Redis(
+            host=REDIS_HOST,
+            port=REDIS_PORT,
+            password=REDIS_PASSWORD if REDIS_PASSWORD else None,
             encoding="utf-8",
             decode_responses=True,
             socket_connect_timeout=5
         )
         await redis_client.ping()
         # Mask password in log output
-        safe_url = REDIS_URL.replace(f":{REDIS_PASSWORD}@", ":****@") if REDIS_PASSWORD else REDIS_URL
-        logger.info(f"✅ Redis connected: {safe_url} (Async Job Queue)")
+        safe_log = f"{REDIS_HOST}:{REDIS_PORT}" + (f" (password: ****)" if REDIS_PASSWORD else "")
+        logger.info(f"✅ Redis connected: {safe_log} (Async Job Queue)")
     except Exception as e:
         logger.error(f"❌ Redis connection failed: {e}")
         logger.warning("⚠️  Job queue will operate in memory-only mode (not recommended for production)")
