@@ -418,9 +418,9 @@ def _default_openai_model() -> str:
     return "gpt-4o"
 
 def _default_anthropic_model() -> str:
-    # Prefer the most likely-to-be-enabled production model.
+    # Prefer the most stable widely-available production model.
     # Keep this aligned with ANTHROPIC_MODELS.
-    return "claude-3-5-sonnet-20241022"
+    return "claude-3-5-sonnet-20240620"
 
 def _normalize_requested_model(provider_name: str, requested_model: Optional[str]) -> str:
     """Avoid passing invalid/placeholder model names upstream.
