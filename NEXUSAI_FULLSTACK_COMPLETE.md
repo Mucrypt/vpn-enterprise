@@ -9,11 +9,13 @@ NexusAI now has **the most advanced AI code generation system** - more powerful 
 ## ✅ FIXED ISSUES
 
 ### 1. **Sandpack Layout Issue** ✅
+
 - **Problem**: Preview showed white screen / half screen
 - **Solution**: Added proper height styling to Sandpack container
 - **Result**: Full-height preview with proper rendering
 
 ### 2. **Limited Generation Capabilities** ✅
+
 - **Problem**: Only generated frontend code (like competitors)
 - **Solution**: Built dual-AI full-stack generation system
 - **Result**: Complete apps with backend + API + database + tests
@@ -27,6 +29,7 @@ NexusAI now has **the most advanced AI code generation system** - more powerful 
 Uses **both AI models** strategically for maximum power:
 
 #### **Phase 1: Architecture Planning** 🏗️
+
 - **AI Used**: Claude 3.5 Sonnet
 - **Why**: Superior at system design and technical planning
 - **Output**: Complete technical architecture document
@@ -38,6 +41,7 @@ Uses **both AI models** strategically for maximum power:
   - Deployment configuration
 
 #### **Phase 2: Frontend Generation** ⚛️
+
 - **AI Used**: GPT-4o
 - **Why**: Best at code generation
 - **Output**: Complete React/Vue/Next.js app
@@ -50,6 +54,7 @@ Uses **both AI models** strategically for maximum power:
   - Loading states
 
 #### **Phase 3: Backend API Generation** 🔧
+
 - **AI Used**: GPT-4o
 - **Why**: Excellent at generating complete APIs
 - **Output**: Production-ready backend
@@ -63,6 +68,7 @@ Uses **both AI models** strategically for maximum power:
   - Rate limiting & middleware
 
 #### **Phase 4: Integration & Review** 🔗
+
 - **AI Used**: Claude 3.5 Sonnet
 - **Why**: Superior at code review and integration
 - **Output**: Unified system
@@ -79,6 +85,7 @@ Uses **both AI models** strategically for maximum power:
 When you enable **Full-Stack Mode**, NexusAI generates:
 
 ### **Frontend Files**
+
 ```
 src/
 ├── App.tsx                  # Main app with routing
@@ -103,6 +110,7 @@ README.md                    # Setup instructions
 ### **Backend Files**
 
 **Node.js/Express:**
+
 ```
 server/
 ├── src/
@@ -123,6 +131,7 @@ server/
 ```
 
 **Python/FastAPI:**
+
 ```
 api/
 ├── main.py                 # FastAPI app
@@ -138,6 +147,7 @@ api/
 ```
 
 ### **Additional Files**
+
 ```
 docker-compose.yml          # Full stack orchestration
 postman/collection.json     # API testing collection
@@ -154,6 +164,7 @@ README.md                   # Complete documentation
 ## 🔥 WHY THIS IS BETTER
 
 ### **vs Cursor**
+
 - ✅ Generates BOTH frontend AND backend
 - ✅ Includes database schema & migrations
 - ✅ Creates Postman collection for testing
@@ -161,6 +172,7 @@ README.md                   # Complete documentation
 - ✅ Uses dual-AI for better results
 
 ### **vs Lovable (formerly GPT Engineer)**
+
 - ✅ Complete backend API generation
 - ✅ Authentication & authorization
 - ✅ Database planning & migrations
@@ -169,6 +181,7 @@ README.md                   # Complete documentation
 - ✅ Production-ready configs
 
 ### **vs Bolt.ai**
+
 - ✅ Smarter AI combination (Claude + GPT-4)
 - ✅ Complete backend infrastructure
 - ✅ Postman collections for API testing
@@ -180,6 +193,7 @@ README.md                   # Complete documentation
 ## 🎯 HOW TO USE
 
 ### **1. Activate Full-Stack Mode**
+
 1. Go to: **https://chatbuilds.com/nexusai**
 2. Click **"New App"**
 3. Describe your app in detail
@@ -188,6 +202,7 @@ README.md                   # Complete documentation
 6. Click **"Generate Full-Stack App"**
 
 ### **2. What You Get**
+
 - Complete frontend application
 - Backend REST API
 - Database schema + migrations
@@ -197,6 +212,7 @@ README.md                   # Complete documentation
 - Tests
 
 ### **3. Test the API**
+
 1. Find `postman/collection.json` in generated files
 2. Import into Postman
 3. Set environment variable `base_url` = `http://localhost:3000`
@@ -207,12 +223,14 @@ README.md                   # Complete documentation
 ## 📊 GENERATION STATS
 
 **Normal Mode (Frontend Only):**
+
 - Files: 10-15
 - Time: 15-25 seconds
 - AI Used: GPT-4o or Claude (auto-selected)
 - Includes: Frontend + configs
 
 **Full-Stack Mode:**
+
 - Files: **30-50+**
 - Time: 60-90 seconds (4 AI calls)
 - AI Used: **Both Claude & GPT-4**
@@ -223,6 +241,7 @@ README.md                   # Complete documentation
 ## 🔧 TECHNICAL ARCHITECTURE
 
 ### **Backend (Python/FastAPI)**
+
 ```python
 # New endpoint: /ai/generate/fullstack
 
@@ -238,6 +257,7 @@ Complete Full-Stack App
 ```
 
 ### **Frontend**
+
 - React component: `AppDescription.tsx`
 - Toggle switch for Full-Stack mode
 - Conditional API endpoint (`/generate/app` vs `/generate/fullstack`)
@@ -248,6 +268,7 @@ Complete Full-Stack App
 ## 🎨 UI IMPROVEMENTS
 
 ### **Sandpack Preview**
+
 - **Before**: White screen / half-height display
 - **After**: Full-height interactive preview with:
   - File navigation tabs
@@ -256,7 +277,9 @@ Complete Full-Stack App
   - Error messages
 
 ### **Full-Stack Toggle**
+
 New prominent toggle with:
+
 - **Badge**: "ADVANCED" indicator
 - **Description**: Clear explanation of capabilities
 - **Details**: Shows what will be generated
@@ -267,6 +290,7 @@ New prominent toggle with:
 ## 🚀 PRODUCTION STATUS
 
 ### **All Services Running**
+
 ```
 ✅ NexusAI Frontend: https://chatbuilds.com/nexusai
 ✅ Python AI API: Internal (python-api:5001)
@@ -276,6 +300,7 @@ New prominent toggle with:
 ```
 
 ### **Deployment**
+
 - Commit: `3339f2a`
 - Containers: Rebuilt and running
 - AI Keys: Restored and loaded
@@ -288,6 +313,7 @@ New prominent toggle with:
 ### **Endpoint: POST /ai/generate/fullstack**
 
 **Request:**
+
 ```json
 {
   "description": "Build a task management app with user auth",
@@ -301,6 +327,7 @@ New prominent toggle with:
 ```
 
 **Response:**
+
 ```json
 {
   "files": [
@@ -336,6 +363,7 @@ New prominent toggle with:
 ## 💡 NEXT STEPS
 
 ### **Try It Now:**
+
 1. Visit: **https://chatbuilds.com/nexusai**
 2. Create a new app
 3. Enable "Full-Stack Mode"
@@ -349,6 +377,7 @@ New prominent toggle with:
    - Complete documentation
 
 ### **Test the API:**
+
 1. Copy the generated `postman/collection.json`
 2. Import into Postman
 3. Start the backend: `cd server && npm run dev`
@@ -358,17 +387,17 @@ New prominent toggle with:
 
 ## 📊 COMPARISON TABLE
 
-| Feature | Cursor | Lovable | Bolt.ai | **NexusAI** |
-|---------|--------|---------|---------|-------------|
-| Frontend Generation | ✅ | ✅ | ✅ | ✅ |
-| Backend API | ❌ | ⚠️ Limited | ❌ | ✅ **Full** |
-| Database Schema | ❌ | ⚠️ Basic | ❌ | ✅ **Complete** |
-| Postman Collection | ❌ | ❌ | ❌ | ✅ **Yes!** |
-| API Documentation | ❌ | ⚠️ Basic | ❌ | ✅ **OpenAPI** |
-| Unit Tests | ❌ | ❌ | ❌ | ✅ **Yes** |
-| Docker Orchestration | ❌ | ⚠️ Basic | ⚠️ Basic | ✅ **Complete** |
-| Dual-AI System | ❌ | ❌ | ❌ | ✅ **Claude + GPT-4** |
-| File Count | 10-15 | 15-20 | 10-15 | **30-50+** |
+| Feature              | Cursor | Lovable    | Bolt.ai  | **NexusAI**           |
+| -------------------- | ------ | ---------- | -------- | --------------------- |
+| Frontend Generation  | ✅     | ✅         | ✅       | ✅                    |
+| Backend API          | ❌     | ⚠️ Limited | ❌       | ✅ **Full**           |
+| Database Schema      | ❌     | ⚠️ Basic   | ❌       | ✅ **Complete**       |
+| Postman Collection   | ❌     | ❌         | ❌       | ✅ **Yes!**           |
+| API Documentation    | ❌     | ⚠️ Basic   | ❌       | ✅ **OpenAPI**        |
+| Unit Tests           | ❌     | ❌         | ❌       | ✅ **Yes**            |
+| Docker Orchestration | ❌     | ⚠️ Basic   | ⚠️ Basic | ✅ **Complete**       |
+| Dual-AI System       | ❌     | ❌         | ❌       | ✅ **Claude + GPT-4** |
+| File Count           | 10-15  | 15-20      | 10-15    | **30-50+**            |
 
 ---
 

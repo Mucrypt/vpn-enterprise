@@ -126,8 +126,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"   • App Error: {N8N_APP_ERROR}")
     
     if not openai_client and not anthropic_client:
+        # Don't crash the container in production. Keep the service up so
+        # Nginx health checks stay green and callers get a clear 503.
         logger.error("❌ NO AI PROVIDERS! Set OPENAI_API_KEY or ANTHROPIC_API_KEY")
-        raise RuntimeError("At least one AI provider must be configured")
     
     # Initialize HTTP client for webhooks
     http_client = httpx.AsyncClient(timeout=10.0)
@@ -216,15 +217,17 @@ class MultiFileAppResponse(BaseModel):
     tokens_used: int
 
 class DeploymentRequest(BaseModel):
+    model_config = {"extra": "allow"}
+
     app_name: str
-    app_id: str
     files: List[FileOutput]
-    dependencies: Dict[str, str]
-    framework: str
+    dependencies: Dict[str, str] = Field(default_factory=dict)
+    framework: str = Field(default="react")
     requires_database: bool
     database_schema: Optional[str] = None
-    user_id: str
-    user_email: str
+    user_id: str = Field(default="anonymous")
+    user_email: Optional[str] = None
+    app_id: Optional[str] = None
 
 class HealthResponse(BaseModel):
     status: str
@@ -232,6 +235,60 @@ class HealthResponse(BaseModel):
     version: str
     ai_providers: Dict[str, bool]
     n8n_enabled: bool
+
+class ModelsResponse(BaseModel):
+    models: List[str]
+
+class SQLAssistRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=100000)
+    action: str = Field(..., pattern="^(generate|explain|optimize|fix)$")
+    schema: Optional[str] = None
+    sql: Optional[str] = None
+    provider: AIProvider = Field(default=AIProvider.AUTO)
+    model: Optional[str] = None
+
+class SQLAssistResponse(BaseModel):
+    sql: Optional[str] = None
+    explanation: Optional[str] = None
+    optimized: Optional[str] = None
+    fixed: Optional[str] = None
+    suggestions: Optional[List[str]] = None
+    provider_used: Optional[str] = None
+    model_used: Optional[str] = None
+
+class AIProvidersResponse(BaseModel):
+    providers: List[Dict[str, str]]
+    routing_strategy: str
+
+class DeployAppRequest(BaseModel):
+    app_name: str = Field(..., min_length=1, max_length=80)
+    files: List[FileOutput]
+    dependencies: Dict[str, str] = Field(default_factory=dict)
+    framework: str = Field(default="react")
+    requires_database: bool = Field(default=True)
+    user_id: str = Field(default="anonymous")
+    # Optional fields used by other flows
+    app_id: Optional[str] = None
+    database_schema: Optional[str] = None
+    user_email: Optional[str] = None
+
+class DeploymentStatusResponse(BaseModel):
+    deployment_id: str
+    status: str
+    progress: int
+    current_step: str
+    logs: List[str]
+    error: Optional[str] = None
+
+class DeploymentResponse(BaseModel):
+    deployment_id: str
+    app_name: str
+    status: str
+    database: Optional[Dict[str, Any]] = None
+    hosting: Optional[Dict[str, Any]] = None
+    app_url: Optional[str] = None
+    environment: Optional[Dict[str, str]] = None
+    steps: List[Dict[str, str]]
 
 # ============================================
 # UTILITY FUNCTIONS
@@ -329,6 +386,44 @@ def choose_ai_provider(description: str, provider: AIProvider) -> tuple[str, Any
         detail="No AI provider available for the requested provider type"
     )
 
+def _default_openai_model() -> str:
+    return "gpt-4o"
+
+def _default_anthropic_model() -> str:
+    # Prefer the most likely-to-be-enabled production model.
+    # Keep this aligned with ANTHROPIC_MODELS.
+    return "claude-3-5-sonnet-20240620"
+
+def _normalize_requested_model(provider_name: str, requested_model: Optional[str]) -> str:
+    """Avoid passing invalid/placeholder model names upstream.
+
+    The NexusAI frontend historically used non-OpenAI/Anthropic defaults (e.g. Ollama
+    names like deepseek-coder-v2). Those should safely fall back to a valid model.
+    """
+    if not requested_model:
+        return _default_openai_model() if provider_name == "openai" else _default_anthropic_model()
+
+    requested_model = requested_model.strip()
+    if requested_model in {"auto", "default"}:
+        return _default_openai_model() if provider_name == "openai" else _default_anthropic_model()
+
+    if provider_name == "openai":
+        if requested_model in OPENAI_MODELS:
+            return requested_model
+        # Allow direct OpenAI model names even if not listed.
+        if requested_model.startswith("gpt-"):
+            return requested_model
+        return _default_openai_model()
+
+    # anthropic
+    if requested_model in ANTHROPIC_MODELS:
+        return requested_model
+    if requested_model.startswith("claude-"):
+        return requested_model
+    return _default_anthropic_model()
+
+_deployment_status_store: Dict[str, DeploymentStatusResponse] = {}
+
 # ============================================
 # PROMPT TEMPLATES
 # ============================================
@@ -401,15 +496,17 @@ async def root():
             "docs": "/docs",
             "generate": "/ai/generate",
             "generate_app": "/ai/generate/app",
-            "deploy": "/deploy/app"
+            "deploy": "/ai/deploy/app"
         }
     }
 
 @app.get("/health", response_model=HealthResponse)
+@app.get("/ai/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
+    any_provider = (openai_client is not None) or (anthropic_client is not None)
     return HealthResponse(
-        status="healthy",
+        status="healthy" if any_provider else "degraded",
         timestamp=datetime.utcnow(),
         version="2.0.0",
         ai_providers={
@@ -418,6 +515,112 @@ async def health_check():
         },
         n8n_enabled=bool(N8N_WEBHOOK_BASE)
     )
+
+@app.get("/models", response_model=ModelsResponse)
+@app.get("/ai/models", response_model=ModelsResponse)
+async def list_models():
+    """List models supported by configured providers."""
+    models: List[str] = []
+    if openai_client is not None:
+        models.extend(list(OPENAI_MODELS.keys()))
+    if anthropic_client is not None:
+        models.extend(list(ANTHROPIC_MODELS.keys()))
+
+    # If no providers configured, still return a stable response.
+    if not models:
+        models = list(OPENAI_MODELS.keys()) + list(ANTHROPIC_MODELS.keys())
+
+    # Deduplicate while keeping order.
+    seen = set()
+    unique_models: List[str] = []
+    for m in models:
+        if m in seen:
+            continue
+        unique_models.append(m)
+        seen.add(m)
+
+    return ModelsResponse(models=unique_models)
+
+@app.get("/ai/providers", response_model=AIProvidersResponse)
+@app.get("/ai/ai/providers", response_model=AIProvidersResponse)
+async def ai_providers():
+    """Expose provider availability for the frontend UI."""
+    providers: List[Dict[str, str]] = []
+    providers.append({
+        "name": "OpenAI",
+        "model": _default_openai_model(),
+        "status": "available" if openai_client is not None else "unconfigured",
+    })
+    providers.append({
+        "name": "Anthropic",
+        "model": _default_anthropic_model(),
+        "status": "available" if anthropic_client is not None else "unconfigured",
+    })
+    return AIProvidersResponse(providers=providers, routing_strategy="auto")
+
+@app.post("/sql/assist", response_model=SQLAssistResponse)
+@app.post("/ai/sql/assist", response_model=SQLAssistResponse)
+async def sql_assist(request: SQLAssistRequest):
+    """SQL assistance endpoint used by the NexusAI frontend."""
+    provider_name, client = choose_ai_provider(request.query, request.provider)
+    model = _normalize_requested_model(provider_name, request.model)
+
+    schema_text = f"\n\nSchema:\n{request.schema}" if request.schema else ""
+    sql_text = f"\n\nSQL:\n{request.sql}" if request.sql else ""
+
+    if request.action == "generate":
+        prompt = f"Generate PostgreSQL SQL for this request:\n{request.query}{schema_text}\nReturn ONLY SQL."
+    elif request.action == "explain":
+        prompt = f"Explain this SQL in plain English, including performance considerations.\n{request.query}{schema_text}{sql_text}"
+    elif request.action == "optimize":
+        prompt = f"Optimize this SQL for PostgreSQL. Provide optimized SQL only.\n{request.query}{schema_text}{sql_text}"
+    else:  # fix
+        prompt = f"Fix this SQL for PostgreSQL. Provide fixed SQL only.\n{request.query}{schema_text}{sql_text}"
+
+    try:
+        if provider_name == "openai":
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=2048,
+            )
+            text = response.choices[0].message.content
+        else:
+            response = await client.messages.create(
+                model=model,
+                max_tokens=2048,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.content[0].text
+
+        text = (text or "").strip()
+        if request.action == "explain":
+            return SQLAssistResponse(
+                explanation=text,
+                provider_used=provider_name,
+                model_used=model,
+            )
+        if request.action == "optimize":
+            return SQLAssistResponse(
+                optimized=text,
+                provider_used=provider_name,
+                model_used=model,
+            )
+        if request.action == "fix":
+            return SQLAssistResponse(
+                fixed=text,
+                provider_used=provider_name,
+                model_used=model,
+            )
+        return SQLAssistResponse(sql=text, provider_used=provider_name, model_used=model)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ SQL assist failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"SQL assist failed: {str(e)}")
 
 @app.post("/ai/generate", response_model=Dict[str, Any])
 async def generate_ai_text(
@@ -432,7 +635,7 @@ async def generate_ai_text(
     
     try:
         if provider_name == "openai":
-            model = request.model or "gpt-4o"
+            model = _normalize_requested_model(provider_name, request.model)
             response = await client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": request.prompt}],
@@ -443,7 +646,7 @@ async def generate_ai_text(
             tokens = response.usage.total_tokens if response.usage else 0
             
         else:  # anthropic
-            model = request.model or "claude-3-opus-20240229"
+            model = _normalize_requested_model(provider_name, request.model)
             response = await client.messages.create(
                 model=model,
                 max_tokens=request.max_tokens,
@@ -507,7 +710,7 @@ async def generate_full_app(
     try:
         # Call AI
         if provider_name == "openai":
-            model = "gpt-4o"  # Best for code generation
+            model = _default_openai_model()  # Best for code generation
             response = await client.chat.completions.create(
                 model=model,
                 messages=[
@@ -522,7 +725,7 @@ async def generate_full_app(
             tokens = response.usage.total_tokens if response.usage else 0
             
         else:  # anthropic
-            model = "claude-3-opus-20240229"  # Claude 3 Opus (most capable)
+            model = _default_anthropic_model()
             response = await client.messages.create(
                 model=model,
                 max_tokens=8192,
@@ -617,15 +820,29 @@ async def deploy_app(
             detail=f"Deploy rate limit exceeded for {x_user_tier} tier"
         )
     
-    logger.info(f"🚀 Deploying app '{request.app_name}' for user {user_id}")
+    import uuid
+
+    deployment_id = str(uuid.uuid4())
+    logger.info(f"🚀 Deploying app '{request.app_name}' for user {user_id} (deployment_id={deployment_id})")
     
+    # Track a minimal status for frontend polling (best-effort; per-worker memory).
+    _deployment_status_store[deployment_id] = DeploymentStatusResponse(
+        deployment_id=deployment_id,
+        status="pending",
+        progress=5,
+        current_step="queued",
+        logs=["Deployment queued"],
+        error=None,
+    )
+
     # Send to N8N for deployment automation
     deployment_payload = {
         "event": "deploy_app",
-        "app_id": request.app_id,
+        "deployment_id": deployment_id,
+        "app_id": request.app_id or deployment_id,
         "app_name": request.app_name,
         "user_id": user_id,
-        "user_email": request.user_email,
+        "user_email": getattr(request, "user_email", None),
         "framework": request.framework,
         "files": [{"path": f.path, "content": f.content, "language": f.language} for f in request.files],
         "dependencies": request.dependencies,
@@ -638,12 +855,37 @@ async def deploy_app(
     asyncio.create_task(send_n8n_webhook(N8N_APP_DEPLOY, deployment_payload))
     
     return {
-        "status": "deployment_queued",
-        "app_id": request.app_id,
+        "deployment_id": deployment_id,
         "app_name": request.app_name,
-        "message": "Deployment workflow started. You'll receive notifications in Slack/Email.",
-        "estimated_time_minutes": 5
+        "status": "pending",
+        "steps": [
+            {"step": "queued", "status": "success"},
+            {"step": "building", "status": "pending"},
+            {"step": "deploying", "status": "pending"},
+        ],
+        "app_url": None,
     }
+
+@app.post("/ai/deploy/app", response_model=Dict[str, Any])
+async def deploy_app_ai_prefix(request: DeploymentRequest, x_api_key: Optional[str] = Header(None), x_user_tier: Optional[str] = Header("free")):
+    """Alias for deployments when routed through /api/ai/* rewrite."""
+    return await deploy_app(request, x_api_key=x_api_key, x_user_tier=x_user_tier)
+
+@app.get("/deploy/status/{deployment_id}", response_model=DeploymentStatusResponse)
+@app.get("/ai/deploy/status/{deployment_id}", response_model=DeploymentStatusResponse)
+async def get_deployment_status(deployment_id: str):
+    """Best-effort deployment status (front-end polling)."""
+    status = _deployment_status_store.get(deployment_id)
+    if status is None:
+        return DeploymentStatusResponse(
+            deployment_id=deployment_id,
+            status="pending",
+            progress=0,
+            current_step="queued",
+            logs=[],
+            error=None,
+        )
+    return status
 
 # ============================================
 # ADVANCED DUAL-AI FULL-STACK GENERATION
