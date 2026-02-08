@@ -585,8 +585,9 @@ async def create_job(user_id: str, request_data: Dict[str, Any]) -> str:
     
     if redis_client:
         try:
-            # Store job in Redis with 24-hour TTL
-            await redis_client.hset(f"job:{job_id}", mapping=job_data)
+            # Store job in Redis with 24-hour TTL (filter out None values for Redis)
+            redis_safe_data = {k: v for k, v in job_data.items() if v is not None}
+            await redis_client.hset(f"job:{job_id}", mapping=redis_safe_data)
             await redis_client.expire(f"job:{job_id}", 86400)  # 24 hours
             logger.info(f"✅ Job created in Redis: {job_id}")
         except Exception as e:
@@ -2028,6 +2029,27 @@ Output JSON:
         await update_job_progress(job_id, JobPhase.DATABASE, 85, "Provisioning database and saving app...")
         
         all_files = frontend_files + backend_files + integration_files
+        
+        # Normalize file paths to prevent duplicate key violations in database
+        unknown_counter = 0
+        for file in all_files:
+            if not isinstance(file, dict):
+                continue
+            
+            # Ensure file has 'path' key (prioritize 'path' over 'file_path')
+            if 'path' not in file and 'file_path' not in file:
+                unknown_counter += 1
+                file['path'] = f"unknown_file_{unknown_counter}.txt"
+            elif 'file_path' in file and 'path' not in file:
+                file['path'] = file['file_path']
+            elif not file.get('path'):  # path exists but is empty/None
+                unknown_counter += 1
+                file['path'] = f"unknown_file_{unknown_counter}.txt"
+            
+            # Ensure required fields exist
+            file.setdefault('content', '')
+            file.setdefault('language', 'text')
+        
         total_tokens = architecture_tokens + frontend_tokens + backend_tokens + integration_tokens
         elapsed = int((time.time() - start_time) * 1000)
         
