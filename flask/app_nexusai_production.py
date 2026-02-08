@@ -695,17 +695,22 @@ async def get_job_status(job_id: str) -> Optional[JobInfo]:
         except:
             result = job_data["result"]
     
-    return JobInfo(
-        job_id=job_data["job_id"],
-        status=JobStatus(job_data["status"]),
-        phase=JobPhase(job_data["phase"]) if job_data.get("phase") else None,
-        progress_percent=int(job_data.get("progress_percent", 0)),
-        message=job_data.get("message", ""),
-        created_at=datetime.fromisoformat(job_data["created_at"]),
-        updated_at=datetime.fromisoformat(job_data["updated_at"]),
-        result=result,
-        error=job_data.get("error")
-    )
+    # Handle missing keys gracefully
+    try:
+        return JobInfo(
+            job_id=job_data.get("job_id", job_id),  # Fallback to parameter if missing
+            status=JobStatus(job_data.get("status", "pending")),
+            phase=JobPhase(job_data["phase"]) if job_data.get("phase") else None,
+            progress_percent=int(job_data.get("progress_percent", 0)),
+            message=job_data.get("message", ""),
+            created_at=datetime.fromisoformat(job_data["created_at"]) if job_data.get("created_at") else datetime.utcnow(),
+            updated_at=datetime.fromisoformat(job_data["updated_at"]) if job_data.get("updated_at") else datetime.utcnow(),
+            result=result,
+            error=job_data.get("error")
+        )
+    except Exception as e:
+        logger.error(f"❌ Failed to parse job data for {job_id}: {e}, data keys: {list(job_data.keys())}")
+        return None
 
 def _default_openai_model() -> str:
     return "gpt-4o"
