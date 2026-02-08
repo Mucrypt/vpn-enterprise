@@ -54,30 +54,30 @@ interface LivePreviewProps {
 export function LivePreview({ files, framework = 'react' }: LivePreviewProps) {
   const sandpackFiles = useMemo(() => {
     const filesObj: Record<string, string> = {}
-    
+
     files.forEach((file) => {
       // Convert file paths to Sandpack format
       let sandpackPath = file.path
-      
+
       // Ensure paths start with /
       if (!sandpackPath.startsWith('/')) {
         sandpackPath = '/' + sandpackPath
       }
-      
+
       filesObj[sandpackPath] = file.content
     })
-    
+
     return filesObj
   }, [files])
 
   const template = framework === 'react' ? 'react-ts' : 'react'
 
   return (
-    <div className='w-full h-full'>
+    <div className='w-full h-full' style={{ minHeight: '600px', height: '100%' }}>
       <Sandpack
         template={template}
         files={sandpackFiles}
-        theme="dark"
+        theme='dark'
         options={{
           showNavigator: true,
           showTabs: true,
@@ -87,6 +87,7 @@ export function LivePreview({ files, framework = 'react' }: LivePreviewProps) {
           showInlineErrors: true,
           wrapContent: true,
         }}
+        style={{ height: '100%', minHeight: '600px' }}
       />
     </div>
   )

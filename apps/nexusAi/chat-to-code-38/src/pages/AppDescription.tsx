@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { Sparkles, ArrowRight, Plus, X } from 'lucide-react'
+import { Sparkles, ArrowRight, Plus, X, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import {
   Card,
   CardContent,
@@ -33,6 +34,7 @@ const AppDescription = () => {
   const [styling, setStyling] = useState<string>('tailwind')
   const [features, setFeatures] = useState<string[]>([])
   const [featureInput, setFeatureInput] = useState('')
+  const [fullStackMode, setFullStackMode] = useState(false)
 
   // Pre-fill description if coming from home page
   useEffect(() => {
@@ -69,6 +71,7 @@ const AppDescription = () => {
         framework,
         styling,
         features,
+        fullStackMode,
       },
     })
   }
@@ -226,6 +229,40 @@ const AppDescription = () => {
                 </p>
               </div>
 
+              {/* Full-Stack Mode Toggle */}
+              <div className='p-6 bg-gradient-to-br from-primary/10 to-purple-600/10 border-2 border-primary/30 rounded-lg space-y-3'>
+                <div className='flex items-center justify-between'>
+                  <div className='space-y-1 flex-1'>
+                    <div className='flex items-center gap-2'>
+                      <Zap className='w-5 h-5 text-primary' />
+                      <h3 className='text-lg font-bold'>Full-Stack Mode</h3>
+                      <Badge variant='default' className='animate-pulse'>
+                        ADVANCED
+                      </Badge>
+                    </div>
+                    <p className='text-sm text-muted-foreground'>
+                      Generate complete app with backend API + Postman
+                      collection. Uses dual-AI (Claude + GPT-4) for maximum
+                      power. More capable than Cursor, Lovable, or Bolt!
+                    </p>
+                  </div>
+                  <Switch
+                    checked={fullStackMode}
+                    onCheckedChange={setFullStackMode}
+                    className='ml-4'
+                  />
+                </div>
+                {fullStackMode && (
+                  <div className='mt-3 p-3 bg-background/80 rounded-md border'>
+                    <p className='text-xs text-muted-foreground flex items-center gap-2'>
+                      <Sparkles className='w-4 h-4 text-primary' />
+                      Generates: Frontend + Backend API + Database Schema +
+                      Postman Collection + Docker Compose + Tests
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Generate Button */}
               <div className='pt-6 border-t'>
                 <Button
@@ -235,7 +272,7 @@ const AppDescription = () => {
                   className='w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 shadow-xl hover:shadow-2xl hover:shadow-primary/50 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed'
                 >
                   <Sparkles className='w-5 h-5 mr-2 animate-pulse' />
-                  Generate Full App
+                  {fullStackMode ? 'Generate Full-Stack App' : 'Generate Frontend App'}
                   <ArrowRight className='w-5 h-5 ml-2' />
                 </Button>
               </div>

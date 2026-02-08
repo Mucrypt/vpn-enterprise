@@ -271,6 +271,47 @@ export class AIService {
     return result
   }
 
+  // Generate FULL-STACK application (Frontend + Backend API + Postman Collection)
+  // Uses DUAL-AI system: Claude for architecture, GPT-4 for code generation
+  // MORE POWERFUL than Cursor, Lovable, or Bolt!
+  async generateFullStackApp(
+    request: MultiFileGenerateRequest,
+  ): Promise<MultiFileGenerateResponse> {
+    const response = await fetch(`${this.baseURL}/generate/fullstack`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        description: request.description,
+        framework: request.framework || 'react',
+        features: request.features || [],
+        styling: request.styling || 'tailwind',
+        include_database: true,
+        include_auth: true,
+        include_api: true,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ detail: 'Unknown error' }))
+      throw new Error(error.detail || `API Error: ${response.status}`)
+    }
+
+    const result = await response.json()
+
+    // Trigger N8N webhook
+    this.triggerN8NWebhook('nexusai-app-generated', {
+      app_name: request.description.substring(0, 50),
+      framework: request.framework,
+      files_count: result.files?.length || 0,
+      fullstack_mode: true,
+      timestamp: new Date().toISOString(),
+    }).catch((err) => console.warn('N8N webhook failed:', err))
+
+    return result
+  }
+
   // SQL assistance (generate, explain, optimize, fix)
   async sqlAssist(request: SQLAssistRequest): Promise<SQLAssistResponse> {
     const response = await fetch(`${this.baseURL}/sql/assist`, {
@@ -584,6 +625,8 @@ export function useAI(apiKey?: string) {
     generate: (req: AIGenerateRequest) => service.generate(req),
     generateFullApp: (req: MultiFileGenerateRequest) =>
       service.generateFullApp(req),
+    generateFullStackApp: (req: MultiFileGenerateRequest) =>
+      service.generateFullStackApp(req),
     sqlAssist: (req: SQLAssistRequest) => service.sqlAssist(req),
     getUsage: () => service.getUsage(),
     listModels: () => service.listModels(),

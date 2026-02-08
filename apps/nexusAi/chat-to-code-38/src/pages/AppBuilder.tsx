@@ -38,7 +38,7 @@ const AppBuilder = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { generateFullApp, deployApp } = useAI()
+  const { generateFullApp, generateFullStackApp, deployApp } = useAI()
 
   // State from AppDescription page or MyApps page
   const appDetails = location.state as {
@@ -46,6 +46,7 @@ const AppBuilder = () => {
     framework: string
     styling: string
     features: string[]
+    fullStackMode?: boolean
     loadedApp?: SavedApp
   } | null
 
@@ -160,11 +161,21 @@ const AppBuilder = () => {
         setProgress((prev) => Math.min(prev + 5, 90))
       }, 800)
 
-      const result = await generateFullApp({
+      // Use Full-Stack mode if enabled (Dual-AI: Claude + GPT-4)
+      const generateFn = appDetails.fullStackMode ? generateFullStackApp : generateFullApp
+      
+      const result = await generateFn({
         description: appDetails.description,
         framework: appDetails.framework as any,
         styling: appDetails.styling as any,
         features: appDetails.features,
+      })
+
+      toast({
+        title: appDetails.fullStackMode ? '🎉 Full-Stack App Generated!' : '✅ App Generated',
+        description: appDetails.fullStackMode 
+          ? `Generated ${result.files?.length || 0} files with backend API, database, and Postman collection using dual-AI system!`
+          : `Generated ${result.files?.length || 0} files successfully`,
       })
 
       clearInterval(progressInterval)
