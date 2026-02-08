@@ -73,7 +73,10 @@ export function LivePreview({ files, framework = 'react' }: LivePreviewProps) {
   const template = framework === 'react' ? 'react-ts' : 'react'
 
   return (
-    <div className='w-full h-full' style={{ minHeight: '600px', height: '100%' }}>
+    <div
+      className='w-full h-full'
+      style={{ minHeight: '600px', height: '100%' }}
+    >
       <Sandpack
         template={template}
         files={sandpackFiles}

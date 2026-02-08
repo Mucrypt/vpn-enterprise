@@ -272,7 +272,9 @@ const AppDescription = () => {
                   className='w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 shadow-xl hover:shadow-2xl hover:shadow-primary/50 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed'
                 >
                   <Sparkles className='w-5 h-5 mr-2 animate-pulse' />
-                  {fullStackMode ? 'Generate Full-Stack App' : 'Generate Frontend App'}
+                  {fullStackMode
+                    ? 'Generate Full-Stack App'
+                    : 'Generate Frontend App'}
                   <ArrowRight className='w-5 h-5 ml-2' />
                 </Button>
               </div>

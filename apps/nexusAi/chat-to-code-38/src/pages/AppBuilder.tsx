@@ -162,8 +162,10 @@ const AppBuilder = () => {
       }, 800)
 
       // Use Full-Stack mode if enabled (Dual-AI: Claude + GPT-4)
-      const generateFn = appDetails.fullStackMode ? generateFullStackApp : generateFullApp
-      
+      const generateFn = appDetails.fullStackMode
+        ? generateFullStackApp
+        : generateFullApp
+
       const result = await generateFn({
         description: appDetails.description,
         framework: appDetails.framework as any,
@@ -172,8 +174,10 @@ const AppBuilder = () => {
       })
 
       toast({
-        title: appDetails.fullStackMode ? '🎉 Full-Stack App Generated!' : '✅ App Generated',
-        description: appDetails.fullStackMode 
+        title: appDetails.fullStackMode
+          ? '🎉 Full-Stack App Generated!'
+          : '✅ App Generated',
+        description: appDetails.fullStackMode
           ? `Generated ${result.files?.length || 0} files with backend API, database, and Postman collection using dual-AI system!`
           : `Generated ${result.files?.length || 0} files successfully`,
       })
