@@ -66,6 +66,29 @@ export interface MultiFileGenerateResponse {
   tokens_used?: number // Total tokens consumed
 }
 
+// Async Job Queue Types
+export type JobStatus = 'pending' | 'running' | 'completed' | 'failed'
+export type JobPhase = 'architecture' | 'frontend' | 'backend' | 'integration' | 'database'
+
+export interface JobInfo {
+  job_id: string
+  status: JobStatus
+  phase?: JobPhase
+  progress_percent: number
+  message: string
+  created_at: string
+  updated_at: string
+  result?: MultiFileGenerateResponse
+  error?: string
+}
+
+export interface AsyncJobResponse {
+  job_id: string
+  status: string
+  message: string
+  poll_url: string
+}
+
 export interface DeployAppRequest {
   app_name: string
   files: FileOutput[]
@@ -292,10 +315,65 @@ export class AIService {
   // Generate FULL-STACK application (Frontend + Backend API + Postman Collection)
   // Uses DUAL-AI system: Claude for architecture, GPT-4 for code generation
   // MORE POWERFUL than Cursor, Lovable, or Bolt!
+  /**
+   * Poll job status every 2 seconds until completed or failed
+   */
+  private async pollJobStatus(
+    jobId: string,
+    onProgress?: (jobInfo: JobInfo) => void,
+  ): Promise<MultiFileGenerateResponse> {
+    const maxAttempts = 180 // 6 minutes max (180 * 2s = 360s)
+    let attempts = 0
+
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(`${this.baseURL}/jobs/${jobId}`, {
+          headers: this.getHeaders(),
+        })
+
+        if (!response.ok) {
+          throw new Error(`Polling failed: ${response.status}`)
+        }
+
+        const jobInfo: JobInfo = await response.json()
+
+        // Call progress callback
+        if (onProgress) {
+          onProgress(jobInfo)
+        }
+
+        // Check if completed
+        if (jobInfo.status === 'completed' && jobInfo.result) {
+          return jobInfo.result
+        }
+
+        // Check if failed
+        if (jobInfo.status === 'failed') {
+          throw new Error(jobInfo.error || 'Generation failed')
+        }
+
+        // Wait 2 seconds before next poll
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+        attempts++
+      } catch (error) {
+        console.error('Polling error:', error)
+        throw error
+      }
+    }
+
+    throw new Error('Generation timeout: Job took longer than expected')
+  }
+
+  /**
+   * Generate full-stack app using async job queue
+   * Returns immediately with job_id, then polls for completion
+   */
   async generateFullStackApp(
     request: MultiFileGenerateRequest,
+    onProgress?: (jobInfo: JobInfo) => void,
   ): Promise<MultiFileGenerateResponse> {
-    const response = await fetch(`${this.baseURL}/generate/fullstack`, {
+    // Create async job
+    const response = await fetch(`${this.baseURL}/generate/fullstack/async`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify({
@@ -316,7 +394,13 @@ export class AIService {
       throw new Error(error.detail || `API Error: ${response.status}`)
     }
 
-    const result = await response.json()
+    const asyncResponse: AsyncJobResponse = await response.json()
+    const jobId = asyncResponse.job_id
+
+    console.log(`✅ Job ${jobId} created, polling for completion...`)
+
+    // Poll for completion
+    const result = await this.pollJobStatus(jobId, onProgress)
 
     // Trigger N8N webhook
     this.triggerN8NWebhook('nexusai-app-generated', {

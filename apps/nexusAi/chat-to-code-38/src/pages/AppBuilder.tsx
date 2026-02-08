@@ -29,6 +29,7 @@ import {
   type MultiFileGenerateResponse,
   type FileOutput,
   type DeploymentResponse,
+  type JobInfo,
 } from '@/services/aiService'
 import { generatedAppsService } from '@/services/generatedAppsService'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -53,6 +54,8 @@ const AppBuilder = () => {
 
   const [loading, setLoading] = useState(true)
   const [progress, setProgress] = useState(0)
+  const [progressMessage, setProgressMessage] = useState<string>('')
+  const [currentPhase, setCurrentPhase] = useState<string>('')
   const [generatedApp, setGeneratedApp] =
     useState<MultiFileGenerateResponse | null>(null)
   const [selectedFile, setSelectedFile] = useState<FileOutput | null>(null)
@@ -153,26 +156,62 @@ const AppBuilder = () => {
     if (!appDetails) return
 
     setLoading(true)
-    setProgress(10)
+    setProgress(0)
+    setProgressMessage('Starting generation...')
+    setCurrentPhase('')
     setGeneratedApp(null)
 
     try {
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + 5, 90))
-      }, 800)
-
       // Use Full-Stack mode if enabled (Dual-AI: Claude + GPT-4)
       const generateFn = appDetails.fullStackMode
         ? generateFullStackApp
         : generateFullApp
 
-      const result = await generateFn({
-        description: appDetails.description,
-        framework: appDetails.framework as any,
-        styling: appDetails.styling as any,
-        features: appDetails.features,
-      })
+      let result
+
+      if (appDetails.fullStackMode) {
+        // Full-stack mode with async job queue and progress tracking
+        result = await generateFn(
+          {
+            description: appDetails.description,
+            framework: appDetails.framework as any,
+            styling: appDetails.styling as any,
+            features: appDetails.features,
+          },
+          // Progress callback
+          (jobInfo) => {
+            setProgress(jobInfo.progress_percent)
+            setProgressMessage(jobInfo.message)
+            
+            // Format phase name for display
+            const phaseNames = {
+              architecture: '🏗️  Phase 1: Architecture Design',
+              frontend: '🎨 Phase 2: Frontend Generation',
+              backend: '⚙️  Phase 3: Backend API',
+              integration: '🔗 Phase 4: Integration & Config',
+              database: '💾 Phase 5: Database Provisioning'
+            }
+            
+            if (jobInfo.phase) {
+              setCurrentPhase(phaseNames[jobInfo.phase] || jobInfo.phase)
+            }
+          }
+        )
+      } else {
+        // Regular mode (old behavior with simulated progress)
+        const progressInterval = setInterval(() => {
+          setProgress((prev) => Math.min(prev + 5, 90))
+        }, 800)
+
+        result = await generateFn({
+          description: appDetails.description,
+          framework: appDetails.framework as any,
+          styling: appDetails.styling as any,
+          features: appDetails.features,
+        })
+
+        clearInterval(progressInterval)
+      }
 
       toast({
         title: appDetails.fullStackMode
@@ -183,8 +222,8 @@ const AppBuilder = () => {
           : `Generated ${result.files?.length || 0} files successfully`,
       })
 
-      clearInterval(progressInterval)
       setProgress(100)
+      setProgressMessage('Generation complete!')
       setGeneratedApp(result)
 
       // Select first file
@@ -361,8 +400,22 @@ const AppBuilder = () => {
             </div>
           </div>
 
-          {/* Status messages */}
-          <div className='space-y-2 sm:space-y-3'>
+          {/* Dynamic Phase Progress - Full-Stack Mode */}
+          {appDetails?.fullStackMode && currentPhase && (
+            <div className='mb-6 sm:mb-8 space-y-2'>
+              <div className='flex items-center gap-3 p-4 rounded-lg border-2 border-primary bg-primary/5'>
+                <Loader2 className='w-5 h-5 animate-spin text-primary shrink-0' />
+                <div className='flex-1'>
+                  <div className='text-sm font-semibold text-foreground'>{currentPhase}</div>
+                  <div className='text-xs text-muted-foreground mt-1'>{progressMessage}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Fallback Static Status - Regular Mode */}
+          {!appDetails?.fullStackMode && (
+            <div className='space-y-2 sm:space-y-3'>
             <div
               className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 transition-all ${progress >= 10 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}
             >
@@ -446,9 +499,12 @@ const AppBuilder = () => {
               </span>
             </div>
           </div>
+          )}
 
           <p className='mt-6 sm:mt-8 text-xs sm:text-sm text-muted-foreground'>
-            This usually takes 3-5 minutes. Hang tight! ☕
+            {appDetails?.fullStackMode 
+              ? 'Full-stack generation typically takes 1-3 minutes. Your progress is being tracked in real-time! ☕' 
+              : 'This usually takes 30-60 seconds. Hang tight! ☕'}
           </p>
         </div>
       </div>

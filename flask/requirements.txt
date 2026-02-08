@@ -18,6 +18,9 @@ psycopg2-binary==2.9.10
 asyncpg==0.30.0
 redis==5.2.1
 
+# JSON repair for AI-generated malformed JSON
+json-repair==0.31.1
+
 # Authentication and security
 python-multipart==0.0.20
 python-jose[cryptography]==3.3.0

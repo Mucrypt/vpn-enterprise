@@ -36,6 +36,10 @@ from enum import Enum
 # AI Provider imports
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
+from json_repair import repair_json
+
+# Redis for async job queue
+import redis.asyncio as redis
 
 # Setup logging
 logging.basicConfig(
@@ -74,8 +78,8 @@ def read_secret(env_var_name: str, file_env_var_name: str) -> str:
 
 def sanitize_and_parse_json(text: str, context: str = "AI response") -> dict:
     """
-    Sanitize AI-generated JSON and parse it safely.
-    Handles common issues: markdown fences, control characters, malformed strings.
+    Enterprise-grade JSON sanitization and parsing for AI-generated content.
+    Multi-layer approach: clean → parse → repair → parse → fail with details.
     
     Args:
         text: Raw text response from AI
@@ -85,24 +89,23 @@ def sanitize_and_parse_json(text: str, context: str = "AI response") -> dict:
         Parsed JSON dict
     
     Raises:
-        ValueError: If JSON cannot be parsed even after sanitization
+        ValueError: If JSON cannot be parsed even after all repair attempts
     """
     try:
-        # 1. Remove markdown code fences
+        # Layer 1: Remove markdown code fences
         cleaned = text.strip()
         if cleaned.startswith("```"):
             cleaned = re.sub(r'```json?\n?', '', cleaned)
             cleaned = re.sub(r'\n?```$', '', cleaned)
         
-        # 2. Try parsing first (fast path for clean JSON)
+        # Layer 2: Try fast-path parsing (works for 90% of cases)
         try:
             return json.loads(cleaned)
         except json.JSONDecodeError:
             pass
         
-        # 3. More aggressive control character handling
+        # Layer 3: Aggressive control character sanitization
         # Remove or escape control characters (0x00-0x1F except whitespace)
-        # Keep: \t (0x09), \n (0x0A), \r (0x0D)
         def clean_control_chars(match):
             char = match.group(0)
             code = ord(char)
@@ -112,33 +115,53 @@ def sanitize_and_parse_json(text: str, context: str = "AI response") -> dict:
                 return '\\n'
             elif code == 0x0D:  # carriage return
                 return '\\r'
-            else:  # other control chars - remove or escape
-                return ''  # Remove completely
+            else:  # other control chars - remove completely
+                return ''
         
-        # Replace control characters
         cleaned = re.sub(r'[\x00-\x1F]', clean_control_chars, cleaned)
         
-        # 4. Try parsing with cleaned control characters
+        # Layer 4: Try parsing with cleaned control characters
         try:
             return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+        
+        # Layer 5: Use json-repair as fallback (enterprise-grade recovery)
+        try:
+            logger.info(f"Attempting JSON repair for {context}...")
+            repaired = repair_json(cleaned, return_objects=True)
+            if isinstance(repaired, dict):
+                logger.info(f"✅ JSON repair successful for {context}")
+                return repaired
+            else:
+                # repair_json returned string, parse it
+                return json.loads(repaired)
+        except Exception as repair_error:
+            logger.warning(f"JSON repair failed for {context}: {str(repair_error)}")
+        
+        # Layer 6: Final attempt - detailed error reporting
+        try:
+            json.loads(cleaned)
         except json.JSONDecodeError as e:
-            # Last resort: try to fix common issues in strings
-            # Sometimes AI puts actual newlines in string values instead of \n
-            # This is a heuristic approach - may not catch all cases
-            
-            # Log the problematic area for debugging
             error_pos = e.pos if hasattr(e, 'pos') else 0
             snippet_start = max(0, error_pos - 150)
             snippet_end = min(len(cleaned), error_pos + 150)
             problematic = cleaned[snippet_start:snippet_end]
-            logger.warning(f"JSON parse failed in {context} near position {error_pos}")
-            logger.warning(f"Problematic snippet: ...{problematic}...")
             
-            raise ValueError(f"AI returned invalid JSON in {context}: {str(e)}")
+            logger.error(f"❌ JSON parse failed in {context} at position {error_pos}")
+            logger.error(f"Problematic snippet: ...{problematic}...")
+            logger.error(f"Error: {str(e)}")
             
+            raise ValueError(
+                f"AI returned invalid JSON in {context}: {str(e)}. "
+                f"Position: {error_pos}. Check logs for details."
+            )
+            
+    except ValueError:
+        raise  # Re-raise ValueError with our custom message
     except Exception as e:
-        logger.error(f"Failed to sanitize and parse JSON from {context}: {str(e)}")
-        raise ValueError(f"AI returned unparseable JSON in {context}: {str(e)}")
+        logger.error(f"Unexpected error in JSON sanitization for {context}: {str(e)}")
+        raise ValueError(f"Failed to process JSON from {context}: {str(e)}")
 
 # ============================================
 # CONFIGURATION
@@ -157,6 +180,13 @@ N8N_APP_ERROR = f"{N8N_WEBHOOK_BASE}/nexusai-error"
 # Service URLs
 API_BASE_URL = os.getenv("API_URL", "https://chatbuilds.com/api")
 DATABASE_PROVISIONER_URL = os.getenv("DATABASE_PROVISIONER_URL", "http://localhost:3003")
+
+# Redis Configuration (for async job queue)
+REDIS_HOST = os.getenv("REDIS_HOST", "vpn-redis")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_PASSWORD = read_secret("REDIS_PASSWORD", "REDIS_PASSWORD_FILE")
+REDIS_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}" if REDIS_PASSWORD else f"redis://{REDIS_HOST}:{REDIS_PORT}"
+redis_client: Optional[redis.Redis] = None
 
 # Cache & Rate Limiting
 CACHE_TTL = 3600  # 1 hour
@@ -204,7 +234,7 @@ if ANTHROPIC_API_KEY:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - startup and shutdown"""
-    global http_client
+    global http_client, redis_client
     
     logger.info("=" * 60)
     logger.info("🚀 VPN ENTERPRISE AI API - PRODUCTION MODE")
@@ -228,6 +258,20 @@ async def lifespan(app: FastAPI):
     
     # Initialize HTTP client for webhooks
     http_client = httpx.AsyncClient(timeout=10.0)
+    
+    # Initialize Redis for async job queue
+    try:
+        redis_client = await redis.from_url(
+            REDIS_URL,
+            encoding="utf-8",
+            decode_responses=True,
+            socket_connect_timeout=5
+        )
+        await redis_client.ping()
+        logger.info(f"✅ Redis connected: {REDIS_HOST}:{REDIS_PORT} (Async Job Queue)")
+    except Exception as e:
+        logger.error(f"❌ Redis connection failed: {e}")
+        logger.warning("⚠️  Job queue will operate in memory-only mode (not recommended for production)")
     logger.info("✅ HTTP client initialized for N8N webhooks")
     logger.info("=" * 60)
     
@@ -236,6 +280,9 @@ async def lifespan(app: FastAPI):
     # Shutdown
     if http_client:
         await http_client.aclose()
+    if redis_client:
+        await redis_client.aclose()
+        logger.info("✅ Redis connection closed")
     logger.info("🛑 API shutting down gracefully")
 
 app = FastAPI(
@@ -300,6 +347,33 @@ class FileOutput(BaseModel):
     path: str
     content: str
     language: str
+
+class JobStatus(str, Enum):
+    """Job states for async generation"""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+class JobPhase(str, Enum):
+    """5-phase fullstack generation tracking"""
+    ARCHITECTURE = "architecture"      # Phase 1: Planning
+    FRONTEND = "frontend"              # Phase 2: UI
+    BACKEND = "backend"                # Phase 3: API
+    INTEGRATION = "integration"        # Phase 4: Config
+    DATABASE = "database"              # Phase 5: Schema + save
+
+class JobInfo(BaseModel):
+    """Job metadata for async fullstack generation"""
+    job_id: str
+    status: JobStatus
+    phase: Optional[JobPhase] = None
+    progress_percent: int = Field(ge=0, le=100)
+    message: str = ""
+    created_at: datetime
+    updated_at: datetime
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
 
 class MultiFileAppResponse(BaseModel):
     files: List[FileOutput]
@@ -474,6 +548,154 @@ def choose_ai_provider(description: str, provider: AIProvider) -> tuple[str, Any
     raise HTTPException(
         status_code=503,
         detail="No AI provider available for the requested provider type"
+    )
+
+# ============================================
+# ASYNC JOB QUEUE MANAGEMENT (Redis-backed)
+# ============================================
+
+async def create_job(user_id: str, request_data: Dict[str, Any]) -> str:
+    """Create a new async job and return job_id immediately"""
+    import uuid
+    job_id = str(uuid.uuid4())
+    
+    now = datetime.utcnow()
+    job_data = {
+        "job_id": job_id,
+        "user_id": user_id,
+        "status": JobStatus.PENDING.value,
+        "phase": None,
+        "progress_percent": 0,
+        "message": "Job queued, waiting to start...",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "request_data": json.dumps(request_data),
+        "result": None,
+        "error": None
+    }
+    
+    if redis_client:
+        try:
+            # Store job in Redis with 24-hour TTL
+            await redis_client.hset(f"job:{job_id}", mapping=job_data)
+            await redis_client.expire(f"job:{job_id}", 86400)  # 24 hours
+            logger.info(f"✅ Job created in Redis: {job_id}")
+        except Exception as e:
+            logger.error(f"❌ Redis job creation failed: {e}, using memory fallback")
+            memory_cache[f"job:{job_id}"] = {"data": job_data, "expires": time.time() + 86400}
+    else:
+        # Fallback to memory
+        memory_cache[f"job:{job_id}"] = {"data": job_data, "expires": time.time() + 86400}
+        logger.warning(f"⚠️  Job {job_id} created in memory (Redis unavailable)")
+    
+    return job_id
+
+async def update_job_progress(job_id: str, phase: JobPhase, progress: int, message: str):
+    """Update job progress during generation"""
+    update_data = {
+        "status": JobStatus.RUNNING.value,
+        "phase": phase.value,
+        "progress_percent": progress,
+        "message": message,
+        "updated_at": datetime.utcnow().isoformat()
+    }
+    
+    if redis_client:
+        try:
+            await redis_client.hset(f"job:{job_id}", mapping=update_data)
+            logger.info(f"📊 Job {job_id}: {phase.value} ({progress}%) - {message}")
+        except Exception as e:
+            logger.error(f"❌ Redis update failed for {job_id}: {e}")
+            # Update memory fallback
+            if f"job:{job_id}" in memory_cache:
+                memory_cache[f"job:{job_id}"]["data"].update(update_data)
+    else:
+        # Memory fallback
+        if f"job:{job_id}" in memory_cache:
+            memory_cache[f"job:{job_id}"]["data"].update(update_data)
+
+async def complete_job(job_id: str, result: Dict[str, Any]):
+    """Mark job as completed with final result"""
+    completion_data = {
+        "status": JobStatus.COMPLETED.value,
+        "progress_percent": 100,
+        "message": "Generation completed successfully!",
+        "updated_at": datetime.utcnow().isoformat(),
+        "result": json.dumps(result)
+    }
+    
+    if redis_client:
+        try:
+            await redis_client.hset(f"job:{job_id}", mapping=completion_data)
+            logger.info(f"✅ Job {job_id} completed successfully")
+        except Exception as e:
+            logger.error(f"❌ Redis completion failed for {job_id}: {e}")
+            if f"job:{job_id}" in memory_cache:
+                memory_cache[f"job:{job_id}"]["data"].update(completion_data)
+    else:
+        if f"job:{job_id}" in memory_cache:
+            memory_cache[f"job:{job_id}"]["data"].update(completion_data)
+
+async def fail_job(job_id: str, error: str):
+    """Mark job as failed with error message"""
+    failure_data = {
+        "status": JobStatus.FAILED.value,
+        "message": "Generation failed",
+        "updated_at": datetime.utcnow().isoformat(),
+        "error": error
+    }
+    
+    if redis_client:
+        try:
+            await redis_client.hset(f"job:{job_id}", mapping=failure_data)
+            logger.error(f"❌ Job {job_id} failed: {error}")
+        except Exception as e:
+            logger.error(f"❌ Redis failure update failed for {job_id}: {e}")
+            if f"job:{job_id}" in memory_cache:
+                memory_cache[f"job:{job_id}"]["data"].update(failure_data)
+    else:
+        if f"job:{job_id}" in memory_cache:
+            memory_cache[f"job:{job_id}"]["data"].update(failure_data)
+
+async def get_job_status(job_id: str) -> Optional[JobInfo]:
+    """Get current job status for polling"""
+    job_data = None
+    
+    if redis_client:
+        try:
+            data = await redis_client.hgetall(f"job:{job_id}")
+            if data:
+                job_data = data
+        except Exception as e:
+            logger.error(f"❌ Redis get failed for {job_id}: {e}")
+    
+    # Fallback to memory
+    if not job_data and f"job:{job_id}" in memory_cache:
+        entry = memory_cache[f"job:{job_id}"]
+        if entry["expires"] > time.time():
+            job_data = entry["data"]
+    
+    if not job_data:
+        return None
+    
+    # Parse result and error from JSON if present
+    result = None
+    if job_data.get("result"):
+        try:
+            result = json.loads(job_data["result"])
+        except:
+            result = job_data["result"]
+    
+    return JobInfo(
+        job_id=job_data["job_id"],
+        status=JobStatus(job_data["status"]),
+        phase=JobPhase(job_data["phase"]) if job_data.get("phase") else None,
+        progress_percent=int(job_data.get("progress_percent", 0)),
+        message=job_data.get("message", ""),
+        created_at=datetime.fromisoformat(job_data["created_at"]),
+        updated_at=datetime.fromisoformat(job_data["updated_at"]),
+        result=result,
+        error=job_data.get("error")
     )
 
 def _default_openai_model() -> str:
@@ -1111,6 +1333,13 @@ async def generate_fullstack_app(
   "file_list": ["frontend/src/pages/Home.tsx", "backend/src/routes/auth.ts", ...]
 }}
 
+**CRITICAL JSON FORMATTING RULES:**
+- Properly escape ALL special characters in strings: \n for newlines, \t for tabs, \" for quotes
+- No unescaped control characters (0x00-0x1F) in content  
+- No actual newlines/tabs inside JSON strings - use \n and \t
+- Validate JSON structure before returning
+- Content field must be valid JSON string with escaped characters
+
 Return ONLY valid JSON."""
 
         # Call AI for architecture (prefer Claude, fallback to GPT-4o)
@@ -1182,6 +1411,13 @@ Return ONLY valid JSON."""
   ]
 }}
 
+**CRITICAL JSON FORMATTING RULES:**
+- Properly escape ALL special characters: \\n for newlines, \\t for tabs, \\\" for quotes, \\\\ for backslashes
+- No unescaped control characters in \"content\" field
+- Code must be valid JSON string with proper escaping
+- Use \\n instead of actual newlines in code content
+- Validate that output is parseable JSON before returning
+
 Return ONLY valid JSON."""
 
         frontend_response = await openai_client.chat.completions.create(
@@ -1242,6 +1478,13 @@ Return ONLY valid JSON."""
   ]
 }}
 
+**CRITICAL JSON FORMATTING RULES:**
+- Properly escape ALL special characters: \\n for newlines, \\t for tabs, \\\" for quotes, \\\\ for backslashes
+- No unescaped control characters (tabs, newlines) in content strings
+- Code in \"content\" must be properly escaped as JSON string
+- Use \\n instead of actual newlines
+- Verify JSON is parseable before returning
+
 Return ONLY valid JSON."""
 
         backend_response = await openai_client.chat.completions.create(
@@ -1297,6 +1540,20 @@ Return ONLY valid JSON."""
   "setup_instructions": "Detailed README content here",
   "dependencies": {{"frontend": {{}}, "backend": {{}}}}
 }}
+
+**CRITICAL JSON FORMATTING RULES:**
+- Properly escape ALL special characters in file content: \\n for newlines, \\t for tabs, \\" for quotes, \\\\ for backslashes
+- SQL CREATE TABLE statements must use \\n instead of actual line breaks
+- package.json and config files must have properly escaped content strings
+- README content must escape all markdown special characters
+- Validate that your entire output is valid, parseable JSON before returning
+
+**CRITICAL JSON FORMATTING RULES:**
+- Properly escape ALL special characters: \n for newlines, \t for tabs, \" for quotes, \\ for backslashes
+- No unescaped control characters in any string fields
+- SQL, config files, and code must be properly escaped in "content" fields
+- Use \n instead of actual line breaks
+- Validate JSON parseability before returning
 
 Return ONLY valid JSON."""
 
@@ -1481,6 +1738,422 @@ Return ONLY valid JSON."""
             }))
         
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================
+# ASYNC FULLSTACK GENERATION (Job Queue)
+# ============================================
+
+async def _execute_fullstack_generation_background(
+    job_id: str,
+    request: MultiFileAppRequest,
+    user_id: str
+):
+    """
+    Background task: Execute 5-phase fullstack generation with progress updates
+    This runs asynchronously and updates job status in Redis
+    """
+    try:
+        start_time = time.time()
+        
+        # Must have at least OpenAI
+        if not openai_client:
+            await fail_job(job_id, "Fullstack generation requires OpenAI API key (GPT-4o)")
+            return
+        
+        has_anthropic = anthropic_client is not None
+        
+        logger.info(f"🎯 JOB {job_id}: Starting DUAL-AI FULLSTACK generation")
+        
+        # ==============================================
+        # PHASE 1: ARCHITECTURE & DATABASE DESIGN (20%)
+        # ==============================================
+        await update_job_progress(job_id, JobPhase.ARCHITECTURE, 10, "Designing system architecture with Claude 3.5 Sonnet...")
+        
+        architecture_prompt = f"""You are a senior software architect. Design a COMPLETE, production-grade full-stack application.
+
+**Project:** {request.description}
+**Framework:** {request.framework.value}
+**Features:** {', '.join(request.features) if request.features else 'Standard CRUD operations'}
+**Requires Auth:** {"Yes" if request.include_auth else "No"}
+**Requires API:** {"Yes" if request.include_api else "No"}
+
+Design:
+1. System architecture (frontend, backend, database layers)
+2. Complete database schema with all tables, columns, indexes, constraints
+3. API endpoints (REST) with request/response schemas
+4. Frontend component hierarchy
+
+**CRITICAL JSON FORMATTING RULES:**
+- Properly escape ALL special characters: \\n for newlines, \\t for tabs, \\" for quotes, \\\\ for backslashes
+- No unescaped control characters in "description" field
+- Validate JSON parseability before returning
+
+Return ONLY valid JSON:
+{{
+  "architecture": {{"description": "...", "layers": [...]}},
+  "database_schema": {{"tables": [...], "indexes": [...], "relationships": [...]}},
+  "api_endpoints": [...],
+  "frontend_components": [...]
+}}"""
+
+        if has_anthropic:
+            model = _default_anthropic_model()
+            max_tokens = _get_model_max_tokens("anthropic", model)
+            architecture_response = await anthropic_client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=0.5,
+                messages=[{"role": "user", "content": architecture_prompt}]
+            )
+            architecture_text = architecture_response.content[0].text.strip()
+            architecture_tokens = architecture_response.usage.input_tokens + architecture_response.usage.output_tokens
+        else:
+            architecture_response = await openai_client.chat.completions.create(
+                model=_default_openai_model(),
+                messages=[
+                    {"role": "system", "content": "You are a senior software architect."},
+                    {"role": "user", "content": architecture_prompt}
+                ],
+                temperature=0.5
+            )
+            architecture_text = architecture_response.choices[0].message.content.strip()
+            architecture_tokens = architecture_response.usage.total_tokens
+        
+        architecture = sanitize_and_parse_json(architecture_text, "Phase 1: Architecture")
+        database_schema = architecture.get('database_schema', {})
+        
+        await update_job_progress(job_id, JobPhase.ARCHITECTURE, 20, "✅ Architecture designed")
+        
+        # ==============================================
+        # PHASE 2: FRONTEND GENERATION (40%)
+        # ==============================================
+        await update_job_progress(job_id, JobPhase.FRONTEND, 25, "Generating frontend code with GPT-4o...")
+        
+        frontend_prompt = f"""Generate a COMPLETE, production-ready {request.framework.value} frontend application.
+
+**Architecture:** {json.dumps(architecture['architecture'], indent=2)}
+**Database Schema:** {json.dumps(database_schema, indent=2)}
+
+**Generate ALL frontend files:**
+- src/App.jsx (main app with routing)
+- src/components/* (all UI components based on database entities)
+- src/pages/* (CRUD views for all entities)
+- src/services/api.js (API client with all endpoints)
+- src/utils/auth.js (if auth required)
+- public/index.html
+- tailwind.config.js, postcss.config.js
+- package.json (with ALL dependencies)
+
+**CRITICAL JSON FORMATTING RULES:**
+- Properly escape ALL special characters: \\n for newlines, \\t for tabs, \\" for quotes, \\\\ for backslashes
+- No unescaped control characters in "content" field
+- Code must be valid JSON string with proper escaping  
+- Use \\n instead of actual newlines in code content
+- Validate that output is parseable JSON before returning
+
+Output JSON:
+{{
+  "files": [
+    {{"path": "src/App.jsx", "content": "...", "language": "javascript"}},
+    ...
+  ]
+}}"""
+
+        frontend_response = await openai_client.chat.completions.create(
+            model=_default_openai_model(),
+            messages=[
+                {"role": "system", "content": "You are an expert frontend developer."},
+                {"role": "user", "content": frontend_prompt}
+            ],
+            temperature=0.6
+        )
+        frontend_text = frontend_response.choices[0].message.content.strip()
+        frontend_tokens = frontend_response.usage.total_tokens
+        frontend_data = sanitize_and_parse_json(frontend_text, "Phase 2: Frontend")
+        frontend_files = frontend_data.get('files', [])
+        
+        await update_job_progress(job_id, JobPhase.FRONTEND, 40, f"✅ Generated {len(frontend_files)} frontend files")
+        
+        # ==============================================
+        # PHASE 3: BACKEND GENERATION (60%)
+        # ==============================================
+        await update_job_progress(job_id, JobPhase.BACKEND, 45, "Generating backend API with GPT-4o...")
+        
+        backend_prompt = f"""Generate a COMPLETE, production-ready backend API.
+
+**Architecture:** {json.dumps(architecture['architecture'], indent=2)}
+**Database Schema:** {json.dumps(database_schema, indent=2)}
+**API Endpoints:** {json.dumps(architecture.get('api_endpoints', []), indent=2)}
+
+**Generate ALL backend files:**
+- server.js or app.py (Express/FastAPI/Flask server)
+- routes/* (all API endpoints)
+- models/* (database models for all entities)
+- middleware/auth.js (JWT authentication)
+- middleware/validation.js
+- middleware/errorHandler.js
+- config/database.js
+- .env.example
+- package.json or requirements.txt
+
+**CRITICAL JSON FORMATTING RULES:**
+- Properly escape ALL special characters: \\n for newlines, \\t for tabs, \\" for quotes, \\\\ for backslashes
+- No unescaped control characters in "content" field
+- Code must be valid JSON string with proper escaping
+- Use \\n instead of actual newlines in code content
+- Validate that output is parseable JSON before returning
+
+Output JSON:
+{{
+  "files": [
+    {{"path": "server.js", "content": "...", "language": "javascript"}},
+    ...
+  ]
+}}"""
+
+        backend_response = await openai_client.chat.completions.create(
+            model=_default_openai_model(),
+            messages=[
+                {"role": "system", "content": "You are an expert backend developer."},
+                {"role": "user", "content": backend_prompt}
+            ],
+            temperature=0.6
+        )
+        backend_text = backend_response.choices[0].message.content.strip()
+        backend_tokens = backend_response.usage.total_tokens
+        backend_data = sanitize_and_parse_json(backend_text, "Phase 3: Backend")
+        backend_files = backend_data.get('files', [])
+        
+        await update_job_progress(job_id, JobPhase.BACKEND, 60, f"✅ Generated {len(backend_files)} backend files")
+        
+        # ==============================================
+        # PHASE 4: INTEGRATION FILES (80%)
+        # ==============================================
+        await update_job_progress(job_id, JobPhase.INTEGRATION, 65, "Generating deployment configs and documentation...")
+        
+        integration_prompt = f"""Generate deployment configs and integration files.
+
+**Database Schema:** {json.dumps(database_schema, indent=2)}
+
+**Generate ONLY these deployment/config files:**
+1. frontend/package.json
+2. backend/package.json or requirements.txt
+3. database/schema.sql (CREATE TABLE statements)
+4. README.md (complete setup guide)
+5. postman_collection.json (all API endpoints)
+6. docker-compose.yml (optional)
+7. .env.example
+8. .gitignore
+
+**CRITICAL JSON FORMATTING RULES:**
+- Properly escape ALL special characters in file content: \\n for newlines, \\t for tabs, \\" for quotes, \\\\ for backslashes
+- SQL CREATE TABLE statements must use \\n instead of actual line breaks
+- package.json and config files must have properly escaped content strings
+- README content must escape all markdown special characters
+- Validate that your entire output is valid, parseable JSON before returning
+
+Output JSON:
+{{
+  "files": [
+    {{"path": "database/schema.sql", "content": "CREATE TABLE...", "language": "sql"}},
+    ...
+  ],
+  "setup_instructions": "...",
+  "dependencies": {{"frontend": {{}}, "backend": {{}}}}
+}}"""
+
+        if has_anthropic:
+            model = _default_anthropic_model()
+            max_tokens = _get_model_max_tokens("anthropic", model)
+            integration_response = await anthropic_client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=0.5,
+                messages=[{"role": "user", "content": integration_prompt}]
+            )
+            integration_text = integration_response.content[0].text.strip()
+            integration_tokens = integration_response.usage.input_tokens + integration_response.usage.output_tokens
+        else:
+            integration_response = await openai_client.chat.completions.create(
+                model=_default_openai_model(),
+                messages=[
+                    {"role": "system", "content": "You are an expert DevOps engineer."},
+                    {"role": "user", "content": integration_prompt}
+                ],
+                temperature=0.5
+            )
+            integration_text = integration_response.choices[0].message.content.strip()
+            integration_tokens = integration_response.usage.total_tokens
+        
+        integration_data = sanitize_and_parse_json(integration_text, "Phase 4: Integration")
+        integration_files = integration_data.get('files', [])
+        
+        await update_job_progress(job_id, JobPhase.INTEGRATION, 80, f"✅ Generated {len(integration_files)} config files")
+        
+        # ==============================================
+        # PHASE 5: DATABASE PROVISIONING (100%)
+        # ==============================================
+        await update_job_progress(job_id, JobPhase.DATABASE, 85, "Provisioning database and saving app...")
+        
+        all_files = frontend_files + backend_files + integration_files
+        total_tokens = architecture_tokens + frontend_tokens + backend_tokens + integration_tokens
+        elapsed = int((time.time() - start_time) * 1000)
+        
+        database_info = None
+        app_id = None
+        
+        if request.include_database and database_schema:
+            try:
+                provision_payload = {
+                    "user_id": user_id,
+                    "app_name": f"nexusai_{user_id}_{int(time.time())}",
+                    "database_schema": database_schema
+                }
+                
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(
+                        f"{DATABASE_PROVISIONER_URL}/provision",
+                        json=provision_payload
+                    )
+                    
+                    if resp.status_code == 200:
+                        database_info = resp.json()
+                        logger.info(f"   ✅ Database provisioned: {database_info.get('database')} with {database_info.get('tables_created', 0)} tables")
+                    else:
+                        logger.warning(f"   ⚠️  Database provisioning failed: {resp.status_code}")
+                
+                # Save app to database
+                try:
+                    app_payload = {
+                        "name": provision_payload["app_name"],
+                        "description": request.description,
+                        "framework": request.framework.value,
+                        "files": all_files,
+                        "dependencies": integration_data.get('dependencies', {}),
+                        "database_schema": database_schema,
+                        "user_id": user_id
+                    }
+                    
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        save_resp = await client.post(
+                            f"{API_BASE_URL}/generated-apps",
+                            json=app_payload
+                        )
+                        
+                        if save_resp.status_code == 200:
+                            app_data = save_resp.json()
+                            app_id = app_data.get('id')
+                            logger.info(f"   ✅ App saved to database: ID {app_id}")
+                
+                except Exception as api_error:
+                    logger.error(f"   ❌ API save failed: {str(api_error)}")
+            
+            except Exception as provision_error:
+                logger.error(f"Phase 5 error (non-fatal): {str(provision_error)}")
+        
+        await update_job_progress(job_id, JobPhase.DATABASE, 95, "Finalizing generation...")
+        
+        # Build final result
+        result = {
+            "files": all_files,
+            "instructions": integration_data.get('setup_instructions', 'See README.md'),
+            "dependencies": integration_data.get('dependencies', {}),
+            "requires_database": True,
+            "database_schema": database_schema,
+            "database_info": database_info,
+            "app_id": app_id,
+            "deployment_config": {
+                "framework": request.framework.value,
+                "port": 3000,
+                "build_command": "npm run build",
+                "start_command": "npm start"
+            },
+            "provider_used": "dual-ai/claude-3.5-sonnet+gpt-4o" if has_anthropic else "openai/gpt-4o",
+            "generation_time_ms": elapsed,
+            "tokens_used": total_tokens
+        }
+        
+        # Mark job complete
+        await complete_job(job_id, result)
+        
+        # Send N8N webhook
+        asyncio.create_task(send_n8n_webhook(N8N_APP_GENERATED, {
+            "event": "fullstack_app_generated",
+            "job_id": job_id,
+            "user_id": user_id,
+            "app_id": app_id,
+            "framework": request.framework.value,
+            "files_count": len(all_files),
+            "database_provisioned": database_info is not None,
+            "generated_at": datetime.utcnow().isoformat()
+        }))
+        
+        logger.info(f"🎉 JOB {job_id} COMPLETE: {len(all_files)} files, {elapsed}ms")
+    
+    except Exception as e:
+        logger.error(f"❌ JOB {job_id} FAILED: {str(e)}", exc_info=True)
+        await fail_job(job_id, str(e))
+        
+        # Send error webhook
+        asyncio.create_task(send_n8n_webhook(N8N_APP_ERROR, {
+            "error": str(e),
+            "job_id": job_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }))
+
+
+@app.post("/ai/generate/fullstack/async")
+async def generate_fullstack_app_async(
+    request: MultiFileAppRequest,
+    x_api_key: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
+    """
+    🚀 ASYNC FULLSTACK GENERATION (Enterprise Job Queue)
+    
+    Returns job_id immediately. Poll GET /ai/jobs/{job_id} for progress and result.
+    
+    **Benefits:**
+    - ✅ No timeouts (generation runs in background)
+    - ✅ Real-time progress updates
+    - ✅ User can navigate away and come back
+    - ✅ Handles concurrent generations
+    """
+    user_id = x_user_id or "anonymous"
+    
+    # Create job and return immediately
+    job_id = await create_job(user_id, request.dict())
+    
+    # Start background task
+    asyncio.create_task(_execute_fullstack_generation_background(job_id, request, user_id))
+    
+    logger.info(f"✅ Job {job_id} created for user {user_id}")
+    
+    return {
+        "job_id": job_id,
+        "status": "pending",
+        "message": "Fullstack generation started. Poll /ai/jobs/{job_id} for progress.",
+        "poll_url": f"/ai/jobs/{job_id}"
+    }
+
+
+@app.get("/ai/jobs/{job_id}", response_model=JobInfo)
+async def get_job(job_id: str):
+    """
+    📊 GET JOB STATUS (Polling Endpoint)
+    
+    Returns current job status, progress, and result if completed.
+    Frontend should poll this every 2-3 seconds.
+    """
+    job_info = await get_job_status(job_id)
+    
+    if not job_info:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Job {job_id} not found. Jobs expire after 24 hours."
+        )
+    
+    return job_info
 
 # ============================================
 # ERROR HANDLERS
