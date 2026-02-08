@@ -1,7 +1,7 @@
 """
 VPN Enterprise - Production AI API (Enterprise Grade)
 =========================================================
-World-class AI code generation powered by OpenAI GPT-4o & Anthropic Claude 3.7 Sonnet
+World-class AI code generation powered by OpenAI GPT-4o & Anthropic Claude 3.5 Sonnet
 Integrated with N8N for automated deployment, testing, and monitoring
 
 Features:
@@ -99,7 +99,7 @@ if OPENAI_API_KEY:
     
 if ANTHROPIC_API_KEY:
     anthropic_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-    logger.info("✅ Anthropic client initialized with Claude 3.7 Sonnet access")
+    logger.info("✅ Anthropic client initialized with Claude 3.5 Sonnet access")
 
 # ============================================
 # LIFESPAN & APP INITIALIZATION
@@ -118,7 +118,7 @@ async def lifespan(app: FastAPI):
     if openai_client:
         logger.info("   ✅ OpenAI GPT-4o (Industry Leading)")
     if anthropic_client:
-        logger.info("   ✅ Anthropic Claude 3.7 Sonnet (Code Specialist)")
+        logger.info("   ✅ Anthropic Claude 3.5 Sonnet (Code Specialist)")
     
     logger.info(f"🔗 N8N Webhooks:")
     logger.info(f"   • App Generated: {N8N_APP_GENERATED}")
@@ -309,7 +309,7 @@ def choose_ai_provider(description: str, provider: AIProvider) -> tuple[str, Any
         # Prefer Claude for complex backend code
         if any(keyword in description.lower() for keyword in ["api", "backend", "database", "authentication", "security"]):
             if anthropic_client:
-                logger.info("🧠 AUTO: Chose Claude 3.7 Sonnet (backend complexity)")
+                logger.info("🧠 AUTO: Chose Claude 3.5 Sonnet (backend complexity)")
                 return ("anthropic", anthropic_client)
         
         # Prefer GPT-4o for frontend/UI
@@ -443,7 +443,7 @@ async def generate_ai_text(
             tokens = response.usage.total_tokens if response.usage else 0
             
         else:  # anthropic
-            model = request.model or "claude-3-7-sonnet-20250219"
+            model = request.model or "claude-3-5-sonnet-20241022"
             response = await client.messages.create(
                 model=model,
                 max_tokens=request.max_tokens,
@@ -522,7 +522,7 @@ async def generate_full_app(
             tokens = response.usage.total_tokens if response.usage else 0
             
         else:  # anthropic
-            model = "claude-3-7-sonnet-20250219"  # Latest for Feb 2026
+            model = "claude-3-5-sonnet-20241022"  # Correct Claude 3.5 Sonnet
             response = await client.messages.create(
                 model=model,
                 max_tokens=8192,
