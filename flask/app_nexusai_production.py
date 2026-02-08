@@ -83,9 +83,10 @@ OPENAI_MODELS = {
 }
 
 ANTHROPIC_MODELS = {
-    "claude-3-7-sonnet": {"cost": 12, "max_tokens": 8192, "best_for": "production code"},
-    "claude-3-5-sonnet": {"cost": 10, "max_tokens": 8192, "best_for": "balanced"},
-    "claude-3-haiku": {"cost": 5, "max_tokens": 4096, "best_for": "fast generation"}
+    "claude-3-5-sonnet-20241022": {"cost": 10, "max_tokens": 8192, "best_for": "balanced"},
+    "claude-3-5-sonnet-20240620": {"cost": 10, "max_tokens": 8192, "best_for": "legacy"},
+    "claude-3-opus-20240229": {"cost": 12, "max_tokens": 8192, "best_for": "production code"},
+    "claude-3-haiku-20240307": {"cost": 5, "max_tokens": 4096, "best_for": "fast generation"}
 }
 
 # Initialize clients
@@ -392,7 +393,7 @@ def _default_openai_model() -> str:
 def _default_anthropic_model() -> str:
     # Prefer the most likely-to-be-enabled production model.
     # Keep this aligned with ANTHROPIC_MODELS.
-    return "claude-3-5-sonnet-20240620"
+    return "claude-3-5-sonnet-20241022"
 
 def _normalize_requested_model(provider_name: str, requested_model: Optional[str]) -> str:
     """Avoid passing invalid/placeholder model names upstream.
@@ -930,7 +931,7 @@ async def generate_fullstack_app(
         arch_prompt = get_architecture_prompt(request)
         
         arch_response = await anthropic_client.messages.create(
-            model="claude-3-opus-20240229",
+            model="claude-3-5-sonnet-20241022",
             max_tokens=8192,
             temperature=0.3,  # Lower temperature for planning
             messages=[{
@@ -998,7 +999,7 @@ async def generate_fullstack_app(
         integration_prompt = get_integration_prompt(frontend_files, backend_files, architecture)
         
         integration_response = await anthropic_client.messages.create(
-            model="claude-3-opus-20240229",
+            model="claude-3-5-sonnet-20241022",
             max_tokens=4096,
             temperature=0.2,
             messages=[{
