@@ -257,6 +257,8 @@ const AppBuilder = () => {
             .join(' ')
             .substring(0, 50)
 
+          // Generate unique fallback names for files without paths
+          let unknownCounter = 0
           const savedApp = await generatedAppsService.saveApp({
             app_name: appName || 'Untitled App',
             description: appDetails.description,
@@ -265,16 +267,21 @@ const AppBuilder = () => {
             features: appDetails.features,
             dependencies: result.dependencies || {},
             requires_database: result.requires_database ?? false,
-            files: (result.files || []).map((file) => ({
-              file_path: file.path || file.name || 'unknown',
-              content: file.content || '',
-              language: file.language || 'text',
-              is_entry_point:
-                (file.path || file.name || '')
-                  ?.toLowerCase()
-                  .includes('index') ||
-                (file.path || file.name || '')?.toLowerCase().includes('main'),
-            })),
+            files: (result.files || []).map((file) => {
+              let filePath = file.path || file.name
+              if (!filePath) {
+                unknownCounter++
+                filePath = `unknown_file_${unknownCounter}.txt`
+              }
+              return {
+                file_path: filePath,
+                content: file.content || '',
+                language: file.language || 'text',
+                is_entry_point:
+                  (filePath)?.toLowerCase().includes('index') ||
+                  (filePath)?.toLowerCase().includes('main'),
+              }
+            }),
           })
 
           setSavedAppId(savedApp.id)

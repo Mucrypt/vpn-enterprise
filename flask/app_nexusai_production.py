@@ -178,7 +178,8 @@ N8N_APP_DEPLOY = f"{N8N_WEBHOOK_BASE}/nexusai-deploy"
 N8N_APP_ERROR = f"{N8N_WEBHOOK_BASE}/nexusai-error"
 
 # Service URLs
-API_BASE_URL = os.getenv("API_URL", "https://chatbuilds.com/api")
+# Use internal Docker network URL for container-to-container communication
+API_BASE_URL = os.getenv("API_URL", "http://vpn-api:5000/api/v1")
 DATABASE_PROVISIONER_URL = os.getenv("DATABASE_PROVISIONER_URL", "http://localhost:3003")
 
 # Redis Configuration (for async job queue)
@@ -2076,31 +2077,45 @@ Output JSON:
                     else:
                         logger.warning(f"   ⚠️  Database provisioning failed: {resp.status_code}")
                 
-                # Save app to database
+                # Save app to database via Node.js API
                 try:
                     app_payload = {
-                        "name": provision_payload["app_name"],
+                        "app_name": provision_payload["app_name"],
                         "description": request.description,
                         "framework": request.framework.value,
-                        "files": all_files,
+                        "styling": request.styling.value if hasattr(request, 'styling') else 'tailwind',
+                        "features": request.features if hasattr(request, 'features') else [],
+                        "files": [
+                            {
+                                "file_path": f.get("path", f.get("file_path", "unknown")),
+                                "content": f.get("content", ""),
+                                "language": f.get("language", "text"),
+                                "is_entry_point": False
+                            } for f in all_files if isinstance(f, dict)
+                        ],
                         "dependencies": integration_data.get('dependencies', {}),
-                        "database_schema": database_schema,
-                        "user_id": user_id
+                        "requires_database": True
                     }
                     
-                    async with httpx.AsyncClient(timeout=10.0) as client:
+                    # Increase timeout to 30s for large apps (hundreds of files)
+                    async with httpx.AsyncClient(timeout=30.0) as client:
                         save_resp = await client.post(
                             f"{API_BASE_URL}/generated-apps",
-                            json=app_payload
+                            json=app_payload,
+                            headers={"Content-Type": "application/json"}
                         )
                         
                         if save_resp.status_code == 200:
                             app_data = save_resp.json()
-                            app_id = app_data.get('id')
+                            app_id = app_data.get('app', {}).get('id') or app_data.get('id')
                             logger.info(f"   ✅ App saved to database: ID {app_id}")
+                        else:
+                            logger.warning(f"   ⚠️  API save failed with status {save_resp.status_code}: {save_resp.text[:200]}")
                 
                 except Exception as api_error:
                     logger.error(f"   ❌ API save failed: {str(api_error)}")
+                    import traceback
+                    logger.error(f"   Traceback: {traceback.format_exc()[:500]}")
             
             except Exception as provision_error:
                 logger.error(f"Phase 5 error (non-fatal): {str(provision_error)}")
